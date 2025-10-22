@@ -34,14 +34,13 @@ import { upsertUser } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 
-const userFormSchema = z.object({
+const userFormSchemaBase = z.object({
   email: z.string().email({ message: "Email không hợp lệ." }),
   displayName: z.string().optional(),
   role: z.enum(['admin', 'accountant', 'inventory_manager']),
-  password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự." }).optional(),
+  password: z.string().optional(),
 });
 
-type UserFormValues = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
   isOpen: boolean;
@@ -52,6 +51,25 @@ interface UserFormProps {
 export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+
+  const userFormSchema = userFormSchemaBase.superRefine((data, ctx) => {
+    if (!user && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'Mật khẩu là bắt buộc cho người dùng mới.',
+      });
+    }
+    if (!user && data.password && data.password.length < 6) {
+       ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'Mật khẩu phải có ít nhất 6 ký tự.',
+      });
+    }
+  });
+
+  type UserFormValues = z.infer<typeof userFormSchema>;
 
   const defaultValues: Partial<UserFormValues> = user
     ? { email: user.email, displayName: user.displayName || '', role: user.role }
@@ -68,7 +86,6 @@ export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
         email: user.email,
         displayName: user.displayName || '',
         role: user.role,
-        password: '', // Don't pre-fill password
       });
     } else {
       form.reset({
@@ -78,7 +95,7 @@ export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
         password: '',
       });
     }
-  }, [user, form]);
+  }, [user, form, isOpen]);
 
 
   const onSubmit = async (data: UserFormValues) => {
