@@ -10,6 +10,7 @@ import {
   LineChart,
   Settings,
   Users2,
+  Folder,
 } from 'lucide-react'
 
 import {
@@ -44,7 +45,7 @@ export function MainNav() {
   const { data: admins, isLoading: isAdminLoading } = useCollection<AppUser>(adminsQuery);
 
   const isActive = (path: string) => {
-    return pathname === path
+    return pathname.startsWith(path)
   }
 
   const isLoading = isUserLoading || isAdminLoading;
@@ -82,6 +83,18 @@ export function MainNav() {
               <Link href="/dashboard">
                 <Home />
                 <span>Bảng điều khiển</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive('/categories')}
+              tooltip="Danh mục"
+            >
+              <Link href="/categories">
+                <Folder />
+                <span>Danh mục</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
