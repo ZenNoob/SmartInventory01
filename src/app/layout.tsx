@@ -31,20 +31,22 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body
         className={cn(
-          'min-h-screen bg-background font-sans antialiased flex',
+          'min-h-screen bg-background font-sans antialiased',
           ptSans.variable
         )}
       >
         <FirebaseClientProvider>
           <GlobalError>
             <SidebarProvider>
-              <MainNav />
-              <div className="flex-1 flex flex-col h-screen">
-                <Header />
-                <main className="flex-1 overflow-y-auto p-6">
-                    {children}
-                </main>
-              </div>
+                <div className="flex min-h-screen">
+                    <MainNav />
+                    <div className="flex-1 flex flex-col">
+                        <Header />
+                        <main className="flex-1 overflow-y-auto p-6">
+                            {children}
+                        </main>
+                    </div>
+                </div>
             </SidebarProvider>
           </GlobalError>
         </FirebaseClientProvider>

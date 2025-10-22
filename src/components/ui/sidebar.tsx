@@ -180,7 +180,7 @@ const Sidebar = React.forwardRef<
     return (
       <aside
         ref={ref}
-        className={cn("hidden sm:flex flex-col h-full bg-card text-card-foreground border-r transition-all duration-300", 
+        className={cn("hidden sm:flex flex-col h-screen bg-card text-card-foreground border-r transition-all duration-300 sticky top-0", 
           state === 'expanded' ? 'w-64' : 'w-14',
           className
         )}
@@ -212,10 +212,7 @@ const SidebarTrigger = React.forwardRef<
         toggleSidebar()
       }}
       {...props}
-    >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
+    />
   )
 })
 SidebarTrigger.displayName = "SidebarTrigger"
@@ -250,7 +247,7 @@ const SidebarHeader = React.forwardRef<
     <div
       ref={ref}
       data-sidebar="header"
-      className={cn("flex h-14 items-center justify-between p-3 border-b", className)}
+      className={cn("flex h-14 items-center justify-between p-3 border-b shrink-0", className)}
       {...props}
     />
   )

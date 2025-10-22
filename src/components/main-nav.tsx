@@ -25,7 +25,6 @@ import {
   useSidebar,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
 import { Logo } from '@/components/icons'
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
 import { useUserRole } from '@/hooks/use-user-role'
@@ -37,7 +36,7 @@ export function MainNav() {
   const pathname = usePathname()
   const { user, isUserLoading } = useUser();
   const { role, isLoading: isRoleLoading } = useUserRole();
-  const { state, toggleSidebar } = useSidebar();
+  const { state } = useSidebar();
   const firestore = useFirestore();
 
   const adminsQuery = useMemoFirebase(() => {
@@ -60,14 +59,6 @@ export function MainNav() {
     return null;
   }
 
-  if (isUserLoading || !user) {
-    if (typeof window !== 'undefined' && !pathname.startsWith('/login')) {
-       // Silently redirect, RootLayout will handle the visual state.
-    }
-    return <Sidebar className="hidden sm:flex" />; // Render an empty but visible sidebar
-  }
-
-
   return (
     <Sidebar>
       <SidebarHeader>
@@ -79,112 +70,118 @@ export function MainNav() {
           <PanelLeft />
         </SidebarTrigger>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/dashboard')}
-              tooltip="Bảng điều khiển"
-            >
-              <Link href="/dashboard">
-                <Home />
-                <span>Bảng điều khiển</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/categories')}
-              tooltip="Danh mục"
-            >
-              <Link href="/categories">
-                <Folder />
-                <span>Danh mục</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/products')}
-              tooltip="Sản phẩm"
-            >
-              <Link href="/products">
-                <Package />
-                <span>Sản phẩm</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/sales')}
-              tooltip="Bán hàng"
-            >
-              <Link href="/sales">
-                <ShoppingCart />
-                <span>Bán hàng</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/customers')}
-              tooltip="Khách hàng"
-            >
-              <Link href="/customers">
-                <Users />
-                <span>Khách hàng</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/reports')}
-              tooltip="Báo cáo"
-            >
-              <Link href="/reports">
-                <LineChart />
-                <span>Báo cáo</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           {canSeeUserManagement && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive('/users')}
-                tooltip="Quản lý người dùng"
-              >
-                <Link href="/users">
-                  <Users2 />
-                  <span>Quản lý người dùng</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive('/settings')}
-              tooltip="Cài đặt"
-            >
-              <Link href="/settings">
-                <Settings />
-                <span>Cài đặt</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      { (isUserLoading || !user) ? (
+        <SidebarContent />
+      ) : (
+        <>
+          <SidebarContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/dashboard')}
+                  tooltip="Bảng điều khiển"
+                >
+                  <Link href="/dashboard">
+                    <Home />
+                    <span>Bảng điều khiển</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/categories')}
+                  tooltip="Danh mục"
+                >
+                  <Link href="/categories">
+                    <Folder />
+                    <span>Danh mục</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/products')}
+                  tooltip="Sản phẩm"
+                >
+                  <Link href="/products">
+                    <Package />
+                    <span>Sản phẩm</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/sales')}
+                  tooltip="Bán hàng"
+                >
+                  <Link href="/sales">
+                    <ShoppingCart />
+                    <span>Bán hàng</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/customers')}
+                  tooltip="Khách hàng"
+                >
+                  <Link href="/customers">
+                    <Users />
+                    <span>Khách hàng</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/reports')}
+                  tooltip="Báo cáo"
+                >
+                  <Link href="/reports">
+                    <LineChart />
+                    <span>Báo cáo</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {canSeeUserManagement && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive('/users')}
+                    tooltip="Quản lý người dùng"
+                  >
+                    <Link href="/users">
+                      <Users2 />
+                      <span>Quản lý người dùng</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+            </SidebarMenu>
+          </SidebarContent>
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/settings')}
+                  tooltip="Cài đặt"
+                >
+                  <Link href="/settings">
+                    <Settings />
+                    <span>Cài đặt</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+        </>
+      )}
     </Sidebar>
   )
 }
