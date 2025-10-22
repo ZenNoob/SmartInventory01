@@ -6,6 +6,7 @@ import {
   ListFilter,
   MoreHorizontal,
   PlusCircle,
+  Search,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -43,15 +44,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { formatCurrency } from "@/lib/utils"
-import Image from "next/image"
 import { PredictShortageForm } from "./components/predict-shortage-form"
 import { ProductForm } from "./components/product-form"
-import { AppUser, Category, Product } from "@/lib/types"
+import { Category, Product } from "@/lib/types"
 import { collection, query } from "firebase/firestore"
+import { Input } from "@/components/ui/input"
 
 export default function ProductsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
   
   const firestore = useFirestore();
 
@@ -83,6 +85,27 @@ export default function ProductsPage() {
   const getStock = (product: Product) => {
     return product.purchaseLots?.reduce((acc, lot) => acc + lot.quantity, 0) || 0
   }
+
+  const getAverageCost = (product: Product) => {
+    if (!product.purchaseLots || product.purchaseLots.length === 0) return 0;
+    const totalCost = product.purchaseLots.reduce((acc, lot) => acc + lot.cost * lot.quantity, 0);
+    const totalQuantity = product.purchaseLots.reduce((acc, lot) => acc + lot.quantity, 0);
+    return totalQuantity > 0 ? totalCost / totalQuantity : 0;
+  }
+
+  const filteredProducts = products?.filter(product => {
+    const term = searchTerm.toLowerCase();
+    const category = categories?.find(c => c.id === product.categoryId);
+    const averageCost = getAverageCost(product);
+
+    return (
+      product.name.toLowerCase().includes(term) ||
+      (category && category.name.toLowerCase().includes(term)) ||
+      averageCost.toString().includes(term) ||
+      formatCurrency(averageCost).toLowerCase().includes(term)
+    );
+  })
+
 
   return (
     <>
@@ -146,6 +169,16 @@ export default function ProductsPage() {
               <CardDescription>
                 Quản lý sản phẩm của bạn và xem hiệu suất bán hàng của chúng.
               </CardDescription>
+               <div className="relative mt-4">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Tìm kiếm theo tên, loại, giá..."
+                    className="w-full rounded-lg bg-background pl-8 md:w-1/3"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -167,12 +200,10 @@ export default function ProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Đang tải...</TableCell></TableRow>}
-                  {!isLoading && products?.map((product, index) => {
+                  {!isLoading && filteredProducts?.map((product, index) => {
                     const category = categories?.find(c => c.id === product.categoryId);
                     const stock = getStock(product);
-                    const averageCost = product.purchaseLots?.length > 0
-                      ? product.purchaseLots.reduce((acc, lot) => acc + lot.cost, 0) / product.purchaseLots.length
-                      : 0;
+                    const averageCost = getAverageCost(product)
 
                     return (
                       <TableRow key={product.id}>
@@ -211,12 +242,19 @@ export default function ProductsPage() {
                       </TableRow>
                     )
                   })}
+                   {!isLoading && filteredProducts?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center h-24">
+                            Không tìm thấy sản phẩm nào.
+                        </TableCell>
+                    </TableRow>
+                )}
                 </TableBody>
               </Table>
             </CardContent>
             <CardFooter>
               <div className="text-xs text-muted-foreground">
-                Hiển thị <strong>1-{products?.length || 0}</strong> trên <strong>{products?.length || 0}</strong>{" "}
+                Hiển thị <strong>{filteredProducts?.length || 0}</strong> trên <strong>{products?.length || 0}</strong>{" "}
                 sản phẩm
               </div>
             </CardFooter>
