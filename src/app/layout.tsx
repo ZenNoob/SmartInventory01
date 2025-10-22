@@ -40,7 +40,7 @@ export default function RootLayout({
               <MainNav />
               <SidebarInset>
                 <Header />
-                <main className="flex-1 p-4 md:gap-8">
+                <main className="flex-1 md:gap-8">
                   {children}
                 </main>
               </SidebarInset>
