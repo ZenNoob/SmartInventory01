@@ -11,6 +11,7 @@ import {
   Settings,
   Users2,
   Folder,
+  PanelLeft,
 } from 'lucide-react'
 
 import {
@@ -22,6 +23,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   useSidebar,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { Logo } from '@/components/icons'
@@ -29,12 +31,13 @@ import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebas
 import { useUserRole } from '@/hooks/use-user-role'
 import { AppUser } from '@/lib/types'
 import { collection, query, where } from 'firebase/firestore'
+import { Button } from './ui/button'
 
 export function MainNav() {
   const pathname = usePathname()
   const { user, isUserLoading } = useUser();
   const { role, isLoading: isRoleLoading } = useUserRole();
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const firestore = useFirestore();
 
   const adminsQuery = useMemoFirebase(() => {
@@ -53,16 +56,17 @@ export function MainNav() {
   // Show link if user is admin OR if no admins exist yet (bootstrap case)
   const canSeeUserManagement = role === 'admin' || (!isLoading && admins?.length === 0);
 
-  if (pathname.startsWith('/login') || isUserLoading) {
+  if (pathname.startsWith('/login')) {
     return null;
   }
 
-  if (!user) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+  if (isUserLoading || !user) {
+    if (typeof window !== 'undefined' && !pathname.startsWith('/login')) {
+       // Silently redirect, RootLayout will handle the visual state.
     }
-    return null;
+    return <Sidebar className="hidden sm:flex" />; // Render an empty but visible sidebar
   }
+
 
   return (
     <Sidebar>
@@ -71,6 +75,12 @@ export function MainNav() {
           <Logo className="h-6 w-6 text-primary" />
           {state === 'expanded' && <span className="">Quản lý bán hàng</span>}
         </Link>
+        <SidebarTrigger asChild className="hidden sm:flex">
+             <Button variant="ghost" size="icon">
+                <PanelLeft />
+                <span className="sr-only">Toggle Sidebar</span>
+            </Button>
+        </SidebarTrigger>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>

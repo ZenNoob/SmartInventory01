@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { PT_Sans } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { MainNav } from '@/components/main-nav'
 import { Header } from '@/components/header'
 import { Toaster } from '@/components/ui/toaster'
@@ -31,24 +31,19 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body
         className={cn(
-          'min-h-screen bg-background font-sans antialiased',
+          'min-h-screen bg-background font-sans antialiased flex',
           ptSans.variable
         )}
       >
         <FirebaseClientProvider>
           <GlobalError>
             <SidebarProvider>
-              <div className="relative flex min-h-dvh">
-                <MainNav />
-                <SidebarInset />
-                <div className="relative flex h-dvh flex-1 flex-col p-6 gap-6">
-                  <Header />
-                  <div className="flex-1 overflow-auto">
-                    <main className="grid flex-1 items-start">
-                       {children}
-                    </main>
-                  </div>
-                </div>
+              <MainNav />
+              <div className="flex-1 flex flex-col h-screen">
+                <Header />
+                <main className="flex-1 overflow-y-auto p-6">
+                    {children}
+                </main>
               </div>
             </SidebarProvider>
           </GlobalError>
