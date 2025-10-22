@@ -72,7 +72,7 @@ export function MainNav() {
           {state === 'expanded' && <span className="">Quản lý bán hàng</span>}
         </Link>
       </SidebarHeader>
-      <SidebarContent className="flex-grow">
+      <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -163,7 +163,6 @@ export function MainNav() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <Separator className="my-2" />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

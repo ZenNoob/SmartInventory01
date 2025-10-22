@@ -1,14 +1,6 @@
 'use client'
 
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,62 +23,19 @@ export function Header() {
   const pathname = usePathname()
   const { user, isUserLoading } = useUser()
 
-  if (pathname.startsWith('/login') || isUserLoading || !user) {
-    return null
+  if (pathname.startsWith('/login')) {
+    return null;
+  }
+  
+  if (isUserLoading || !user) {
+    return (
+       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6" />
+    )
   }
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button size="icon" variant="outline" className="sm:hidden">
-            <PanelLeft className="h-5 w-5" />
-            <span className="sr-only">Chuyển đổi Menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="sm:max-w-xs">
-          <nav className="grid gap-6 text-lg font-medium">
-            <Link
-              href="#"
-              className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
-            >
-              <Logo className="h-5 w-5 transition-all group-hover:scale-110" />
-              <span className="sr-only">Quản lý bán hàng</span>
-            </Link>
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-            >
-              Bảng điều khiển
-            </Link>
-            <Link
-              href="/products"
-              className="flex items-center gap-4 px-2.5 text-foreground"
-            >
-              Sản phẩm
-            </Link>
-            <Link
-              href="/sales"
-              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-            >
-              Bán hàng
-            </Link>
-            <Link
-              href="/customers"
-              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-            >
-              Khách hàng
-            </Link>
-            <Link
-              href="#"
-              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-            >
-              Cài đặt
-            </Link>
-          </nav>
-        </SheetContent>
-      </Sheet>
-      <SidebarTrigger className="hidden sm:flex" />
+      <SidebarTrigger />
       <div className="relative ml-auto flex-1 md:grow-0">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
