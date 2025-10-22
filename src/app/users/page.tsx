@@ -34,7 +34,7 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query, where } from "firebase/firestore"
 import { AppUser } from "@/lib/types"
 import { UserForm } from "./components/user-form"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useUserRole } from "@/hooks/use-user-role"
 import { useRouter } from "next/navigation"
 
@@ -78,12 +78,18 @@ export default function UsersPage() {
   
   // Allow access if the user is an admin OR if there are no admins in the system yet.
   const canAccess = role === 'admin' || (!isLoading && admins?.length === 0);
+  
+  useEffect(() => {
+    if (!isLoading && !canAccess) {
+      router.push('/dashboard');
+    }
+  }, [isLoading, canAccess, router]);
 
-  if (!isLoading && !canAccess) {
-    router.push('/dashboard');
+
+  if (isLoading || !canAccess) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div>Đang chuyển hướng...</div>
+        <div>Đang tải...</div>
       </div>
     );
   }
