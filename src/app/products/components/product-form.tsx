@@ -206,11 +206,22 @@ export function ProductForm({ isOpen, onOpenChange, product, categories }: Produ
 
                 <Separator className='my-6'/>
                 
-                <div>
-                    <h3 className="text-lg font-medium">Các đợt nhập hàng</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Thêm hoặc xóa các đợt nhập hàng cho sản phẩm này.
-                    </p>
+                <div className="flex justify-between items-center">
+                  <div>
+                      <h3 className="text-lg font-medium">Các đợt nhập hàng</h3>
+                      <p className="text-sm text-muted-foreground">
+                          Thêm hoặc xóa các đợt nhập hàng cho sản phẩm này.
+                      </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: 'cái' })}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm đợt nhập
+                  </Button>
                 </div>
               
                 <div className="space-y-4">
@@ -279,17 +290,6 @@ export function ProductForm({ isOpen, onOpenChange, product, categories }: Produ
                         </Button>
                     </div>
                   ))}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: 'cái' })}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Thêm đợt nhập
-                  </Button>
                 </div>
               </div>
             </ScrollArea>
