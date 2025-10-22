@@ -9,6 +9,7 @@ import {
   Search,
   Users,
 } from "lucide-react"
+import Image from "next/image"
 
 import {
   Avatar,
@@ -143,7 +144,7 @@ export default function Dashboard() {
           <CardContent className="grid gap-8">
             <div className="flex items-center gap-4">
               <Avatar className="hidden h-9 w-9 sm:flex">
-                <AvatarImage src="/avatars/01.png" alt="Avatar" />
+                <AvatarImage src="https://picsum.photos/seed/avatar1/36/36" alt="Avatar" />
                 <AvatarFallback>WD</AvatarFallback>
               </Avatar>
               <div className="grid gap-1">
@@ -158,7 +159,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
                <Avatar className="hidden h-9 w-9 sm:flex">
-                <AvatarImage src="/avatars/02.png" alt="Avatar" />
+                <AvatarImage src="https://picsum.photos/seed/avatar2/36/36" alt="Avatar" />
                 <AvatarFallback>LP</AvatarFallback>
               </Avatar>
               <div className="grid gap-1">
@@ -173,7 +174,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
               <Avatar className="hidden h-9 w-9 sm:flex">
-                <AvatarImage src="/avatars/03.png" alt="Avatar" />
+                <AvatarImage src="https://picsum.photos/seed/avatar3/36/36" alt="Avatar" />
                 <AvatarFallback>MM</AvatarFallback>
               </Avatar>
               <div className="grid gap-1">
