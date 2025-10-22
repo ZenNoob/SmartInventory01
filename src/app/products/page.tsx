@@ -151,9 +151,7 @@ export default function ProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="hidden w-[100px] sm:table-cell">
-                      <span className="sr-only">Hình ảnh</span>
-                    </TableHead>
+                    <TableHead className="w-16">STT</TableHead>
                     <TableHead>Tên</TableHead>
                     <TableHead>Loại</TableHead>
                     <TableHead className="hidden md:table-cell">
@@ -169,7 +167,7 @@ export default function ProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Đang tải...</TableCell></TableRow>}
-                  {!isLoading && products?.map((product) => {
+                  {!isLoading && products?.map((product, index) => {
                     const category = categories?.find(c => c.id === product.categoryId);
                     const stock = getStock(product);
                     const averageCost = product.purchaseLots?.length > 0
@@ -178,15 +176,7 @@ export default function ProductsPage() {
 
                     return (
                       <TableRow key={product.id}>
-                        <TableCell className="hidden sm:table-cell">
-                          <Image
-                            alt={product.name}
-                            className="aspect-square rounded-md object-cover"
-                            height="64"
-                            src={`https://picsum.photos/seed/${product.id}/64/64`}
-                            width="64"
-                          />
-                        </TableCell>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-medium">
                           {product.name}
                         </TableCell>
