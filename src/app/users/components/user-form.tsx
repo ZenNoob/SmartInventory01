@@ -55,7 +55,7 @@ export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
 
   const defaultValues: Partial<UserFormValues> = user
     ? { email: user.email, displayName: user.displayName, role: user.role }
-    : {};
+    : { role: 'inventory_manager'};
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),

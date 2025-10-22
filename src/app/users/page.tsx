@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useCollection, useFirestore } from "@/firebase"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import { AppUser } from "@/lib/types"
 import { UserForm } from "./components/user-form"
@@ -56,7 +56,12 @@ export default function UsersPage() {
   const router = useRouter();
 
   const firestore = useFirestore();
-  const usersQuery = query(collection(firestore, "users"));
+  const usersQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return query(collection(firestore, "users"))
+    }, [firestore]
+  );
+  
   const { data: users, isLoading } = useCollection<AppUser>(usersQuery);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | undefined>(undefined);
