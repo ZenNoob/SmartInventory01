@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/card"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -54,6 +55,7 @@ export default function ProductsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   
   const firestore = useFirestore();
 
@@ -98,12 +100,16 @@ export default function ProductsPage() {
     const category = categories?.find(c => c.id === product.categoryId);
     const averageCost = getAverageCost(product);
 
-    return (
+    const matchesSearchTerm = (
       product.name.toLowerCase().includes(term) ||
       (category && category.name.toLowerCase().includes(term)) ||
       averageCost.toString().includes(term) ||
       formatCurrency(averageCost).toLowerCase().includes(term)
     );
+
+    const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter;
+
+    return matchesSearchTerm && matchesCategory;
   })
 
 
@@ -136,15 +142,16 @@ export default function ProductsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Lọc theo</DropdownMenuLabel>
+                <DropdownMenuLabel>Lọc theo loại</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem checked>
-                  Hoạt động
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Bản nháp</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>
-                  Lưu trữ
-                </DropdownMenuCheckboxItem>
+                <DropdownMenuRadioGroup value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <DropdownMenuRadioItem value="all">Tất cả các loại</DropdownMenuRadioItem>
+                  {categories?.map((category) => (
+                    <DropdownMenuRadioItem key={category.id} value={category.id}>
+                      {category.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8 gap-1">
