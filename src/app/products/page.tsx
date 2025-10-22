@@ -285,7 +285,7 @@ export default function ProductsPage() {
                       Giá nhập trung bình
                     </TableHead>
                     <TableHead className="hidden md:table-cell">
-                      Nhập / Bán
+                      Bán / Nhập
                     </TableHead>
                     <TableHead>Tồn kho</TableHead>
                     <TableHead>
