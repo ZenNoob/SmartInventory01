@@ -53,3 +53,14 @@ export async function upsertProduct(product: Partial<Product>): Promise<{ succes
     return { success: false, error: error.message || 'Không thể tạo hoặc cập nhật sản phẩm.' };
   }
 }
+
+export async function updateProductStatus(productId: string, status: 'active' | 'draft' | 'archived'): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { firestore } = await getAdminServices();
+    await firestore.collection('products').doc(productId).update({ status });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating product status:", error);
+    return { success: false, error: error.message || 'Không thể cập nhật trạng thái sản phẩm.' };
+  }
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import {
   File,
   ListFilter,
@@ -50,6 +50,9 @@ import { ProductForm } from "./components/product-form"
 import { Category, Product } from "@/lib/types"
 import { collection, query } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
+import { updateProductStatus } from "./actions"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 type ProductStatus = 'active' | 'draft' | 'archived' | 'all';
 
@@ -60,8 +63,12 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<ProductStatus>('all');
+  const [isUpdating, startTransition] = useTransition();
   
   const firestore = useFirestore();
+  const { toast } = useToast();
+  const router = useRouter();
+
 
   const productsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -84,6 +91,25 @@ export default function ProductsPage() {
   const handleEditProduct = (product: Product) => {
     setSelectedProduct(product);
     setIsFormOpen(true);
+  }
+
+  const handleStatusChange = (productId: string, status: Product['status']) => {
+    startTransition(async () => {
+      const result = await updateProductStatus(productId, status);
+      if (result.success) {
+        toast({
+          title: "Thành công!",
+          description: "Trạng thái sản phẩm đã được cập nhật.",
+        });
+        router.refresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Ôi! Đã có lỗi xảy ra.",
+          description: result.error,
+        });
+      }
+    });
   }
 
   const isLoading = productsLoading || categoriesLoading;
@@ -257,6 +283,7 @@ export default function ProductsPage() {
                                 aria-haspopup="true"
                                 size="icon"
                                 variant="ghost"
+                                disabled={isUpdating}
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Chuyển đổi menu</span>
@@ -264,8 +291,28 @@ export default function ProductsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => handleEditProduct(product)}>Sửa</DropdownMenuItem>
-                              <DropdownMenuItem>Xóa</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditProduct(product)} disabled={isUpdating}>Sửa</DropdownMenuItem>
+                              <DropdownMenuItem disabled={isUpdating}>Xóa</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Thay đổi trạng thái</DropdownMenuLabel>
+                               <DropdownMenuItem 
+                                onClick={() => handleStatusChange(product.id, 'active')}
+                                disabled={product.status === 'active' || isUpdating}
+                               >
+                                Chuyển sang Hoạt động
+                              </DropdownMenuItem>
+                               <DropdownMenuItem 
+                                onClick={() => handleStatusChange(product.id, 'draft')}
+                                disabled={product.status === 'draft' || isUpdating}
+                              >
+                                Chuyển sang Bản nháp
+                              </DropdownMenuItem>
+                               <DropdownMenuItem 
+                                onClick={() => handleStatusChange(product.id, 'archived')}
+                                disabled={product.status === 'archived' || isUpdating}
+                              >
+                                Chuyển sang Lưu trữ
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
