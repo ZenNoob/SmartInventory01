@@ -9,6 +9,7 @@ import {
   Users,
   LineChart,
   Settings,
+  Users2,
 } from 'lucide-react'
 
 import {
@@ -23,10 +24,12 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Logo } from '@/components/icons'
 import { useUser } from '@/firebase'
+import { useUserRole } from '@/hooks/use-user-role'
 
 export function MainNav() {
   const pathname = usePathname()
   const { user, isUserLoading } = useUser();
+  const { role } = useUserRole();
 
   const isActive = (path: string) => {
     return pathname === path
@@ -113,6 +116,20 @@ export function MainNav() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+           {role === 'admin' && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive('/users')}
+                tooltip="Quản lý người dùng"
+              >
+                <Link href="/users">
+                  <Users2 />
+                  <span>Quản lý người dùng</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

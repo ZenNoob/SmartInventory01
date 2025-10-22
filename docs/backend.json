@@ -211,13 +211,23 @@
       "type": "object",
       "description": "Represents a user of the system.",
       "properties": {
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
         "role": {
           "type": "string",
-          "description": "Role of the user (e.g., admin, accountant, inventory manager)."
+          "description": "Role of the user (e.g., admin, accountant, inventory_manager)."
         }
       },
       "required": [
-        "role"
+        "role",
+        "email"
       ]
     }
   },

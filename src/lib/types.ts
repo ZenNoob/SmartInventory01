@@ -39,3 +39,10 @@ export type Payment = {
   date: string
   amount: number
 }
+
+export type AppUser = {
+  id?: string;
+  email: string;
+  displayName?: string;
+  role: 'admin' | 'accountant' | 'inventory_manager';
+}
