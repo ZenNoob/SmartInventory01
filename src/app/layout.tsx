@@ -1,4 +1,5 @@
 
+
 import type { Metadata } from 'next'
 import { PT_Sans } from 'next/font/google'
 import './globals.css'
@@ -9,6 +10,7 @@ import { Header } from '@/components/header'
 import { Toaster } from '@/components/ui/toaster'
 import { FirebaseClientProvider } from '@/firebase'
 import GlobalError from './global-error'
+import { getThemeSettings } from './settings/actions'
 
 
 const ptSans = PT_Sans({
@@ -22,11 +24,19 @@ export const metadata: Metadata = {
   description: 'Quản lý hàng tồn kho, bán hàng và công nợ khách hàng của bạn với thông tin chi tiết do AI hỗ trợ.',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const themeSettings = await getThemeSettings();
+
+  const themeStyle = themeSettings ? {
+    '--background': themeSettings.background,
+    '--primary': themeSettings.primary,
+    '--accent': themeSettings.accent,
+  } as React.CSSProperties : {};
+
   return (
     <html lang="vi" suppressHydrationWarning>
       <body
@@ -34,6 +44,7 @@ export default function RootLayout({
           'min-h-screen bg-background font-sans antialiased',
           ptSans.variable
         )}
+        style={themeStyle}
       >
         <FirebaseClientProvider>
           <GlobalError>

@@ -54,3 +54,9 @@ export type AppUser = {
   displayName?: string;
   role: 'admin' | 'accountant' | 'inventory_manager';
 }
+
+export type ThemeSettings = {
+  primary: string;
+  background: string;
+  accent: string;
+}

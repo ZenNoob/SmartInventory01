@@ -258,6 +258,31 @@
         "role",
         "email"
       ]
+    },
+    "ThemeSettings": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ThemeSettings",
+      "type": "object",
+      "description": "Stores theme customization settings for the application.",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "The primary color for the theme, as an HSL string (e.g., '24 95% 53%')."
+        },
+        "background": {
+          "type": "string",
+          "description": "The background color for the theme, as an HSL string (e.g., '220 17% 95%')."
+        },
+        "accent": {
+          "type": "string",
+          "description": "The accent color for the theme, used for hover and focus states, as an HSL string."
+        }
+      },
+      "required": [
+        "primary",
+        "background",
+        "accent"
+      ]
     }
   },
   "auth": {
@@ -427,6 +452,22 @@
             {
               "name": "userId",
               "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/settings/{settingId}",
+        "definition": {
+          "entityName": "ThemeSettings",
+          "schema": {
+            "$ref": "#/backend/entities/ThemeSettings"
+          },
+          "description": "Stores application-wide settings, like theme colors. Publicly readable, admin writable.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "Identifier for the setting, e.g., 'theme'."
             }
           ]
         }
