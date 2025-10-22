@@ -92,23 +92,21 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
 
   useEffect(() => {
     if (isOpen) {
-      if (product) {
-        // Editing existing product
-        form.reset({
-          name: product.name,
-          categoryId: product.categoryId,
-          status: product.status,
-          purchaseLots: product.purchaseLots || [] // Ensure it's an array
-        });
-      } else {
-        // Creating a new product, start with one empty lot
-        form.reset({
-          name: '',
-          categoryId: '',
-          status: 'draft',
-          purchaseLots: [{ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: units[0]?.name || 'cái' }]
-        });
-      }
+        form.reset(
+            product
+                ? {
+                    name: product.name,
+                    categoryId: product.categoryId,
+                    status: product.status,
+                    purchaseLots: product.purchaseLots || []
+                  }
+                : {
+                    name: '',
+                    categoryId: '',
+                    status: 'draft',
+                    purchaseLots: [{ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: units[0]?.name || 'cái' }]
+                  }
+        );
     }
   }, [product, isOpen, form, units]);
 
@@ -141,168 +139,169 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <ScrollArea className="max-h-[60vh] p-4 -mx-4">
-              <div className='space-y-4 px-2'>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-rows-[1fr_auto] gap-4 max-h-[80vh]">
+            <div className='space-y-4 overflow-y-auto pr-6'>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tên sản phẩm</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ví dụ: Laptop Pro" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tên sản phẩm</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ví dụ: Laptop Pro" {...field} />
-                      </FormControl>
+                      <FormLabel>Danh mục</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn một danh mục" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Danh mục</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn một danh mục" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map(cat => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Trạng thái</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn trạng thái" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="draft">Bản nháp</SelectItem>
-                            <SelectItem value="active">Hoạt động</SelectItem>
-                            <SelectItem value="archived">Lưu trữ</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-
-                <Separator className='my-6'/>
-                
-                <div className="flex justify-between items-center">
-                  <div>
-                      <h3 className="text-lg font-medium">Các đợt nhập hàng</h3>
-                      <p className="text-sm text-muted-foreground">
-                          Thêm hoặc xóa các đợt nhập hàng cho sản phẩm này.
-                      </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: 'cái' })}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Thêm đợt nhập
-                  </Button>
-                </div>
-              
-                <div className="space-y-4">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md relative">
-                       <FormField
-                          control={form.control}
-                          name={`purchaseLots.${index}.importDate`}
-                          render={({ field }) => (
-                            <FormItem className="md:col-span-2">
-                              <FormLabel>Ngày nhập</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`purchaseLots.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Số lượng</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
-                          control={form.control}
-                          name={`purchaseLots.${index}.cost`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Giá</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
-                          control={form.control}
-                          name={`purchaseLots.${index}.unit`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Đơn vị</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Chọn đơn vị" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {units.map(unit => (
-                                    <SelectItem key={unit.id} value={unit.name}>{unit.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6"
-                            onClick={() => remove(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                    </div>
-                  ))}
-                </div>
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Trạng thái</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn trạng thái" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="draft">Bản nháp</SelectItem>
+                          <SelectItem value="active">Hoạt động</SelectItem>
+                          <SelectItem value="archived">Lưu trữ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </ScrollArea>
+
+
+              <Separator className='my-6'/>
+              
+              <div className="flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-medium">Các đợt nhập hàng</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Thêm hoặc xóa các đợt nhập hàng cho sản phẩm này.
+                    </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: units[0]?.name || 'cái' })}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Thêm đợt nhập
+                </Button>
+              </div>
+            
+              <ScrollArea className="max-h-48 w-full pr-2">
+                <div className="space-y-4">
+                    {fields.map((field, index) => (
+                      <div key={field.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 border rounded-md relative">
+                         <FormField
+                            control={form.control}
+                            name={`purchaseLots.${index}.importDate`}
+                            render={({ field }) => (
+                              <FormItem className="md:col-span-2">
+                                <FormLabel>Ngày nhập</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`purchaseLots.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Số lượng</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                           <FormField
+                            control={form.control}
+                            name={`purchaseLots.${index}.cost`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Giá</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                           <FormField
+                            control={form.control}
+                            name={`purchaseLots.${index}.unit`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Đơn vị</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Chọn đơn vị" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {units.map(unit => (
+                                      <SelectItem key={unit.id} value={unit.name}>{unit.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6"
+                              onClick={() => remove(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                      </div>
+                    ))}
+                </div>
+              </ScrollArea>
+            </div>
+
             <DialogFooter className="pt-4 border-t">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
