@@ -8,11 +8,14 @@ export function cn(...inputs: ClassValue[]) {
 export function formatCurrency(amount: number) {
   // Use Vietnamese locale for number formatting, and specify VND.
   // The default symbol is '₫', so we replace it with 'VNĐ'.
+  // Then, replace the dot group separator with a comma as requested.
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
-  }).format(amount).replace('₫', ' VNĐ');
+  }).format(amount)
+    .replace('₫', ' VNĐ')
+    .replace(/\./g, ',');
 }
 
 /**
