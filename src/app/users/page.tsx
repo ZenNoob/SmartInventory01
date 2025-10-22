@@ -80,16 +80,27 @@ export default function UsersPage() {
   const canAccess = role === 'admin' || (!isLoading && admins?.length === 0);
   
   useEffect(() => {
+    // Only redirect if loading is complete and access is definitively denied.
     if (!isLoading && !canAccess) {
       router.push('/dashboard');
     }
   }, [isLoading, canAccess, router]);
 
 
-  if (isLoading || !canAccess) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div>Đang tải...</div>
+      </div>
+    );
+  }
+
+  // This check is important. If, after loading, access is still denied,
+  // we prevent rendering the page content while the redirect is happening.
+  if (!canAccess) {
+     return (
+      <div className="flex items-center justify-center h-screen">
+        <div>Đang chuyển hướng...</div>
       </div>
     );
   }
