@@ -178,7 +178,7 @@ const Sidebar = React.forwardRef<
     }
 
     return (
-      <div
+      <aside
         ref={ref}
         className={cn("hidden sm:flex flex-col h-full bg-card text-card-foreground border-r transition-all duration-300", 
           state === 'expanded' ? 'w-64' : 'w-14',
@@ -188,7 +188,7 @@ const Sidebar = React.forwardRef<
         {...props}
       >
         {children}
-      </div>
+      </aside>
     )
   }
 )
@@ -453,14 +453,14 @@ const SidebarMenuButton = React.forwardRef<
     const { isMobile, state } = useSidebar()
 
     const buttonContent = (
-        <>
+        <div className="contents" data-sidebar="button-content">
             {React.Children.map(children, (child) => {
                 if(React.isValidElement(child) && child.type === 'span' && state === 'collapsed' && !isMobile) {
                     return null;
                 }
                 return child;
             })}
-        </>
+        </div>
     )
 
     const button = (
