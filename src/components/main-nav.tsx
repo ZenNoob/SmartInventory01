@@ -11,7 +11,6 @@ import {
   Settings,
   Users2,
   Folder,
-  PanelLeft,
 } from 'lucide-react'
 
 import {
@@ -23,14 +22,12 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   useSidebar,
-  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { Logo } from '@/components/icons'
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
 import { useUserRole } from '@/hooks/use-user-role'
 import { AppUser } from '@/lib/types'
 import { collection, query, where } from 'firebase/firestore'
-import { Button } from './ui/button'
 
 export function MainNav() {
   const pathname = usePathname()
@@ -52,7 +49,6 @@ export function MainNav() {
 
   const isLoading = isUserLoading || isAdminLoading;
   
-  // Show link if user is admin OR if no admins exist yet (bootstrap case)
   const canSeeUserManagement = role === 'admin' || (!isLoading && admins?.length === 0);
 
   if (pathname.startsWith('/login')) {
@@ -64,11 +60,8 @@ export function MainNav() {
       <SidebarHeader>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Logo className="h-6 w-6 text-primary" />
-          {state === 'expanded' && <span className="">Quản lý bán hàng</span>}
+          {state === 'expanded' && <span className="whitespace-nowrap">Quản lý bán hàng</span>}
         </Link>
-        <SidebarTrigger>
-          <PanelLeft />
-        </SidebarTrigger>
       </SidebarHeader>
       { (isUserLoading || !user) ? (
         <SidebarContent />
@@ -84,7 +77,7 @@ export function MainNav() {
                 >
                   <Link href="/dashboard" className="flex items-center gap-2">
                     <Home />
-                    <span>Bảng điều khiển</span>
+                    <span className="whitespace-nowrap">Bảng điều khiển</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -96,7 +89,7 @@ export function MainNav() {
                 >
                   <Link href="/categories" className="flex items-center gap-2">
                     <Folder />
-                    <span>Danh mục</span>
+                    <span className="whitespace-nowrap">Danh mục</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -108,7 +101,7 @@ export function MainNav() {
                 >
                   <Link href="/products" className="flex items-center gap-2">
                     <Package />
-                    <span>Sản phẩm</span>
+                    <span className="whitespace-nowrap">Sản phẩm</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -120,7 +113,7 @@ export function MainNav() {
                 >
                   <Link href="/sales" className="flex items-center gap-2">
                     <ShoppingCart />
-                    <span>Bán hàng</span>
+                    <span className="whitespace-nowrap">Bán hàng</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -132,7 +125,7 @@ export function MainNav() {
                 >
                   <Link href="/customers" className="flex items-center gap-2">
                     <Users />
-                    <span>Khách hàng</span>
+                    <span className="whitespace-nowrap">Khách hàng</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -144,7 +137,7 @@ export function MainNav() {
                 >
                   <Link href="/reports" className="flex items-center gap-2">
                     <LineChart />
-                    <span>Báo cáo</span>
+                    <span className="whitespace-nowrap">Báo cáo</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -157,7 +150,7 @@ export function MainNav() {
                   >
                     <Link href="/users" className="flex items-center gap-2">
                       <Users2 />
-                      <span>Quản lý người dùng</span>
+                      <span className="whitespace-nowrap">Quản lý người dùng</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -174,7 +167,7 @@ export function MainNav() {
                 >
                   <Link href="/settings" className="flex items-center gap-2">
                     <Settings />
-                    <span>Cài đặt</span>
+                    <span className="whitespace-nowrap">Cài đặt</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
