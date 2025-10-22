@@ -288,6 +288,10 @@
         "accentForeground": {
           "type": "string",
           "description": "The foreground color for accent elements, as an HSL string."
+        },
+        "lowStockThreshold": {
+          "type": "number",
+          "description": "The threshold below which a product is considered to have low stock."
         }
       },
       "required": [

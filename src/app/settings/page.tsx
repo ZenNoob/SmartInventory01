@@ -38,6 +38,7 @@ const themeFormSchema = z.object({
   foreground: z.string().min(1, "Bắt buộc"),
   accent: z.string().min(1, "Bắt buộc"),
   accentForeground: z.string().min(1, "Bắt buộc"),
+  lowStockThreshold: z.coerce.number().min(0, "Ngưỡng phải là số dương."),
 });
 
 type ThemeFormValues = z.infer<typeof themeFormSchema>;
@@ -63,6 +64,7 @@ export default function SettingsPage() {
       foreground: '#111827',
       accent: '#ff6600',
       accentForeground: '#111827',
+      lowStockThreshold: 10,
     },
   });
   
@@ -75,6 +77,7 @@ export default function SettingsPage() {
         foreground: hslToHex(themeSettings.foreground),
         accent: hslToHex(themeSettings.accent),
         accentForeground: hslToHex(themeSettings.accentForeground),
+        lowStockThreshold: themeSettings.lowStockThreshold || 10,
       });
     }
   }, [themeSettings, form]);
@@ -87,6 +90,7 @@ export default function SettingsPage() {
       foreground: hexToHsl(data.foreground),
       accent: hexToHsl(data.accent),
       accentForeground: hexToHsl(data.accentForeground),
+      lowStockThreshold: data.lowStockThreshold,
     };
     const result = await upsertThemeSettings(hslData);
     if (result.success) {
@@ -104,7 +108,7 @@ export default function SettingsPage() {
     }
   };
 
-  const ColorField = ({ name, label }: { name: keyof ThemeFormValues, label: string }) => (
+  const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold'>, label: string }) => (
     <FormField
       control={form.control}
       name={name}
@@ -115,7 +119,7 @@ export default function SettingsPage() {
             <FormControl>
               <Input type="color" {...field} className="w-16 h-10 p-1" />
             </FormControl>
-            <span className="text-sm text-muted-foreground font-mono">{hslToHex(field.value)}</span>
+            <span className="text-sm text-muted-foreground font-mono">{field.value}</span>
           </div>
           <FormMessage />
         </FormItem>
@@ -129,30 +133,54 @@ export default function SettingsPage() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
-            <CardTitle>Giao diện</CardTitle>
+            <CardTitle>Cài đặt chung</CardTitle>
             <CardDescription>
-              Tùy chỉnh màu sắc của ứng dụng bằng cách chọn màu bên dưới.
+              Tùy chỉnh giao diện và các cài đặt chung cho ứng dụng của bạn.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-8">
              {isLoading && <p>Đang tải cài đặt...</p>}
             {!isLoading && (
-              <div className='space-y-8'>
-                <div className='grid md:grid-cols-2 gap-8'>
-                    <ColorField name="background" label="Màu nền (Background)" />
-                    <ColorField name="foreground" label="Màu chữ (Foreground)" />
+              <>
+                <div>
+                    <h3 className="text-lg font-medium">Giao diện</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Tùy chỉnh màu sắc của ứng dụng.</p>
+                    <div className='space-y-8'>
+                        <div className='grid md:grid-cols-2 gap-8'>
+                            <ColorField name="background" label="Màu nền (Background)" />
+                            <ColorField name="foreground" label="Màu chữ (Foreground)" />
+                        </div>
+                        <Separator />
+                        <div className='grid md:grid-cols-2 gap-8'>
+                            <ColorField name="primary" label="Màu chủ đạo (Primary)" />
+                            <ColorField name="primaryForeground" label="Chữ trên màu chủ đạo" />
+                        </div>
+                        <Separator />
+                        <div className='grid md:grid-cols-2 gap-8'>
+                            <ColorField name="accent" label="Màu nhấn (Accent/Hover)" />
+                            <ColorField name="accentForeground" label="Chữ trên màu nhấn" />
+                        </div>
+                    </div>
                 </div>
                 <Separator />
-                 <div className='grid md:grid-cols-2 gap-8'>
-                    <ColorField name="primary" label="Màu chủ đạo (Primary)" />
-                    <ColorField name="primaryForeground" label="Chữ trên màu chủ đạo" />
+                <div>
+                     <h3 className="text-lg font-medium">Hàng tồn kho</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Cài đặt liên quan đến quản lý hàng tồn kho.</p>
+                     <FormField
+                        control={form.control}
+                        name="lowStockThreshold"
+                        render={({ field }) => (
+                            <FormItem className="max-w-xs">
+                            <FormLabel>Ngưỡng cảnh báo tồn kho</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="Ví dụ: 10" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
                 </div>
-                <Separator />
-                 <div className='grid md:grid-cols-2 gap-8'>
-                    <ColorField name="accent" label="Màu nhấn (Accent/Hover)" />
-                    <ColorField name="accentForeground" label="Chữ trên màu nhấn" />
-                </div>
-              </div>
+              </>
             )}
           </CardContent>
           <CardFooter className="border-t px-6 py-4">

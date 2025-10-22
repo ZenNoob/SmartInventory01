@@ -62,4 +62,5 @@ export type ThemeSettings = {
   foreground: string;
   accent: string;
   accentForeground: string;
+  lowStockThreshold: number;
 }

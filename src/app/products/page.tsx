@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
+  AlertTriangle,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -51,12 +52,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { formatCurrency } from "@/lib/utils"
 import { PredictShortageForm } from "./components/predict-shortage-form"
 import { ProductForm } from "./components/product-form"
-import { Category, Product, SalesItem } from "@/lib/types"
-import { collection, query, getDocs } from "firebase/firestore"
+import { Category, Product, SalesItem, ThemeSettings } from "@/lib/types"
+import { collection, query, getDocs, doc } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
 import { updateProductStatus } from "./actions"
 import { useToast } from "@/hooks/use-toast"
@@ -95,9 +96,15 @@ export default function ProductsPage() {
     return query(collection(firestore, 'sales_transactions'));
   }, [firestore]);
 
+  const settingsRef = useMemoFirebase(() => {
+    if(!firestore) return null;
+    return doc(firestore, 'settings', 'theme');
+  }, [firestore])
+
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesQuery);
   const { data: sales, isLoading: salesLoading } = useCollection(salesItemsQuery);
+  const { data: settings, isLoading: settingsLoading } = useDoc<ThemeSettings>(settingsRef);
   
   const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
   const [salesItemsLoading, setSalesItemsLoading] = useState(true);
@@ -150,7 +157,7 @@ export default function ProductsPage() {
     });
   }
 
-  const isLoading = productsLoading || categoriesLoading || salesLoading || salesItemsLoading;
+  const isLoading = productsLoading || categoriesLoading || salesLoading || salesItemsLoading || settingsLoading;
   
   const getImportedStock = (product: Product) => {
     return product.purchaseLots?.reduce((acc, lot) => acc + lot.quantity, 0) || 0
@@ -342,12 +349,18 @@ export default function ProductsPage() {
                     const sold = getSoldQuantity(product.id);
                     const stock = imported - sold;
                     const averageCost = getAverageCost(product)
+                    const lowStockThreshold = settings?.lowStockThreshold ?? 0;
 
                     return (
                       <TableRow key={product.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-medium">
-                          {product.name}
+                          <div className="flex items-center gap-2">
+                             {stock <= lowStockThreshold && (
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            )}
+                            {product.name}
+                          </div>
                         </TableCell>
                          <TableCell>
                           <Badge variant={product.status === 'active' ? 'default' : product.status === 'draft' ? 'secondary' : 'destructive'}>
