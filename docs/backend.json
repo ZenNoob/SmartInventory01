@@ -108,6 +108,10 @@
             "draft",
             "archived"
           ]
+        },
+        "lowStockThreshold": {
+          "type": "number",
+          "description": "Product-specific low stock threshold. If not set, the global setting is used."
         }
       },
       "required": [

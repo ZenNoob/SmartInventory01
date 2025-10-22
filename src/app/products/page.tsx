@@ -202,7 +202,7 @@ export default function ProductsPage() {
         const imported = getImportedStock(product);
         const sold = getSoldQuantity(product.id);
         const stock = imported - sold;
-        const lowStockThreshold = settings?.lowStockThreshold ?? 0;
+        const lowStockThreshold = product.lowStockThreshold ?? settings?.lowStockThreshold ?? 0;
         if (stock > lowStockThreshold) {
             return false;
         }
@@ -377,7 +377,7 @@ export default function ProductsPage() {
                     const sold = getSoldQuantity(product.id);
                     const stock = imported - sold;
                     const averageCost = getAverageCost(product)
-                    const lowStockThreshold = settings?.lowStockThreshold ?? 0;
+                    const lowStockThreshold = product.lowStockThreshold ?? settings?.lowStockThreshold ?? 0;
 
                     return (
                       <TableRow key={product.id}>

@@ -16,6 +16,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -48,6 +49,7 @@ const productFormSchema = z.object({
   name: z.string().min(1, "Tên sản phẩm không được để trống."),
   categoryId: z.string().min(1, "Danh mục là bắt buộc."),
   status: z.enum(['active', 'draft', 'archived']),
+  lowStockThreshold: z.coerce.number().optional(),
   purchaseLots: z.array(purchaseLotSchema).optional(),
 });
 
@@ -71,6 +73,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
         name: product.name, 
         categoryId: product.categoryId,
         status: product.status,
+        lowStockThreshold: product.lowStockThreshold,
         purchaseLots: product.purchaseLots || []
       }
     : { 
@@ -98,6 +101,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                     name: product.name,
                     categoryId: product.categoryId,
                     status: product.status,
+                    lowStockThreshold: product.lowStockThreshold,
                     purchaseLots: product.purchaseLots && product.purchaseLots.length > 0 ? product.purchaseLots : []
                   }
                 : {
@@ -200,6 +204,21 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   )}
                 />
               </div>
+
+               <FormField
+                control={form.control}
+                name="lowStockThreshold"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ngưỡng tồn kho tối thiểu (riêng)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Ví dụ: 10" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormDescription>Để trống để dùng ngưỡng chung từ Cài đặt.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
 
               <Separator className='my-6'/>

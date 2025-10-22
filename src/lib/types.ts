@@ -22,6 +22,7 @@ export type Product = {
   categoryId: string
   purchaseLots: PurchaseLot[]
   status: 'active' | 'draft' | 'archived'
+  lowStockThreshold?: number;
 }
 
 export type Customer = {
