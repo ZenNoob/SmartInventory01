@@ -6,6 +6,17 @@ import {
 } from "lucide-react"
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
+import {
   Card,
   CardContent,
   CardDescription,
@@ -18,6 +29,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -37,6 +49,9 @@ import { UserForm } from "./components/user-form"
 import { useState } from "react"
 import { useUserRole } from "@/hooks/use-user-role"
 import Link from "next/link"
+import { deleteUser } from "./actions"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 function getRoleVietnamese(role: string) {
   switch (role) {
@@ -52,9 +67,11 @@ function getRoleVietnamese(role: string) {
 }
 
 export default function UsersPage() {
-  const { user } = useUser();
+  const { user: currentUser } = useUser();
   const { role, isLoading: isRoleLoading } = useUserRole();
   const firestore = useFirestore();
+  const { toast } = useToast();
+  const router = useRouter();
   
   const usersQuery = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -73,6 +90,8 @@ export default function UsersPage() {
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | undefined>(undefined);
+  const [userToDelete, setUserToDelete] = useState<AppUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isLoading = isUsersLoading || isAdminLoading || isRoleLoading;
   
@@ -88,6 +107,28 @@ export default function UsersPage() {
     setSelectedUser(user);
     setIsFormOpen(true);
   }
+  
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    const result = await deleteUser(userToDelete.id!);
+    if (result.success) {
+      toast({
+        title: "Thành công!",
+        description: `Đã xóa người dùng ${userToDelete.displayName || userToDelete.email}.`,
+      });
+      router.refresh();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Ôi! Đã có lỗi xảy ra.",
+        description: result.error,
+      });
+    }
+    setIsDeleting(false);
+    setUserToDelete(null);
+  };
+
 
   if (isLoading) {
     return (
@@ -116,6 +157,7 @@ export default function UsersPage() {
     );
   }
 
+
   return (
     <div>
       <UserForm
@@ -123,6 +165,24 @@ export default function UsersPage() {
         onOpenChange={setIsFormOpen}
         user={selectedUser}
       />
+       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn không?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể được hoàn tác. Thao tác này sẽ xóa vĩnh viễn tài khoản của{' '}
+              <strong>{userToDelete?.displayName || userToDelete?.email}</strong> và xóa dữ liệu của họ khỏi máy chủ của chúng tôi.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} disabled={isDeleting}>
+              {isDeleting ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center gap-2 mb-4">
         <h1 className="text-2xl font-semibold">Quản lý người dùng</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -165,6 +225,7 @@ export default function UsersPage() {
                 </TableRow>
               )}
               {!isLoading && users?.map((user) => {
+                const isCurrentUser = user.id === currentUser?.uid;
                 return (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
@@ -190,6 +251,14 @@ export default function UsersPage() {
                           <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleEditUser(user)}>
                             Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setUserToDelete(user)}
+                            disabled={isCurrentUser}
+                          >
+                            Xóa
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

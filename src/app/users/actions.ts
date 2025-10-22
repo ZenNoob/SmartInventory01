@@ -77,3 +77,17 @@ export async function upsertUser(user: AppUser & { password?: string }): Promise
     return { success: false, error: error.message || 'Không thể tạo hoặc cập nhật người dùng.' };
   }
 }
+
+export async function deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { auth, firestore } = await getAdminServices();
+        
+        await auth.deleteUser(userId);
+        await firestore.collection('users').doc(userId).delete();
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error deleting user:", error);
+        return { success: false, error: error.message || 'Không thể xóa người dùng.' };
+    }
+}
