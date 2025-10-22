@@ -287,13 +287,14 @@ export default function ProductsPage() {
                     <TableHead className="hidden md:table-cell">
                       Nhập / Bán
                     </TableHead>
+                    <TableHead>Tồn kho</TableHead>
                     <TableHead>
                       <span className="sr-only">Hành động</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Đang tải...</TableCell></TableRow>}
+                  {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Đang tải...</TableCell></TableRow>}
                   {!isLoading && filteredProducts?.map((product, index) => {
                     const category = categories?.find(c => c.id === product.categoryId);
                     const imported = getImportedStock(product);
@@ -319,15 +320,17 @@ export default function ProductsPage() {
                           {formatCurrency(averageCost)}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <Tooltip>
+                           <Tooltip>
                             <TooltipTrigger>
                               <span className="cursor-help">{sold} / {imported}</span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Tồn kho: {stock}</p>
+                              <p>Đã bán: {sold}</p>
+                              <p>Đã nhập: {imported}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TableCell>
+                        <TableCell className="font-medium">{stock}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -373,7 +376,7 @@ export default function ProductsPage() {
                   })}
                    {!isLoading && filteredProducts?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">
+                        <TableCell colSpan={8} className="text-center h-24">
                             Không tìm thấy sản phẩm nào.
                         </TableCell>
                     </TableRow>
