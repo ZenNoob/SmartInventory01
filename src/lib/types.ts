@@ -4,6 +4,11 @@ export type Category = {
   description?: string
 }
 
+export type Unit = {
+  id: string
+  name: string
+}
+
 export type PurchaseLot = {
   importDate: string; // ISO 8601 date string
   quantity: number;

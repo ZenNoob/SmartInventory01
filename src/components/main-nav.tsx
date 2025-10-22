@@ -11,6 +11,7 @@ import {
   Settings,
   Users2,
   Folder,
+  Scale,
 } from 'lucide-react'
 
 import {
@@ -90,6 +91,18 @@ export function MainNav() {
                   <Link href="/categories" className="flex items-center gap-2">
                     <Folder />
                     <span className="whitespace-nowrap">Danh mục</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/units')}
+                  tooltip="Đơn vị tính"
+                >
+                  <Link href="/units" className="flex items-center gap-2">
+                    <Scale />
+                    <span className="whitespace-nowrap">Đơn vị tính</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Product, Category, PurchaseLot } from '@/lib/types'
+import { Product, Category, PurchaseLot, Unit } from '@/lib/types'
 import { upsertProduct } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
@@ -59,9 +59,10 @@ interface ProductFormProps {
   onOpenChange: (isOpen: boolean) => void;
   product?: Product;
   categories: Category[];
+  units: Unit[];
 }
 
-export function ProductForm({ isOpen, onOpenChange, product, categories }: ProductFormProps) {
+export function ProductForm({ isOpen, onOpenChange, product, categories, units }: ProductFormProps) {
   const { toast } = useToast();
   const router = useRouter();
 
@@ -105,11 +106,11 @@ export function ProductForm({ isOpen, onOpenChange, product, categories }: Produ
           name: '',
           categoryId: '',
           status: 'draft',
-          purchaseLots: [{ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: 'cái' }]
+          purchaseLots: [{ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: units[0]?.name || 'cái' }]
         });
       }
     }
-  }, [product, isOpen, form]);
+  }, [product, isOpen, form, units]);
 
 
   const onSubmit = async (data: ProductFormValues) => {
@@ -272,9 +273,18 @@ export function ProductForm({ isOpen, onOpenChange, product, categories }: Produ
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Đơn vị</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Chọn đơn vị" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {units.map(unit => (
+                                    <SelectItem key={unit.id} value={unit.name}>{unit.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}

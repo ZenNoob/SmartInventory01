@@ -57,7 +57,7 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase
 import { formatCurrency } from "@/lib/utils"
 import { PredictShortageForm } from "./components/predict-shortage-form"
 import { ProductForm } from "./components/product-form"
-import { Category, Product, SalesItem, ThemeSettings } from "@/lib/types"
+import { Category, Product, SalesItem, ThemeSettings, Unit } from "@/lib/types"
 import { collection, query, getDocs, doc } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
 import { updateProductStatus } from "./actions"
@@ -92,6 +92,11 @@ export default function ProductsPage() {
     return query(collection(firestore, "categories"));
   }, [firestore]);
   
+  const unitsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "units"));
+  }, [firestore]);
+
   const salesItemsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     // This creates a collection group query to get all sales_items across all sales_transactions
@@ -105,6 +110,7 @@ export default function ProductsPage() {
 
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesQuery);
+  const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
   const { data: sales, isLoading: salesLoading } = useCollection(salesItemsQuery);
   const { data: settings, isLoading: settingsLoading } = useDoc<ThemeSettings>(settingsRef);
   
@@ -159,7 +165,7 @@ export default function ProductsPage() {
     });
   }
 
-  const isLoading = productsLoading || categoriesLoading || salesLoading || salesItemsLoading || settingsLoading;
+  const isLoading = productsLoading || categoriesLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
   
   const getImportedStock = (product: Product) => {
     return product.purchaseLots?.reduce((acc, lot) => acc + lot.quantity, 0) || 0
@@ -230,6 +236,7 @@ export default function ProductsPage() {
         onOpenChange={setIsFormOpen}
         product={selectedProduct}
         categories={categories || []}
+        units={units || []}
       />
        <Dialog open={!!viewingLotsFor} onOpenChange={(open) => !open && setViewingLotsFor(null)}>
         <DialogContent>
