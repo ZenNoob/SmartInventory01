@@ -3,12 +3,18 @@ export type Category = {
   name: string
 }
 
+export type PurchaseLot = {
+  importDate: string; // ISO 8601 date string
+  quantity: number;
+  cost: number;
+  unit: string; // e.g., 'cái', 'kg', 'hộp'
+}
+
 export type Product = {
   id: string
   name: string
   categoryId: string
-  cost: number
-  stock: number
+  purchaseLots: PurchaseLot[]
 }
 
 export type Customer = {
@@ -26,7 +32,7 @@ export type SaleItem = {
 }
 
 export type Sale = {
-  id: string
+  id:string
   customerId: string
   date: string
   items: SaleItem[]

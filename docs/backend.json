@@ -24,48 +24,67 @@
         "name"
       ]
     },
+    "PurchaseLot": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PurchaseLot",
+      "type": "object",
+      "description": "Represents a single batch or lot of a product purchased.",
+      "properties": {
+        "importDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date the product lot was imported."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of items in this lot."
+        },
+        "cost": {
+          "type": "number",
+          "description": "The cost per unit for this lot."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measure for the product (e.g., 'cái', 'kg', 'hộp')."
+        }
+      },
+      "required": [
+        "importDate",
+        "quantity",
+        "cost",
+        "unit"
+      ]
+    },
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a product in the inventory.",
+      "description": "Represents a product in the inventory. Stock is tracked via purchase lots.",
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique identifier for the product."
         },
-        "categoryId": {
-          "type": "string",
-          "description": "Reference to Category. (Relationship: Category 1:N Product)"
-        },
         "name": {
           "type": "string",
           "description": "Name of the product."
         },
-        "description": {
+        "categoryId": {
           "type": "string",
-          "description": "Description of the product."
+          "description": "Reference to Category. (Relationship: Category 1:N Product)"
         },
-        "cost": {
-          "type": "number",
-          "description": "Cost of the product."
-        },
-        "sellingPrice": {
-          "type": "number",
-          "description": "Selling price of the product."
-        },
-        "quantityInStock": {
-          "type": "number",
-          "description": "Quantity of the product currently in stock."
+        "purchaseLots": {
+          "type": "array",
+          "description": "An array of purchase lots, tracking each time the product was imported.",
+          "items": {
+            "$ref": "#/entities/PurchaseLot"
+          }
         }
       },
       "required": [
         "id",
-        "categoryId",
         "name",
-        "cost",
-        "sellingPrice",
-        "quantityInStock"
+        "categoryId"
       ]
     },
     "Customer": {
