@@ -94,8 +94,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center">
             <div className="grid gap-2">
               <CardTitle>Bán hàng gần đây</CardTitle>
@@ -110,7 +110,7 @@ export default function Dashboard() {
                 <TableRow>
                   <TableHead>Khách hàng</TableHead>
                   <TableHead className="text-right">Số tiền</TableHead>
-                  <TableHead className="text-right">Ngày</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Ngày</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -125,7 +125,7 @@ export default function Dashboard() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(sale.total)}</TableCell>
-                      <TableCell className="text-right">{new Date(sale.date).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-right">{new Date(sale.date).toLocaleDateString()}</TableCell>
                     </TableRow>
                    )
                 })}
