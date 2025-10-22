@@ -75,11 +75,8 @@ export function MainNav() {
           <Logo className="h-6 w-6 text-primary" />
           {state === 'expanded' && <span className="">Quản lý bán hàng</span>}
         </Link>
-        <SidebarTrigger asChild className="hidden sm:flex">
-             <Button variant="ghost" size="icon">
-                <PanelLeft />
-                <span className="sr-only">Toggle Sidebar</span>
-            </Button>
+        <SidebarTrigger className="hidden sm:flex">
+          <PanelLeft />
         </SidebarTrigger>
       </SidebarHeader>
       <SidebarContent>
