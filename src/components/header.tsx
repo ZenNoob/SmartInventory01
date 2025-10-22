@@ -25,14 +25,13 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card px-4 shadow-sm sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:rounded-lg">
-      <SidebarTrigger className="sm:hidden">
-        <PanelLeft />
-      </SidebarTrigger>
-      
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card px-4 shadow-sm sm:rounded-lg">
       <div className="flex items-center gap-4">
         <SidebarTrigger className="hidden sm:flex">
             <PanelLeft />
+        </SidebarTrigger>
+         <SidebarTrigger className="sm:hidden">
+          <PanelLeft />
         </SidebarTrigger>
         <div className="relative flex-1 md:grow-0">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
