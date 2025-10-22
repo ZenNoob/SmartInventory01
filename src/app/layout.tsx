@@ -41,10 +41,10 @@ export default function RootLayout({
               <div className="relative flex min-h-dvh">
                 <MainNav />
                 <SidebarInset />
-                <div className="relative flex h-dvh flex-1 flex-col">
+                <div className="relative flex h-dvh flex-1 flex-col p-6 gap-6">
                   <Header />
                   <div className="flex-1 overflow-auto">
-                    <main className="grid flex-1 items-start gap-6 p-6">
+                    <main className="grid flex-1 items-start">
                        {children}
                     </main>
                   </div>
