@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -72,6 +73,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<ProductStatus>('all');
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [isUpdating, startTransition] = useTransition();
   const [viewingLotsFor, setViewingLotsFor] = useState<Product | null>(null);
   
@@ -188,6 +190,18 @@ export default function ProductsPage() {
     if (categoryFilter !== 'all' && product.categoryId !== categoryFilter) {
       return false;
     }
+    
+    // Low Stock Filter
+    if (showLowStockOnly) {
+        const imported = getImportedStock(product);
+        const sold = getSoldQuantity(product.id);
+        const stock = imported - sold;
+        const lowStockThreshold = settings?.lowStockThreshold ?? 0;
+        if (stock > lowStockThreshold) {
+            return false;
+        }
+    }
+
 
     // Search Term Filter
     if (searchTerm) {
@@ -286,6 +300,13 @@ export default function ProductsPage() {
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={showLowStockOnly}
+                  onCheckedChange={setShowLowStockOnly}
+                >
+                  Chỉ hiển thị sản phẩm dưới ngưỡng tồn
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8 gap-1">
