@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PT_Sans } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
-import { SidebarProvider } from '@/components/ui/sidebar'
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { MainNav } from '@/components/main-nav'
 import { Header } from '@/components/header'
 import { Toaster } from '@/components/ui/toaster'
@@ -38,12 +38,14 @@ export default function RootLayout({
           <GlobalError>
             <SidebarProvider>
               <MainNav />
-              <div className="flex flex-col sm:gap-4 sm:py-4">
-                <Header />
-                <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                  {children}
-                </main>
-              </div>
+              <SidebarInset>
+                <div className="flex flex-col sm:gap-4 sm:py-4 h-full">
+                  <Header />
+                  <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+                    {children}
+                  </main>
+                </div>
+              </SidebarInset>
             </SidebarProvider>
           </GlobalError>
         </FirebaseClientProvider>
