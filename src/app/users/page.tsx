@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
-import { collection, query } from "firebase/firestore"
+import { collection, query, where } from "firebase/firestore"
 import { AppUser } from "@/lib/types"
 import { UserForm } from "./components/user-form"
 import { useState } from "react"
@@ -52,23 +52,40 @@ function getRoleVietnamese(role: string) {
 }
 
 export default function UsersPage() {
-  const { role } = useUserRole();
+  const { role, isLoading: isRoleLoading } = useUserRole();
   const router = useRouter();
-
   const firestore = useFirestore();
+
   const usersQuery = useMemoFirebase(() => {
       if (!firestore) return null;
       return query(collection(firestore, "users"))
     }, [firestore]
   );
   
-  const { data: users, isLoading } = useCollection<AppUser>(usersQuery);
+  const adminsQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return query(collection(firestore, "users"), where("role", "==", "admin"))
+    }, [firestore]
+  );
+
+  const { data: users, isLoading: isUsersLoading } = useCollection<AppUser>(usersQuery);
+  const { data: admins, isLoading: isAdminLoading } = useCollection<AppUser>(adminsQuery);
+  
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | undefined>(undefined);
 
-  if (role && role !== 'admin') {
+  const isLoading = isUsersLoading || isAdminLoading || isRoleLoading;
+  
+  // Allow access if the user is an admin OR if there are no admins in the system yet.
+  const canAccess = role === 'admin' || (!isLoading && admins?.length === 0);
+
+  if (!isLoading && !canAccess) {
     router.push('/dashboard');
-    return null;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div>Đang chuyển hướng...</div>
+      </div>
+    );
   }
   
   const handleAddUser = () => {
@@ -104,6 +121,11 @@ export default function UsersPage() {
           <CardTitle>Người dùng</CardTitle>
           <CardDescription>
             Danh sách tất cả người dùng trong hệ thống của bạn.
+            {admins?.length === 0 && !isLoading && (
+               <p className="text-destructive text-sm mt-2">
+                 Chưa có quản trị viên nào. Hãy thêm một người dùng có vai trò 'Quản trị viên'.
+               </p>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

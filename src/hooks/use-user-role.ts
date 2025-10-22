@@ -5,7 +5,7 @@ import { doc } from "firebase/firestore";
 import { AppUser } from "@/lib/types";
 
 export function useUserRole() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   
   const userDocRef = useMemoFirebase(() => {
@@ -13,7 +13,9 @@ export function useUserRole() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
-  const { data: userProfile } = useDoc<AppUser>(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  return { role: userProfile?.role };
+  const isLoading = isUserLoading || isProfileLoading;
+
+  return { role: userProfile?.role, isLoading };
 }
