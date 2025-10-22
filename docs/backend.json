@@ -1,0 +1,409 @@
+{
+  "entities": {
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a category of products.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the category."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the category."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product in the inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to Category. (Relationship: Category 1:N Product)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the product."
+        },
+        "cost": {
+          "type": "number",
+          "description": "Cost of the product."
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "Selling price of the product."
+        },
+        "quantityInStock": {
+          "type": "number",
+          "description": "Quantity of the product currently in stock."
+        }
+      },
+      "required": [
+        "id",
+        "categoryId",
+        "name",
+        "cost",
+        "sellingPrice",
+        "quantityInStock"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the customer."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the customer."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the customer."
+        },
+        "creditLimit": {
+          "type": "number",
+          "description": "Credit limit for the customer."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SalesTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SalesTransaction",
+      "type": "object",
+      "description": "Represents a sales transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sales transaction."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N SalesTransaction)"
+        },
+        "transactionDate": {
+          "type": "string",
+          "description": "Date of the sales transaction.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the sales transaction."
+        },
+        "discount": {
+          "type": "number",
+          "description": "Discount applied to the sales transaction."
+        }
+      },
+      "required": [
+        "id",
+        "customerId",
+        "transactionDate",
+        "totalAmount"
+      ]
+    },
+    "SalesItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SalesItem",
+      "type": "object",
+      "description": "Represents an item in a sales transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sales item."
+        },
+        "salesTransactionId": {
+          "type": "string",
+          "description": "Reference to SalesTransaction. (Relationship: SalesTransaction 1:N SalesItem)"
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:N SalesItem)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the product sold."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product at the time of sale."
+        }
+      },
+      "required": [
+        "id",
+        "salesTransactionId",
+        "productId",
+        "quantity",
+        "price"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made by a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N Payment)"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "Date of the payment.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the payment."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the payment."
+        }
+      },
+      "required": [
+        "id",
+        "customerId",
+        "paymentDate",
+        "amount"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., admin, accountant, inventory manager)."
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "role"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores product categories. Requires admin or inventory manager role to create, update, or delete.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "Unique identifier for the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores product information. Requires admin or inventory manager role to create, update, or delete.",
+          "params": [
+            {
+              "name": "productId",
+              "description": "Unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores customer information. Accessible to accountants and admins.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "Unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sales_transactions/{salesTransactionId}",
+        "definition": {
+          "entityName": "SalesTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/SalesTransaction"
+          },
+          "description": "Stores sales transaction data. Accessible to accountants and admins.",
+          "params": [
+            {
+              "name": "salesTransactionId",
+              "description": "Unique identifier for the sales transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sales_transactions/{salesTransactionId}/sales_items/{salesItemId}",
+        "definition": {
+          "entityName": "SalesItem",
+          "schema": {
+            "$ref": "#/backend/entities/SalesItem"
+          },
+          "description": "Stores individual items within a sales transaction. Accessible to accountants and admins.",
+          "params": [
+            {
+              "name": "salesTransactionId",
+              "description": "Unique identifier for the sales transaction."
+            },
+            {
+              "name": "salesItemId",
+              "description": "Unique identifier for the sales item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information. Accessible to accountants and admins.",
+          "params": [
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user role information.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Documents in this collection denote users with admin roles.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_accountant/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Documents in this collection denote users with accountant roles.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_inventory_manager/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Documents in this collection denote users with inventory manager roles.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage categories, products, customers, sales transactions, sales items, and payments while ensuring secure role-based access for employees (inventory managers, accountants, and admins). The structure leverages denormalization and structural segregation to support atomic operations and simplified security rules.\n\n*   **Authorization Independence:** The structure avoids chained `get()` calls in security rules by denormalizing authorization data where needed. User roles, stored in `/users/{userId}`, are used to determine access to different collections. Role existence is preferred over content checks for simplicity and security.\n*   **Structural Segregation:** Data with different security requirements are stored in separate collections. For instance, products and categories are accessible with the appropriate role.\n*   **Access Modeling:** Path-based ownership is used for user-specific data (e.g., `/users/{userId}`). Membership maps are not explicitly required given the limited collaboration requirements described in the user story, however, for more complex authorization requirements, this can be adapted.\n*   **QAPs:** The structure is designed to support secure `list` operations by segregating data based on access levels and using role-based authorization. For instance, listing products requires an inventory manager or admin role.\n*   **Invariants:** The structure supports data integrity by enforcing ownership and using server timestamps where applicable (though not explicitly defined in the schema, timestamp fields should be added where valuable). Denormalized data (e.g., user roles) are managed to ensure consistency.\n\nEach main entity is stored in its top-level collection, while relationships are maintained via ID references. This structure enables efficient querying and data retrieval while simplifying security rules and minimizing the risk of privilege escalation."
+  }
+}
