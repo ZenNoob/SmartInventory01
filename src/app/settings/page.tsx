@@ -28,6 +28,7 @@ import { useDoc, useFirestore, useMemoFirebase } from '@/firebase'
 import { doc } from 'firebase/firestore'
 import { upsertThemeSettings } from './actions'
 import type { ThemeSettings } from '@/lib/types'
+import { hexToHsl, hslToHex } from '@/lib/utils'
 
 const themeFormSchema = z.object({
   primary: z.string().min(1, "Bắt buộc"),
@@ -52,24 +53,29 @@ export default function SettingsPage() {
   const form = useForm<ThemeFormValues>({
     resolver: zodResolver(themeFormSchema),
     defaultValues: {
-      primary: '24 95% 53%',
-      background: '220 17% 95%',
-      accent: '24 95% 53%',
+      primary: '#ff6600',
+      background: '#f2f5f9',
+      accent: '#ff6600',
     },
   });
   
   useEffect(() => {
     if (themeSettings) {
       form.reset({
-        primary: themeSettings.primary,
-        background: themeSettings.background,
-        accent: themeSettings.accent,
+        primary: hslToHex(themeSettings.primary),
+        background: hslToHex(themeSettings.background),
+        accent: hslToHex(themeSettings.accent),
       });
     }
   }, [themeSettings, form]);
 
   const onSubmit = async (data: ThemeFormValues) => {
-    const result = await upsertThemeSettings(data);
+    const hslData = {
+      primary: hexToHsl(data.primary),
+      background: hexToHsl(data.background),
+      accent: hexToHsl(data.accent),
+    };
+    const result = await upsertThemeSettings(hslData);
     if (result.success) {
       toast({
         title: "Thành công!",
@@ -85,6 +91,26 @@ export default function SettingsPage() {
     }
   };
 
+  const ColorField = ({ name, label }: { name: keyof ThemeFormValues, label: string }) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <div className="flex items-center gap-4">
+            <FormControl>
+              <Input type="color" {...field} className="w-16 h-10 p-1" />
+            </FormControl>
+            <span className="text-sm text-muted-foreground font-mono">{hexToHsl(field.value)}</span>
+          </div>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -92,52 +118,16 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Giao diện</CardTitle>
             <CardDescription>
-              Tùy chỉnh màu sắc của ứng dụng. Cung cấp giá trị HSL (ví dụ: `24 95% 53%`).
+              Tùy chỉnh màu sắc của ứng dụng bằng cách chọn màu bên dưới.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
              {isLoading && <p>Đang tải cài đặt...</p>}
             {!isLoading && (
               <>
-                <FormField
-                  control={form.control}
-                  name="primary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Màu chủ đạo (Primary)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ví dụ: 24 95% 53%" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="background"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Màu nền (Background)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ví dụ: 220 17% 95%" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="accent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Màu nhấn (Accent/Hover)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ví dụ: 24 95% 53%" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <ColorField name="primary" label="Màu chủ đạo (Primary)" />
+                <ColorField name="background" label="Màu nền (Background)" />
+                <ColorField name="accent" label="Màu nhấn (Accent/Hover)" />
               </>
             )}
           </CardContent>
