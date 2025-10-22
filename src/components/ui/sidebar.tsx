@@ -319,15 +319,11 @@ const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
-  const { isMobile, state } = useSidebar();
-  
   return (
     <main
       ref={ref}
       className={cn(
-        "relative flex min-h-svh flex-1 flex-col bg-background transition-all",
-        !isMobile && state === 'collapsed' && 'md:pl-[--sidebar-width-icon]',
-        !isMobile && state === 'expanded' && 'md:pl-[--sidebar-width]',
+        "relative flex min-h-svh flex-1 flex-col bg-background transition-all w-full",
         className
       )}
       {...props}
