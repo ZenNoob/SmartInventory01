@@ -25,6 +25,7 @@ import Link from 'next/link'
 import { Logo } from './icons'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@/firebase'
+import { SidebarTrigger } from './ui/sidebar'
 
 export function Header() {
   const pathname = usePathname()
@@ -85,6 +86,7 @@ export function Header() {
           </nav>
         </SheetContent>
       </Sheet>
+      <SidebarTrigger className="hidden sm:flex" />
       <div className="relative ml-auto flex-1 md:grow-0">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
