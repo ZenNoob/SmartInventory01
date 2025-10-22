@@ -66,7 +66,7 @@ export function MainNav() {
           <Logo className="h-6 w-6 text-primary" />
           {state === 'expanded' && <span className="">Quản lý bán hàng</span>}
         </Link>
-        <SidebarTrigger className="hidden sm:flex">
+        <SidebarTrigger>
           <PanelLeft />
         </SidebarTrigger>
       </SidebarHeader>
@@ -82,7 +82,7 @@ export function MainNav() {
                   isActive={isActive('/dashboard')}
                   tooltip="Bảng điều khiển"
                 >
-                  <Link href="/dashboard">
+                  <Link href="/dashboard" className="flex items-center gap-2">
                     <Home />
                     <span>Bảng điều khiển</span>
                   </Link>
@@ -94,7 +94,7 @@ export function MainNav() {
                   isActive={isActive('/categories')}
                   tooltip="Danh mục"
                 >
-                  <Link href="/categories">
+                  <Link href="/categories" className="flex items-center gap-2">
                     <Folder />
                     <span>Danh mục</span>
                   </Link>
@@ -106,7 +106,7 @@ export function MainNav() {
                   isActive={isActive('/products')}
                   tooltip="Sản phẩm"
                 >
-                  <Link href="/products">
+                  <Link href="/products" className="flex items-center gap-2">
                     <Package />
                     <span>Sản phẩm</span>
                   </Link>
@@ -118,7 +118,7 @@ export function MainNav() {
                   isActive={isActive('/sales')}
                   tooltip="Bán hàng"
                 >
-                  <Link href="/sales">
+                  <Link href="/sales" className="flex items-center gap-2">
                     <ShoppingCart />
                     <span>Bán hàng</span>
                   </Link>
@@ -130,7 +130,7 @@ export function MainNav() {
                   isActive={isActive('/customers')}
                   tooltip="Khách hàng"
                 >
-                  <Link href="/customers">
+                  <Link href="/customers" className="flex items-center gap-2">
                     <Users />
                     <span>Khách hàng</span>
                   </Link>
@@ -142,7 +142,7 @@ export function MainNav() {
                   isActive={isActive('/reports')}
                   tooltip="Báo cáo"
                 >
-                  <Link href="/reports">
+                  <Link href="/reports" className="flex items-center gap-2">
                     <LineChart />
                     <span>Báo cáo</span>
                   </Link>
@@ -155,7 +155,7 @@ export function MainNav() {
                     isActive={isActive('/users')}
                     tooltip="Quản lý người dùng"
                   >
-                    <Link href="/users">
+                    <Link href="/users" className="flex items-center gap-2">
                       <Users2 />
                       <span>Quản lý người dùng</span>
                     </Link>
@@ -172,7 +172,7 @@ export function MainNav() {
                   isActive={isActive('/settings')}
                   tooltip="Cài đặt"
                 >
-                  <Link href="/settings">
+                  <Link href="/settings" className="flex items-center gap-2">
                     <Settings />
                     <span>Cài đặt</span>
                   </Link>

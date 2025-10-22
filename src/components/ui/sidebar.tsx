@@ -450,14 +450,22 @@ const SidebarMenuButton = React.forwardRef<
     const { isMobile, state } = useSidebar()
 
     const buttonContent = (
-        <div className="contents" data-sidebar="button-content">
-            {React.Children.map(children, (child) => {
-                if(React.isValidElement(child) && child.type === 'span' && state === 'collapsed' && !isMobile) {
-                    return null;
-                }
-                return child;
-            })}
-        </div>
+      <div
+        data-sidebar="button-content"
+        className={cn('contents whitespace-nowrap')}
+      >
+        {React.Children.map(children, (child) => {
+          if (
+            React.isValidElement(child) &&
+            child.type === "span" &&
+            state === "collapsed" &&
+            !isMobile
+          ) {
+            return null
+          }
+          return child
+        })}
+      </div>
     )
 
     const button = (
