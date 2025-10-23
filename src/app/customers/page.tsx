@@ -9,6 +9,8 @@ import {
   PlusCircle,
   Search,
   ChevronDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 
 import {
@@ -69,6 +71,7 @@ import { ImportCustomers } from "./components/import-customers"
 
 type CustomerTypeFilter = 'all' | 'personal' | 'business';
 type GenderFilter = 'all' | 'male' | 'female' | 'other';
+type SortKey = 'name' | 'status' | 'debt' | 'customerType' | 'customerGroup' | 'gender';
 
 
 export default function CustomersPage() {
@@ -83,6 +86,8 @@ export default function CustomersPage() {
   const [viewingPaymentsFor, setViewingPaymentsFor] = useState<Customer | null>(null);
   const [isUpdating, startTransition] = useTransition();
   const [isExporting, startExportingTransition] = useTransition();
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
 
   const firestore = useFirestore();
@@ -219,6 +224,69 @@ export default function CustomersPage() {
       }
     });
   }
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedCustomers = useMemo(() => {
+    let sortableItems = [...(filteredCustomers || [])];
+    if (sortKey) {
+      sortableItems.sort((a, b) => {
+        let valA: string | number | undefined, valB: string | number | undefined;
+
+        switch (sortKey) {
+          case 'name':
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+            break;
+          case 'status':
+            valA = a.status;
+            valB = b.status;
+            break;
+          case 'debt':
+            valA = customerDebts.get(a.id)?.debt || 0;
+            valB = customerDebts.get(b.id)?.debt || 0;
+            break;
+          case 'customerType':
+            valA = a.customerType;
+            valB = b.customerType;
+            break;
+          case 'customerGroup':
+            valA = a.customerGroup?.toLowerCase() || '';
+            valB = b.customerGroup?.toLowerCase() || '';
+            break;
+          case 'gender':
+            valA = a.gender || '';
+            valB = b.gender || '';
+            break;
+          default:
+            return 0;
+        }
+        
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredCustomers, sortKey, sortDirection, customerDebts]);
+
+  const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode; className?: string; }) => (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
+        {children}
+        {sortKey === key && (
+          sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />
+        )}
+      </Button>
+    </TableHead>
+  );
 
 
   const isLoading = customersLoading || salesLoading || paymentsLoading;
@@ -369,12 +437,12 @@ export default function CustomersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16 hidden md:table-cell">STT</TableHead>
-                <TableHead>Tên</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead>Công nợ (Trả/Nợ)</TableHead>
-                <TableHead className="hidden md:table-cell">Loại</TableHead>
-                <TableHead className="hidden md:table-cell">Nhóm</TableHead>
-                <TableHead className="hidden md:table-cell">Giới tính</TableHead>
+                <SortableHeader sortKey="name">Tên</SortableHeader>
+                <SortableHeader sortKey="status">Trạng thái</SortableHeader>
+                <SortableHeader sortKey="debt">Công nợ (Trả/Nợ)</SortableHeader>
+                <SortableHeader sortKey="customerType" className="hidden md:table-cell">Loại</SortableHeader>
+                <SortableHeader sortKey="customerGroup" className="hidden md:table-cell">Nhóm</SortableHeader>
+                <SortableHeader sortKey="gender" className="hidden md:table-cell">Giới tính</SortableHeader>
                 <TableHead className="hidden lg:table-cell">Email</TableHead>
                 <TableHead className="hidden lg:table-cell">Điện thoại</TableHead>
                 <TableHead>
@@ -384,7 +452,7 @@ export default function CustomersPage() {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={10} className="text-center h-24">Đang tải...</TableCell></TableRow>}
-              {!isLoading && filteredCustomers?.map((customer, index) => {
+              {!isLoading && sortedCustomers?.map((customer, index) => {
                 const debtInfo = customerDebts.get(customer.id);
                 const hasDebt = debtInfo && debtInfo.debt > 0;
                 return (
@@ -468,7 +536,7 @@ export default function CustomersPage() {
                     </TableCell>
                   </TableRow>
                 )})}
-                {!isLoading && filteredCustomers?.length === 0 && (
+                {!isLoading && sortedCustomers?.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={10} className="text-center h-24">
                             Không tìm thấy khách hàng nào.
@@ -480,7 +548,7 @@ export default function CustomersPage() {
         </CardContent>
          <CardFooter>
           <div className="text-xs text-muted-foreground">
-            Hiển thị <strong>{filteredCustomers?.length || 0}</strong> trên <strong>{customers?.length || 0}</strong> khách hàng
+            Hiển thị <strong>{sortedCustomers?.length || 0}</strong> trên <strong>{customers?.length || 0}</strong> khách hàng
           </div>
         </CardFooter>
       </Card>
