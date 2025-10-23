@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback } from "react"
+import { useState, useTransition, useMemo, useCallback, useEffect } from "react"
 import {
   File,
   ListFilter,
@@ -81,7 +81,6 @@ import { updateProductStatus, deleteProduct, generateProductTemplate } from "./a
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { ImportProducts } from "./components/import-products"
-import React, { useEffect } from 'react'
 
 
 type ProductStatus = 'active' | 'draft' | 'archived' | 'all';
@@ -332,7 +331,7 @@ export default function ProductsPage() {
       const { stock } = getStockInfo(product);
       if (showLowStockOnly) {
         const lowStockThreshold = product.lowStockThreshold ?? settings?.lowStockThreshold ?? 0;
-        if (stock <= lowStockThreshold) return false;
+        if (stock > lowStockThreshold) return false;
       }
 
       if (searchTerm) {
@@ -436,24 +435,27 @@ export default function ProductsPage() {
                 <TableHead>Ngày nhập</TableHead>
                 <TableHead className="text-right">Số lượng</TableHead>
                 <TableHead>Đơn vị</TableHead>
-                <TableHead className="text-right">Giá / ĐV cơ sở</TableHead>
+                <TableHead className="text-right">Giá nhập</TableHead>
+                <TableHead>Đơn vị giá</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {viewingLotsFor?.purchaseLots && viewingLotsFor.purchaseLots.length > 0 ? (
                 viewingLotsFor.purchaseLots.map((lot, index) => {
-                  const unit = unitsMap.get(lot.unitId);
+                  const lotUnitInfo = getUnitInfo(lot.unitId);
+                  const costBaseUnit = lotUnitInfo.baseUnit || unitsMap.get(lot.unitId);
                   return (
                   <TableRow key={index}>
                     <TableCell>{new Date(lot.importDate).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">{lot.quantity}</TableCell>
-                    <TableCell>{unit?.name}</TableCell>
+                    <TableCell>{lotUnitInfo.name}</TableCell>
                     <TableCell className="text-right">{formatCurrency(lot.cost)}</TableCell>
+                    <TableCell>{costBaseUnit?.name}</TableCell>
                   </TableRow>
                 )})
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24">
+                  <TableCell colSpan={5} className="text-center h-24">
                     Không có dữ liệu nhập hàng cho sản phẩm này.
                   </TableCell>
                 </TableRow>
