@@ -462,17 +462,7 @@ const SidebarMenuButton = React.forwardRef<
         className={cn(sidebarMenuButtonVariants({ variant, size }), state === 'collapsed' && 'justify-center', className)}
         {...props}
       >
-        {React.Children.map(children, (child) => {
-          if (
-            React.isValidElement(child) &&
-            child.type === "span" &&
-            state === "collapsed" &&
-            !isMobile
-          ) {
-            return null
-          }
-          return child
-        })}
+        {children}
       </Comp>
     )
 

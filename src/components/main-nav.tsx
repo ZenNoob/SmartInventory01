@@ -78,7 +78,7 @@ export function MainNav() {
                 >
                   <Link href="/dashboard">
                     <Home />
-                    <span>Bảng điều khiển</span>
+                    {state === 'expanded' && <span>Bảng điều khiển</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -90,7 +90,7 @@ export function MainNav() {
                 >
                   <Link href="/categories">
                     <Folder />
-                    <span>Danh mục</span>
+                    {state === 'expanded' && <span>Danh mục</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -102,7 +102,7 @@ export function MainNav() {
                 >
                   <Link href="/units">
                     <Scale />
-                    <span>Đơn vị tính</span>
+                    {state === 'expanded' && <span>Đơn vị tính</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -114,7 +114,7 @@ export function MainNav() {
                 >
                   <Link href="/products">
                     <Package />
-                    <span>Sản phẩm</span>
+                    {state === 'expanded' && <span>Sản phẩm</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -126,7 +126,7 @@ export function MainNav() {
                 >
                   <Link href="/sales">
                     <ShoppingCart />
-                    <span>Bán hàng</span>
+                    {state === 'expanded' && <span>Bán hàng</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -138,7 +138,7 @@ export function MainNav() {
                 >
                   <Link href="/customers">
                     <Users />
-                    <span>Khách hàng</span>
+                    {state === 'expanded' && <span>Khách hàng</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -150,7 +150,7 @@ export function MainNav() {
                 >
                   <Link href="/reports">
                     <LineChart />
-                    <span>Báo cáo</span>
+                    {state === 'expanded' && <span>Báo cáo</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -163,7 +163,7 @@ export function MainNav() {
                   >
                     <Link href="/users">
                       <Users2 />
-                      <span>Quản lý người dùng</span>
+                      {state === 'expanded' && <span>Quản lý người dùng</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -180,7 +180,7 @@ export function MainNav() {
                 >
                   <Link href="/settings">
                     <Settings />
-                    <span>Cài đặt</span>
+                    {state === 'expanded' && <span>Cài đặt</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
