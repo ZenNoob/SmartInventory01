@@ -4,6 +4,7 @@ import { Customer } from "@/lib/types";
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp as initializeAdminApp, getApps as getAdminApps, getApp as getAdminApp, cert } from 'firebase-admin/app';
 import { getFirestore,FieldValue } from "firebase-admin/firestore";
+import * as xlsx from 'xlsx';
 
 function getServiceAccount() {
   const serviceAccountB64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
@@ -88,5 +89,78 @@ export async function updateCustomerStatus(customerId: string, status: 'active' 
   } catch (error: any) {
     console.error("Error updating customer status:", error);
     return { success: false, error: error.message || 'Không thể cập nhật trạng thái khách hàng.' };
+  }
+}
+
+export async function generateCustomerTemplate(): Promise<{ success: boolean; error?: string; data?: string }> {
+  try {
+    const headers = [
+      "name", "customerType", "phone", "email", "address", 
+      "customerGroup", "gender", "birthday", "zalo", "creditLimit"
+    ];
+    const ws = xlsx.utils.aoa_to_sheet([headers]);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, "Customers");
+    const buffer = xlsx.write(wb, { bookType: 'xlsx', type: 'buffer' });
+    
+    return { success: true, data: buffer.toString('base64') };
+  } catch (error: any) {
+    console.error("Error generating customer template:", error);
+    return { success: false, error: 'Không thể tạo file mẫu.' };
+  }
+}
+
+export async function importCustomers(base64Data: string): Promise<{ success: boolean; error?: string; createdCount?: number }> {
+  try {
+    const { firestore } = await getAdminServices();
+    const buffer = Buffer.from(base64Data, 'base64');
+    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const customersData = xlsx.utils.sheet_to_json(worksheet) as any[];
+
+    if (customersData.length === 0) {
+      return { success: false, error: "File không có dữ liệu." };
+    }
+
+    const batch = firestore.batch();
+    let createdCount = 0;
+
+    customersData.forEach(row => {
+      const name = row.name;
+      // Basic validation
+      if (!name) {
+        // We can add more complex validation later
+        console.warn("Skipping row due to missing name:", row);
+        return;
+      }
+      
+      const newCustomerRef = firestore.collection('customers').doc();
+      const newCustomer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'> & { createdAt: any, updatedAt: any } = {
+        name: row.name,
+        customerType: row.customerType === 'business' ? 'business' : 'personal',
+        status: 'active',
+        phone: row.phone?.toString() || undefined,
+        email: row.email || undefined,
+        address: row.address || undefined,
+        customerGroup: row.customerGroup || undefined,
+        gender: ['male', 'female', 'other'].includes(row.gender) ? row.gender : undefined,
+        birthday: row.birthday ? new Date(row.birthday).toISOString() : undefined,
+        zalo: row.zalo?.toString() || undefined,
+        creditLimit: !isNaN(parseFloat(row.creditLimit)) ? parseFloat(row.creditLimit) : 0,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      
+      batch.set(newCustomerRef, { ...newCustomer, id: newCustomerRef.id });
+      createdCount++;
+    });
+
+    await batch.commit();
+
+    return { success: true, createdCount };
+  } catch (error: any) {
+    console.error("Error importing customers:", error);
+    return { success: false, error: error.message || 'Không thể nhập file khách hàng.' };
   }
 }

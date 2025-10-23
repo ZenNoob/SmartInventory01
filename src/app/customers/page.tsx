@@ -60,11 +60,12 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import { Customer, Payment, Sale } from "@/lib/types"
 import { CustomerForm } from "./components/customer-form"
-import { deleteCustomer, updateCustomerStatus } from "./actions"
+import { deleteCustomer, updateCustomerStatus, generateCustomerTemplate } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { formatCurrency } from "@/lib/utils"
+import { ImportCustomers } from "./components/import-customers"
 
 type CustomerTypeFilter = 'all' | 'personal' | 'business';
 type GenderFilter = 'all' | 'male' | 'female' | 'other';
@@ -81,6 +82,7 @@ export default function CustomersPage() {
   const [groupFilter, setGroupFilter] = useState("");
   const [viewingPaymentsFor, setViewingPaymentsFor] = useState<Customer | null>(null);
   const [isUpdating, startTransition] = useTransition();
+  const [isExporting, startExportingTransition] = useTransition();
 
 
   const firestore = useFirestore();
@@ -201,6 +203,23 @@ export default function CustomersPage() {
     return debtMap;
   }, [customers, sales, payments]);
 
+  const handleExportTemplate = () => {
+    startExportingTransition(async () => {
+      const result = await generateCustomerTemplate();
+      if (result.success && result.data) {
+        const link = document.createElement("a");
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.data}`;
+        link.download = "customer_template.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: "Thành công", description: "Đã tải xuống file mẫu." });
+      } else {
+        toast({ variant: "destructive", title: "Lỗi", description: result.error });
+      }
+    });
+  }
+
 
   const isLoading = customersLoading || salesLoading || paymentsLoading;
   
@@ -305,12 +324,13 @@ export default function CustomersPage() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          <Button size="sm" variant="outline" className="h-8 gap-1">
+          <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportTemplate} disabled={isExporting}>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Xuất
+              {isExporting ? 'Đang xuất...' : 'Xuất Template'}
             </span>
           </Button>
+          <ImportCustomers />
           <Button size="sm" className="h-8 gap-1" onClick={handleAddCustomer}>
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
