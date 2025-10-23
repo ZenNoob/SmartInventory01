@@ -33,6 +33,7 @@ export type Customer = {
   phone?: string;
   address?: string;
   customerType: 'personal' | 'business';
+  customerGroup?: string;
   gender?: 'male' | 'female' | 'other';
   birthday?: string; // ISO 8601 date string
   zalo?: string;

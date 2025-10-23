@@ -46,6 +46,7 @@ const customerFormSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   customerType: z.enum(['personal', 'business']),
+  customerGroup: z.string().optional(),
   gender: z.enum(['male', 'female', 'other']).optional(),
   birthday: z.date().optional(),
   zalo: z.string().optional(),
@@ -71,6 +72,7 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
         phone: customer.phone || '',
         address: customer.address || '',
         customerType: customer.customerType,
+        customerGroup: customer.customerGroup || '',
         gender: customer.gender,
         birthday: customer.birthday ? new Date(customer.birthday) : undefined,
         zalo: customer.zalo || '',
@@ -97,6 +99,7 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             phone: customer.phone || '',
             address: customer.address || '',
             customerType: customer.customerType,
+            customerGroup: customer.customerGroup || '',
             gender: customer.gender,
             birthday: customer.birthday ? new Date(customer.birthday) : undefined,
             zalo: customer.zalo || '',
@@ -108,6 +111,7 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             phone: '',
             address: '',
             customerType: 'personal',
+            customerGroup: '',
             gender: undefined,
             birthday: undefined,
             zalo: '',
@@ -188,14 +192,14 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
                             </FormItem>
                         )}
                     />
-                    <FormField
+                     <FormField
                         control={form.control}
-                        name="creditLimit"
+                        name="customerGroup"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Hạn mức tín dụng</FormLabel>
+                            <FormLabel>Nhóm khách hàng</FormLabel>
                             <FormControl>
-                                <Input type="number" {...field} />
+                                <Input placeholder="Vd: VIP, Thân thiết" {...field} />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -321,6 +325,19 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
                         )}
                     />
                  </div>
+                 <FormField
+                        control={form.control}
+                        name="creditLimit"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Hạn mức tín dụng</FormLabel>
+                            <FormControl>
+                                <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
             </div>
 
             <DialogFooter className="pt-4 border-t">

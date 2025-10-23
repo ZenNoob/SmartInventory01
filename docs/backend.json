@@ -159,6 +159,10 @@
             "business"
           ]
         },
+        "customerGroup": {
+          "type": "string",
+          "description": "Group of the customer."
+        },
         "email": {
           "type": "string",
           "format": "email",
