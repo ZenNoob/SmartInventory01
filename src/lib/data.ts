@@ -1,5 +1,7 @@
 import type { Product, Category, Customer, Sale, Payment } from '@/lib/types'
 
+// This file contains mock data. It will be removed in a future step.
+
 export const categories: Category[] = [
   { id: 'cat-1', name: 'Electronics' },
   { id: 'cat-2', name: 'Clothing' },
@@ -16,13 +18,6 @@ export const products: Product[] = [
   { id: 'prod-6', name: '4K Monitor', categoryId: 'cat-1', purchaseLots: [], status: 'active' },
   { id: 'prod-7', name: 'Jeans', categoryId: 'cat-2', purchaseLots: [], status: 'active' },
   { id: 'prod-8', name: 'Milk (1 Gallon)', categoryId: 'cat-3', purchaseLots: [], status: 'active' },
-]
-
-export const customers: Customer[] = [
-  { id: 'cust-1', name: 'Alice Johnson', email: 'alice@example.com', creditLimit: 5000 },
-  { id: 'cust-2', name: 'Bob Williams', email: 'bob@example.com', creditLimit: 2000 },
-  { id: 'cust-3', name: 'Charlie Brown', email: 'charlie@example.com', creditLimit: 10000 },
-  { id: 'cust-4', name: 'Diana Miller', email: 'diana@example.com', creditLimit: 1500, isAgent: true },
 ]
 
 export const sales: Sale[] = [
@@ -51,11 +46,11 @@ export const payments: Payment[] = [
   { id: 'pay-7', customerId: 'cust-2', date: '2024-05-01', amount: 1200 },
 ]
 
-export const getCustomerDebt = (customerId: string) => {
-  const totalSales = sales
+export const getCustomerDebt = (customerId: string, salesData: Sale[], paymentsData: Payment[]) => {
+  const totalSales = salesData
     .filter(s => s.customerId === customerId)
     .reduce((acc, sale) => acc + sale.total, 0)
-  const totalPayments = payments
+  const totalPayments = paymentsData
     .filter(p => p.customerId === customerId)
     .reduce((acc, payment) => acc + payment.amount, 0)
   return totalSales - totalPayments

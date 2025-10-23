@@ -150,11 +150,55 @@
         "creditLimit": {
           "type": "number",
           "description": "Credit limit for the customer."
+        },
+        "customerType": {
+          "type": "string",
+          "description": "Type of customer.",
+          "enum": [
+            "personal",
+            "business"
+          ]
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email of the customer."
+        },
+        "zalo": {
+          "type": "string",
+          "description": "Zalo account of the customer."
+        },
+        "gender": {
+          "type": "string",
+          "description": "Gender of the customer.",
+          "enum": [
+            "male",
+            "female",
+            "other"
+          ]
+        },
+        "birthday": {
+          "type": "string",
+          "format": "date",
+          "description": "Birthday of the customer."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation date of the customer record."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update date of the customer record."
         }
       },
       "required": [
         "id",
-        "name"
+        "name",
+        "customerType",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "SalesTransaction": {

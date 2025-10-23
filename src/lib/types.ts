@@ -27,11 +27,18 @@ export type Product = {
 }
 
 export type Customer = {
-  id: string
-  name: string
-  email: string
-  creditLimit: number
-  isAgent?: boolean
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  customerType: 'personal' | 'business';
+  gender?: 'male' | 'female' | 'other';
+  birthday?: string; // ISO 8601 date string
+  zalo?: string;
+  creditLimit: number;
+  createdAt: string; // ISO 8601 date string
+  updatedAt: string; // ISO 8601 date string
 }
 
 export type SaleItem = {

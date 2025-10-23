@@ -33,13 +33,37 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { sales, getCustomerDebt, customers } from "@/lib/data"
+import { sales, payments } from "@/lib/data"
 import { formatCurrency } from "@/lib/utils"
+import { getAdminServices } from "../customers/actions"
+import { Customer, Sale, Payment } from "@/lib/types"
 
-export default function Dashboard() {
+async function getDashboardData() {
+    const { firestore } = await getAdminServices();
+
+    const customersSnapshot = await firestore.collection('customers').get();
+    const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
+
+    const salesSnapshot = await firestore.collection('sales_transactions').get();
+    const sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+
+    const paymentsSnapshot = await firestore.collection('payments').get();
+    const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
+    
+    return { customers, sales, payments };
+}
+
+
+export default async function Dashboard() {
+  const { customers, sales, payments } = await getDashboardData();
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0)
   const totalSales = sales.length
-  const totalCustomerDebt = customers.reduce((acc, customer) => acc + getCustomerDebt(customer.id), 0)
+  
+  const totalCustomerDebt = customers.reduce((acc, customer) => {
+      const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + s.total, 0);
+      const customerPayments = payments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
+      return acc + (customerSales - customerPayments);
+  }, 0);
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { ChevronLeft, PlusCircle, CreditCard, Bot } from "lucide-react"
+import { ChevronLeft, PlusCircle, CreditCard, Bot, Phone, Mail, MapPin, Cake, User, Building } from "lucide-react"
 
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -24,17 +24,44 @@ import {
 import { customers, getCustomerDebt, payments, sales } from "@/lib/data"
 import { formatCurrency } from "@/lib/utils"
 import { PredictRiskForm } from "./components/predict-risk-form"
+import { useDoc, useFirestore, useMemoFirebase } from "@/firebase"
+import { Customer, Payment, Sale } from "@/lib/types"
+import { doc, collection, query, where, getDocs } from "firebase/firestore"
+import { getAdminServices } from "../actions"
 
-export default function CustomerDetailPage({ params }: { params: { id: string } }) {
-  const customer = customers.find(c => c.id === params.id)
+async function getCustomerData(customerId: string) {
+    const { firestore } = await getAdminServices();
+    
+    const customerDoc = await firestore.collection('customers').doc(customerId).get();
+    if (!customerDoc.exists) {
+        return { customer: null, sales: [], payments: [] };
+    }
+    const customer = { id: customerDoc.id, ...customerDoc.data() } as Customer;
+
+    const salesSnapshot = await firestore.collection('sales_transactions').where('customerId', '==', customerId).get();
+    const sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+
+    const paymentsSnapshot = await firestore.collection('payments').where('customerId', '==', customerId).get();
+    const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
+    
+    return { customer, sales, payments };
+}
+
+
+export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
+  const { customer, sales, payments } = await getCustomerData(params.id);
 
   if (!customer) {
     notFound()
   }
 
-  const totalDebt = getCustomerDebt(customer.id)
-  const customerPayments = payments.filter(p => p.customerId === customer.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const customerSales = sales.filter(s => s.customerId === customer.id);
+  const totalSales = sales.reduce((acc, sale) => acc + sale.total, 0);
+  const totalPayments = payments.reduce((acc, payment) => acc + payment.amount, 0);
+  const totalDebt = totalSales - totalPayments;
+  
+  const customerSales = sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const customerPayments = payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
 
   return (
     <div className="grid gap-4 md:gap-8">
@@ -48,11 +75,13 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
         <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
           {customer.name}
         </h1>
-        {customer.isAgent && <Badge variant="secondary">Đại lý</Badge>}
+        <Badge variant={customer.customerType === 'business' ? 'default' : 'secondary'}>
+          {customer.customerType === 'business' ? 'Doanh nghiệp' : 'Cá nhân'}
+        </Badge>
         <div className="hidden items-center gap-2 md:ml-auto md:flex">
-          <Button variant="outline" size="sm">
+          {/* <Button variant="outline" size="sm">
             Sửa
-          </Button>
+          </Button> */}
           <Button size="sm">Ghi lại thanh toán</Button>
         </div>
       </div>
@@ -75,35 +104,37 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             </Button>
           </CardFooter>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Liên hệ</CardDescription>
-            <CardTitle className="text-lg">{customer.name}</CardTitle>
-            <div className="text-sm text-muted-foreground">{customer.email}</div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Thông tin khách hàng</CardTitle>
+            <CardDescription>
+                Chi tiết liên hệ và thông tin cá nhân.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs text-muted-foreground">
-              Khách hàng từ {new Date(customerSales[0]?.date || Date.now()).getFullYear()}
+          <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span>{customer.email || 'Chưa có'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span>{customer.phone || 'Chưa có'}</span>
+            </div>
+            <div className="flex items-center gap-2 col-span-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span>{customer.address || 'Chưa có'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Cake className="h-4 w-4 text-muted-foreground" />
+              <span>{customer.birthday ? new Date(customer.birthday).toLocaleDateString() : 'Chưa có'}</span>
+            </div>
+             <div className="flex items-center gap-2">
+               <User className="h-4 w-4 text-muted-foreground" />
+              <span className="capitalize">{customer.gender === 'male' ? 'Nam' : customer.gender === 'female' ? 'Nữ' : 'Khác'}</span>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Dự đoán rủi ro nợ</CardDescription>
-              <Bot className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <CardTitle className="text-lg">Đánh giá rủi ro trả nợ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground mb-4">
-                Sử dụng AI để phân tích lịch sử thanh toán và dự đoán rủi ro vỡ nợ.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <PredictRiskForm customer={customer} />
-          </CardFooter>
-        </Card>
+        
       </div>
       <Card>
         <CardHeader>
@@ -123,14 +154,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               {customerPayments.length > 0 ? (
                 customerPayments.map(payment => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{payment.id}</TableCell>
+                    <TableCell className="font-medium">{payment.id.slice(-6).toUpperCase()}</TableCell>
                     <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center">Không tìm thấy thanh toán nào.</TableCell>
+                  <TableCell colSpan={3} className="text-center h-24">Không tìm thấy thanh toán nào.</TableCell>
                 </TableRow>
               )}
             </TableBody>

@@ -13,16 +13,17 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { getDebtRiskPrediction } from '@/app/actions'
-import { sales, payments, getCustomerDebt } from '@/lib/data'
-import type { Customer } from '@/lib/types'
+import type { Customer, Sale, Payment } from '@/lib/types'
 import { type PredictDebtRiskOutput } from '@/ai/flows/predict-debt-risk'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface PredictRiskFormProps {
   customer: Customer;
+  sales: Sale[];
+  payments: Payment[];
 }
 
-export function PredictRiskForm({ customer }: PredictRiskFormProps) {
+export function PredictRiskForm({ customer, sales, payments }: PredictRiskFormProps) {
   const [open, setOpen] = useState(false)
   const [prediction, setPrediction] = useState<PredictDebtRiskOutput | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -33,15 +34,16 @@ export function PredictRiskForm({ customer }: PredictRiskFormProps) {
     setError(null)
     setPrediction(null)
 
-    const customerPayments = payments.filter(p => p.customerId === customer.id);
-    const customerSales = sales.filter(s => s.customerId === customer.id);
+    const totalSales = sales.reduce((acc, sale) => acc + sale.total, 0);
+    const totalPayments = payments.reduce((acc, payment) => acc + payment.amount, 0);
+    const outstandingBalance = totalSales - totalPayments;
     
     const result = await getDebtRiskPrediction({
       customerName: customer.name,
-      paymentHistory: JSON.stringify(customerPayments),
+      paymentHistory: JSON.stringify(payments),
       creditLimit: customer.creditLimit,
-      outstandingBalance: getCustomerDebt(customer.id),
-      recentPurchases: JSON.stringify(customerSales.slice(-5)),
+      outstandingBalance: outstandingBalance,
+      recentPurchases: JSON.stringify(sales.slice(-5)),
     })
 
     if (result.success && result.data) {
