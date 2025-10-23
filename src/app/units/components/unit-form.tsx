@@ -174,7 +174,6 @@ export function UnitForm({ isOpen, onOpenChange, unit, allUnits }: UnitFormProps
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Không có</SelectItem>
                         {availableBaseUnits.map(u => (
                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                         ))}
