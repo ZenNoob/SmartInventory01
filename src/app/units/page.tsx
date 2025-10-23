@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   MoreHorizontal,
   PlusCircle,
@@ -49,6 +49,7 @@ import { deleteUnit } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 
 export default function UnitsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -68,11 +69,21 @@ export default function UnitsPage() {
 
   const { data: units, isLoading } = useCollection<Unit>(unitsQuery);
 
+  const unitsMap = useMemo(() => {
+    if (!units) return new Map<string, string>();
+    return units.reduce((map, unit) => {
+      map.set(unit.id, unit.name);
+      return map;
+    }, new Map<string, string>());
+  }, [units]);
+
   const filteredUnits = units?.filter(unit => {
     const term = searchTerm.toLowerCase();
+    const baseUnitName = unit.baseUnitId ? unitsMap.get(unit.baseUnitId)?.toLowerCase() : '';
     return (
       unit.name.toLowerCase().includes(term) ||
-      (unit.description && unit.description.toLowerCase().includes(term))
+      (unit.description && unit.description.toLowerCase().includes(term)) ||
+      (baseUnitName && baseUnitName.includes(term))
     );
   })
 
@@ -113,6 +124,7 @@ export default function UnitsPage() {
         isOpen={isFormOpen}
         onOpenChange={setIsFormOpen}
         unit={selectedUnit}
+        allUnits={units || []}
       />
       <AlertDialog open={!!unitToDelete} onOpenChange={(open) => !open && setUnitToDelete(null)}>
         <AlertDialogContent>
@@ -154,7 +166,7 @@ export default function UnitsPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder="Tìm kiếm theo tên hoặc mô tả..."
+                    placeholder="Tìm kiếm theo tên, mô tả, đơn vị cơ sở..."
                     className="w-full rounded-lg bg-background pl-8 md:w-1/3"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -167,14 +179,15 @@ export default function UnitsPage() {
               <TableRow>
                 <TableHead className="w-16">STT</TableHead>
                 <TableHead>Tên</TableHead>
-                <TableHead className="hidden md:table-cell">Mô tả</TableHead>
+                <TableHead>Mô tả</TableHead>
+                <TableHead>Quy đổi</TableHead>
                 <TableHead>
                   <span className="sr-only">Hành động</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={4} className="text-center">Đang tải...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Đang tải...</TableCell></TableRow>}
               {!isLoading && filteredUnits?.map((unit, index) => (
                   <TableRow key={unit.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
@@ -183,6 +196,13 @@ export default function UnitsPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {unit.description}
+                    </TableCell>
+                    <TableCell>
+                      {unit.baseUnitId && unit.conversionFactor && (
+                        <Badge variant="secondary">
+                          1 {unit.name} = {unit.conversionFactor} {unitsMap.get(unit.baseUnitId)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -207,7 +227,7 @@ export default function UnitsPage() {
                 ))}
                 {!isLoading && filteredUnits?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={4} className="text-center h-24">
+                        <TableCell colSpan={5} className="text-center h-24">
                             Không tìm thấy đơn vị tính nào. Hãy thử một từ khóa tìm kiếm khác hoặc thêm một đơn vị mới.
                         </TableCell>
                     </TableRow>

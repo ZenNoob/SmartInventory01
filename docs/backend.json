@@ -28,7 +28,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Unit",
       "type": "object",
-      "description": "Represents a unit of measure for products.",
+      "description": "Represents a unit of measure for products, with optional conversion to a base unit.",
       "properties": {
         "id": {
           "type": "string",
@@ -41,6 +41,14 @@
         "description": {
           "type": "string",
           "description": "Description of the unit."
+        },
+        "baseUnitId": {
+          "type": "string",
+          "description": "Reference to the base unit for conversion (e.g., 'kg' is the base for 'bao')."
+        },
+        "conversionFactor": {
+          "type": "number",
+          "description": "The factor to convert this unit to its base unit (e.g., 40, if 1 'bao' = 40 'kg')."
         }
       },
       "required": [

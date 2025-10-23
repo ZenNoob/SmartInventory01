@@ -8,6 +8,8 @@ export type Unit = {
   id: string
   name: string
   description?: string
+  baseUnitId?: string;
+  conversionFactor?: number;
 }
 
 export type PurchaseLot = {

@@ -16,21 +16,32 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Unit } from '@/lib/types'
 import { upsertUnit } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
+import { Separator } from '@/components/ui/separator'
 
 const unitFormSchema = z.object({
   name: z.string().min(1, "Tên đơn vị tính không được để trống."),
   description: z.string().optional(),
+  baseUnitId: z.string().optional(),
+  conversionFactor: z.coerce.number().optional(),
 });
 
 type UnitFormValues = z.infer<typeof unitFormSchema>;
@@ -39,29 +50,53 @@ interface UnitFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   unit?: Unit;
+  allUnits: Unit[];
 }
 
-export function UnitForm({ isOpen, onOpenChange, unit }: UnitFormProps) {
+export function UnitForm({ isOpen, onOpenChange, unit, allUnits }: UnitFormProps) {
   const { toast } = useToast();
   const router = useRouter();
 
   const form = useForm<UnitFormValues>({
     resolver: zodResolver(unitFormSchema),
-    defaultValues: unit ? { name: unit.name, description: unit.description || '' } : { name: '', description: '' },
+    defaultValues: {
+      name: '',
+      description: '',
+      baseUnitId: '',
+      conversionFactor: 1
+    },
   });
+  
+  const baseUnitIdValue = form.watch('baseUnitId');
 
   useEffect(() => {
     if (isOpen) {
       form.reset(
         unit 
-        ? { name: unit.name, description: unit.description || '' } 
-        : { name: '', description: '' }
+        ? { 
+            name: unit.name, 
+            description: unit.description || '',
+            baseUnitId: unit.baseUnitId || '',
+            conversionFactor: unit.conversionFactor || 1,
+          } 
+        : { 
+            name: '', 
+            description: '',
+            baseUnitId: '',
+            conversionFactor: 1,
+          }
       );
     }
   }, [unit, isOpen, form]);
 
   const onSubmit = async (data: UnitFormValues) => {
-    const result = await upsertUnit({ ...data, id: unit?.id });
+    const dataToSubmit = {
+      ...data,
+      id: unit?.id,
+      // Ensure conversionFactor is only sent if baseUnitId exists
+      conversionFactor: data.baseUnitId ? data.conversionFactor : undefined,
+    }
+    const result = await upsertUnit(dataToSubmit);
     if (result.success) {
       toast({
         title: "Thành công!",
@@ -77,6 +112,8 @@ export function UnitForm({ isOpen, onOpenChange, unit }: UnitFormProps) {
       });
     }
   };
+  
+  const availableBaseUnits = allUnits.filter(u => u.id !== unit?.id);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -115,6 +152,60 @@ export function UnitForm({ isOpen, onOpenChange, unit }: UnitFormProps) {
                 </FormItem>
               )}
             />
+
+            <Separator />
+            
+            <div>
+              <h3 className="text-md font-medium">Quy đổi đơn vị (Không bắt buộc)</h3>
+              <p className="text-sm text-muted-foreground">Sử dụng nếu đây là đơn vị tính chẵn (VD: Thùng, Hộp) cần quy đổi ra đơn vị cơ sở (VD: Cái).</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="baseUnitId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Đơn vị cơ sở</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn đơn vị cơ sở" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Không có</SelectItem>
+                        {availableBaseUnits.map(u => (
+                           <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Đơn vị nhỏ nhất để quy đổi.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {baseUnitIdValue && (
+                  <FormField
+                    control={form.control}
+                    name="conversionFactor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hệ số quy đổi</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ví dụ: 24" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                            1 {form.getValues('name') || 'đơn vị này'} = ? đơn vị cơ sở
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              )}
+            </div>
+
+
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
