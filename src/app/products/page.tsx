@@ -245,7 +245,7 @@ export default function ProductsPage() {
 
 
   const getStockInfo = useCallback((product: Product) => {
-    if (!product.unitId) return { stock: 0, imported: 0, sold: 0, stockInBaseUnit: 0, importedInBaseUnit: 0, baseUnit: undefined, mainUnit: undefined };
+    if (!product.unitId) return { stock: 0, sold: 0, stockInBaseUnit: 0, importedInBaseUnit: 0, baseUnit: undefined, mainUnit: undefined };
 
     const { name: mainUnitName, baseUnit: mainBaseUnit, conversionFactor: mainConversionFactor } = getUnitInfo(product.unitId);
     const mainUnit = unitsMap.get(product.unitId);
@@ -361,7 +361,7 @@ export default function ProductsPage() {
         categories={categories || []}
         units={units || []}
       />
-       <Dialog open={!!viewingLotsFor} onOpenChange={(open) => !open && setViewingLotsFor(null)}>
+      <Dialog open={!!viewingLotsFor} onOpenChange={(open) => !open && setViewingLotsFor(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Lịch sử nhập hàng cho: {viewingLotsFor?.name}</DialogTitle>
@@ -400,7 +400,7 @@ export default function ProductsPage() {
             </TableBody>
           </Table>
         </DialogContent>
-      </AlertDialog>
+      </Dialog>
       <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
