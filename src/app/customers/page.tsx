@@ -176,6 +176,7 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">STT</TableHead>
                 <TableHead>Tên</TableHead>
                 <TableHead>Loại</TableHead>
                 <TableHead className="hidden md:table-cell">Email</TableHead>
@@ -187,9 +188,10 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center h-24">Đang tải...</TableCell></TableRow>}
-              {!isLoading && filteredCustomers?.map((customer) => (
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Đang tải...</TableCell></TableRow>}
+              {!isLoading && filteredCustomers?.map((customer, index) => (
                   <TableRow key={customer.id}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/customers/${customer.id}`} className="hover:underline">
                         {customer.name}
@@ -231,7 +233,7 @@ export default function CustomersPage() {
                 ))}
                 {!isLoading && filteredCustomers?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
+                        <TableCell colSpan={7} className="text-center h-24">
                             Không tìm thấy khách hàng nào.
                         </TableCell>
                     </TableRow>
