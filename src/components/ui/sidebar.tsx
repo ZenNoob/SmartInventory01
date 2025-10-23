@@ -456,7 +456,7 @@ const SidebarMenuButton = React.forwardRef<
     const buttonContent = (
       <div
         data-sidebar="button-content"
-        className={cn('contents whitespace-nowrap')}
+        className={cn('flex items-center gap-2 whitespace-nowrap')}
       >
         {React.Children.map(children, (child) => {
           if (
