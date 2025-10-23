@@ -105,6 +105,10 @@
           "type": "string",
           "description": "Reference to Category. (Relationship: Category 1:N Product)"
         },
+        "unitName": {
+          "type": "string",
+          "description": "The primary unit of measure for this product (e.g., 'Bao', 'Cái'). This cannot be changed after the first purchase."
+        },
         "purchaseLots": {
           "type": "array",
           "description": "An array of purchase lots, tracking each time the product was imported.",
@@ -123,13 +127,14 @@
         },
         "lowStockThreshold": {
           "type": "number",
-          "description": "Product-specific low stock threshold. If not set, the global setting is used."
+          "description": "Product-specific low stock threshold, measured in the product's primary unit (unitName). If not set, the global setting is used."
         }
       },
       "required": [
         "id",
         "name",
         "categoryId",
+        "unitName",
         "status"
       ]
     },

@@ -185,88 +185,86 @@ export default function ProductsPage() {
 
   const isLoading = productsLoading || categoriesLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
   
-  const convertToBaseUnit = useCallback((quantity: number, unitName: string): { quantity: number, baseUnit?: Unit } => {
+  const getUnitInfo = useCallback((unitName: string) => {
     const unit = unitsByName.get(unitName);
-    if (!unit) return { quantity, baseUnit: undefined };
-
+    if (!unit) return { baseUnit: undefined, conversionFactor: 1 };
+    
     if (unit.baseUnitId && unit.conversionFactor) {
       const baseUnit = unitsMap.get(unit.baseUnitId);
-      if (baseUnit) {
-        // Recursively convert to the ultimate base unit
-        const result = convertToBaseUnit(quantity * unit.conversionFactor, baseUnit.name);
-        return { quantity: result.quantity, baseUnit: result.baseUnit || baseUnit };
-      }
+      return { baseUnit, conversionFactor: unit.conversionFactor };
     }
-    return { quantity, baseUnit: unit };
+    
+    return { baseUnit: unit, conversionFactor: 1 };
   }, [unitsMap, unitsByName]);
 
+
   const getStockInfo = useCallback((product: Product) => {
-    let totalImportedInBase = 0;
-    let baseUnit: Unit | undefined = undefined;
+    if (!product.unitName) return { stock: 0, imported: 0, sold: 0, stockInBaseUnit: 0, baseUnit: undefined };
 
-    product.purchaseLots?.forEach(lot => {
-      const { quantity, baseUnit: lotBaseUnit } = convertToBaseUnit(lot.quantity, lot.unit);
-      totalImportedInBase += quantity;
-      if (lotBaseUnit && !baseUnit) {
-        baseUnit = lotBaseUnit;
-      }
-    });
+    const { baseUnit: mainBaseUnit, conversionFactor: mainConversionFactor } = getUnitInfo(product.unitName);
+    
+    const totalImported = product.purchaseLots?.reduce((acc, lot) => acc + lot.quantity, 0) || 0;
 
-    const totalSold = allSalesItems
+    const totalImportedInBaseUnit = totalImported * mainConversionFactor;
+
+    const totalSoldInBaseUnit = allSalesItems
       .filter(item => item.productId === product.id)
-      .reduce((acc, item) => acc + item.quantity, 0);
+      .reduce((acc, item) => {
+         // Assuming sales are always in base unit, which needs to be enforced elsewhere.
+         // For now, we assume item.quantity is in base units.
+         return acc + item.quantity;
+      }, 0);
 
-    const stock = totalImportedInBase - totalSold;
-    return { stock, baseUnit, imported: totalImportedInBase, sold: totalSold };
-  }, [allSalesItems, convertToBaseUnit]);
+    const stockInBaseUnit = totalImportedInBaseUnit - totalSoldInBaseUnit;
+    
+    const stockInMainUnit = stockInBaseUnit / mainConversionFactor;
+
+    return { stock: stockInMainUnit, imported: totalImported, sold: totalSoldInBaseUnit, stockInBaseUnit, baseUnit: mainBaseUnit || unitsByName.get(product.unitName) };
+  }, [allSalesItems, getUnitInfo, unitsByName]);
 
  const getAverageCost = (product: Product) => {
-    if (!product.purchaseLots || product.purchaseLots.length === 0) return { avgCost: 0, baseUnit: undefined};
+    if (!product.purchaseLots || product.purchaseLots.length === 0 || !product.unitName) return { avgCost: 0, baseUnit: undefined};
+
+    const { baseUnit, conversionFactor } = getUnitInfo(product.unitName);
     
     let totalCost = 0;
-    let totalQuantityInBase = 0;
-    let baseUnit: Unit | undefined = undefined;
+    let totalQuantityInMainUnit = 0;
 
     product.purchaseLots.forEach(lot => {
-        const { quantity: quantityInBase, baseUnit: lotBaseUnit } = convertToBaseUnit(lot.quantity, lot.unit);
-        if(lotBaseUnit && !baseUnit) {
-            baseUnit = lotBaseUnit;
-        }
-        // Cost is per base unit, so we multiply by the quantity in base unit
-        totalCost += lot.cost * quantityInBase;
-        totalQuantityInBase += quantityInBase;
+        // Cost is per base unit, quantity is per main unit.
+        // We need total cost and total quantity in base units to get avg cost per base unit.
+        const quantityInBaseUnit = lot.quantity * conversionFactor;
+        totalCost += lot.cost * quantityInBaseUnit;
+        totalQuantityInMainUnit += lot.quantity;
     });
-
-    if (totalQuantityInBase === 0) return { avgCost: 0, baseUnit: baseUnit };
     
-    return { avgCost: totalCost / totalQuantityInBase, baseUnit: baseUnit };
+    const totalQuantityInBaseUnit = totalQuantityInMainUnit * conversionFactor;
+
+    if (totalQuantityInBaseUnit === 0) return { avgCost: 0, baseUnit: baseUnit };
+    
+    return { avgCost: totalCost / totalQuantityInBaseUnit, baseUnit: baseUnit };
   }
   
-  const formatStockDisplay = (stock: number, baseUnit?: Unit): string => {
-    if (!baseUnit) return stock.toString();
+  const formatStockDisplay = (stock: number, unitName?: string, baseUnit?: Unit): string => {
+    if (!unitName) return stock.toString();
 
-    // Find all units that use this base unit
-    const derivedUnits = (units || [])
-      .filter(u => u.baseUnitId === baseUnit.id && u.conversionFactor)
-      .sort((a, b) => (b.conversionFactor || 0) - (a.conversionFactor || 0));
+    const mainUnit = unitsByName.get(unitName);
+    if (!mainUnit) return `${stock} ${unitName}`;
 
-    let remainingStock = stock;
-    const displayParts: string[] = [];
+    // If it's a derived unit
+    if (mainUnit.baseUnitId && mainUnit.conversionFactor && baseUnit) {
+      const stockInBaseUnits = stock * mainUnit.conversionFactor;
+      const wholePart = Math.floor(stock);
+      const fractionalPartInBase = stockInBaseUnits % mainUnit.conversionFactor;
 
-    for (const derivedUnit of derivedUnits) {
-      const factor = derivedUnit.conversionFactor!;
-      if (remainingStock >= factor) {
-        const count = Math.floor(remainingStock / factor);
-        displayParts.push(`${count} ${derivedUnit.name}`);
-        remainingStock %= factor;
+      if (fractionalPartInBase > 0.01) {
+         return `${wholePart} ${unitName}, ${fractionalPartInBase.toFixed(1).replace(/\.0$/, '')} ${baseUnit.name}`;
       }
+      return `${wholePart} ${unitName}`;
     }
-
-    if (remainingStock > 0 || displayParts.length === 0) {
-      displayParts.push(`${remainingStock.toFixed(2).replace(/\.00$/, '')} ${baseUnit.name}`);
-    }
-
-    return displayParts.join(', ');
+    
+    // If it's a base unit
+    return `${stock.toFixed(2).replace(/\.00$/, '')} ${unitName}`;
   };
 
 
@@ -290,7 +288,6 @@ export default function ProductsPage() {
             return false;
         }
     }
-
 
     // Search Term Filter
     if (searchTerm) {
@@ -456,7 +453,7 @@ export default function ProductsPage() {
                   {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Đang tải...</TableCell></TableRow>}
                   {!isLoading && filteredProducts?.map((product, index) => {
                     const category = categories?.find(c => c.id === product.categoryId);
-                    const { stock, baseUnit, imported, sold } = getStockInfo(product);
+                    const { stock, imported, sold, baseUnit } = getStockInfo(product);
                     const { avgCost, baseUnit: costBaseUnit } = getAverageCost(product);
                     const lowStockThreshold = product.lowStockThreshold ?? settings?.lowStockThreshold ?? 0;
 
@@ -472,7 +469,7 @@ export default function ProductsPage() {
                                     <AlertTriangle className="h-4 w-4 text-destructive" />
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Tồn kho dưới ngưỡng ({lowStockThreshold})</p>
+                                    <p>Tồn kho dưới ngưỡng ({lowStockThreshold} {product.unitName})</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
@@ -493,10 +490,10 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                             <button className="underline cursor-pointer" onClick={() => setViewingLotsFor(product)}>
-                              {sold.toLocaleString()} {baseUnit?.name || ''} / {imported.toLocaleString()} {baseUnit?.name || ''}
+                              {sold.toLocaleString()} {baseUnit?.name || ''} / {imported.toLocaleString()} {product.unitName || ''}
                             </button>
                         </TableCell>
-                        <TableCell className="font-medium">{formatStockDisplay(stock, baseUnit)}</TableCell>
+                        <TableCell className="font-medium">{formatStockDisplay(stock, product.unitName, baseUnit)}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

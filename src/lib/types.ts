@@ -23,6 +23,7 @@ export type Product = {
   id: string
   name: string
   categoryId: string
+  unitName: string;
   purchaseLots: PurchaseLot[]
   status: 'active' | 'draft' | 'archived'
   lowStockThreshold?: number;
