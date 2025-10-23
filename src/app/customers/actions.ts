@@ -75,3 +75,18 @@ export async function deleteCustomer(customerId: string): Promise<{ success: boo
       return { success: false, error: error.message || 'Không thể xóa khách hàng.' };
   }
 }
+
+
+export async function updateCustomerStatus(customerId: string, status: 'active' | 'inactive'): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { firestore } = await getAdminServices();
+    await firestore.collection('customers').doc(customerId).update({ 
+      status,
+      updatedAt: FieldValue.serverTimestamp() 
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating customer status:", error);
+    return { success: false, error: error.message || 'Không thể cập nhật trạng thái khách hàng.' };
+  }
+}

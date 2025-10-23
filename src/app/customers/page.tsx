@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition } from "react"
 import Link from "next/link"
 import {
   File,
@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
+  ChevronDown,
 } from "lucide-react"
 
 import {
@@ -59,7 +60,7 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import { Customer, Payment, Sale } from "@/lib/types"
 import { CustomerForm } from "./components/customer-form"
-import { deleteCustomer } from "./actions"
+import { deleteCustomer, updateCustomerStatus } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
@@ -79,6 +80,7 @@ export default function CustomersPage() {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
   const [groupFilter, setGroupFilter] = useState("");
   const [viewingPaymentsFor, setViewingPaymentsFor] = useState<Customer | null>(null);
+  const [isUpdating, startTransition] = useTransition();
 
 
   const firestore = useFirestore();
@@ -143,6 +145,25 @@ export default function CustomersPage() {
   const handleEditCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setIsFormOpen(true);
+  }
+
+  const handleStatusChange = (customerId: string, status: Customer['status']) => {
+    startTransition(async () => {
+      const result = await updateCustomerStatus(customerId, status);
+      if (result.success) {
+        toast({
+          title: "Thành công!",
+          description: "Trạng thái khách hàng đã được cập nhật.",
+        });
+        router.refresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Ôi! Đã có lỗi xảy ra.",
+          description: result.error,
+        });
+      }
+    });
   }
 
   const handleDelete = async () => {
@@ -327,15 +348,15 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-16">STT</TableHead>
+                <TableHead className="w-16 hidden md:table-cell">STT</TableHead>
                 <TableHead>Tên</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Công nợ (Trả/Nợ)</TableHead>
-                <TableHead>Loại</TableHead>
-                <TableHead>Nhóm</TableHead>
-                <TableHead>Giới tính</TableHead>
-                <TableHead className="hidden md:table-cell">Email</TableHead>
-                <TableHead className="hidden md:table-cell">Điện thoại</TableHead>
+                <TableHead className="hidden md:table-cell">Loại</TableHead>
+                <TableHead className="hidden md:table-cell">Nhóm</TableHead>
+                <TableHead className="hidden md:table-cell">Giới tính</TableHead>
+                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                <TableHead className="hidden lg:table-cell">Điện thoại</TableHead>
                 <TableHead>
                   <span className="sr-only">Hành động</span>
                 </TableHead>
@@ -348,16 +369,37 @@ export default function CustomersPage() {
                 const hasDebt = debtInfo && debtInfo.debt > 0;
                 return (
                   <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
+                    <TableCell className="font-medium hidden md:table-cell">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/customers/${customer.id}`} className="hover:underline">
                         {customer.name}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
-                        {customer.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
-                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-1 h-auto" disabled={isUpdating}>
+                            <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
+                              {customer.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </Badge>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(customer.id, 'active')}
+                            disabled={customer.status === 'active' || isUpdating}
+                          >
+                            Hoạt động
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(customer.id, 'inactive')}
+                            disabled={customer.status === 'inactive' || isUpdating}
+                          >
+                            Không hoạt động
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                      <TableCell>
                       {debtInfo ? (
@@ -369,17 +411,17 @@ export default function CustomersPage() {
                         <span>Đang tính...</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant="outline">{customer.customerType === 'personal' ? 'Cá nhân' : 'Doanh nghiệp'}</Badge>
                     </TableCell>
-                     <TableCell>
+                     <TableCell className="hidden md:table-cell">
                       {customer.customerGroup}
                     </TableCell>
-                     <TableCell className="capitalize">
+                     <TableCell className="capitalize hidden md:table-cell">
                       {customer.gender === 'male' ? 'Nam' : customer.gender === 'female' ? 'Nữ' : customer.gender === 'other' ? 'Khác' : ''}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden lg:table-cell">{customer.email}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {customer.phone}
                     </TableCell>
                     <TableCell>
