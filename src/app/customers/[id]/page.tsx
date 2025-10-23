@@ -55,12 +55,12 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     notFound()
   }
 
-  const totalSales = sales.reduce((acc, sale) => acc + sale.total, 0);
+  const totalSales = sales.reduce((acc, sale) => acc + sale.totalAmount, 0);
   const totalPayments = payments.reduce((acc, payment) => acc + payment.amount, 0);
   const totalDebt = totalSales - totalPayments;
   
-  const customerSales = sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const customerPayments = payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const customerSales = sales.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+  const customerPayments = payments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
 
 
   return (
@@ -155,7 +155,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 customerPayments.map(payment => (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">{payment.id.slice(-6).toUpperCase()}</TableCell>
-                    <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                   </TableRow>
                 ))

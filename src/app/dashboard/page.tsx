@@ -56,11 +56,11 @@ async function getDashboardData() {
 
 export default async function Dashboard() {
   const { customers, sales, payments } = await getDashboardData();
-  const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0)
+  const totalRevenue = sales.reduce((acc, sale) => acc + sale.totalAmount, 0)
   const totalSales = sales.length
   
   const totalCustomerDebt = customers.reduce((acc, customer) => {
-      const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + s.total, 0);
+      const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + s.totalAmount, 0);
       const customerPayments = payments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
       return acc + (customerSales - customerPayments);
   }, 0);
@@ -149,8 +149,8 @@ export default async function Dashboard() {
                           {customer?.email}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{formatCurrency(sale.total)}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-right">{new Date(sale.date).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(sale.totalAmount)}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-right">{new Date(sale.transactionDate).toLocaleDateString()}</TableCell>
                     </TableRow>
                    )
                 })}

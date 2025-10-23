@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
   File,
@@ -18,6 +18,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,12 +57,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
-import { Customer } from "@/lib/types"
+import { Customer, Payment, Sale } from "@/lib/types"
 import { CustomerForm } from "./components/customer-form"
 import { deleteCustomer } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { formatCurrency } from "@/lib/utils"
 
 type CustomerTypeFilter = 'all' | 'personal' | 'business';
 type GenderFilter = 'all' | 'male' | 'female' | 'other';
@@ -70,6 +78,7 @@ export default function CustomersPage() {
   const [customerTypeFilter, setCustomerTypeFilter] = useState<CustomerTypeFilter>("all");
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
   const [groupFilter, setGroupFilter] = useState("");
+  const [viewingPaymentsFor, setViewingPaymentsFor] = useState<Customer | null>(null);
 
 
   const firestore = useFirestore();
@@ -80,8 +89,21 @@ export default function CustomersPage() {
     if (!firestore) return null;
     return query(collection(firestore, "customers"));
   }, [firestore]);
+  
+  const salesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "sales_transactions"));
+  }, [firestore]);
 
-  const { data: customers, isLoading } = useCollection<Customer>(customersQuery);
+  const paymentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "payments"));
+  }, [firestore]);
+
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
+  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+
 
   const filteredCustomers = customers?.filter(customer => {
     // Customer Type Filter
@@ -143,6 +165,25 @@ export default function CustomersPage() {
     setIsDeleting(false);
     setCustomerToDelete(null);
   }
+  
+  const customerDebts = useMemo(() => {
+    if (!customers || !sales || !payments) return new Map();
+
+    const debtMap = new Map<string, { paid: number; debt: number; payments: Payment[] }>();
+    customers.forEach(customer => {
+        const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+        const customerPayments = payments.filter(p => p.customerId === customer.id);
+        const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
+        const totalDebt = customerSales - totalPaid;
+        debtMap.set(customer.id, { paid: totalPaid, debt: totalDebt, payments: customerPayments });
+    });
+    return debtMap;
+  }, [customers, sales, payments]);
+
+
+  const isLoading = customersLoading || salesLoading || paymentsLoading;
+  
+  const customerPayments = viewingPaymentsFor ? customerDebts.get(viewingPaymentsFor.id)?.payments || [] : [];
 
   return (
     <>
@@ -168,6 +209,44 @@ export default function CustomersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewingPaymentsFor} onOpenChange={(open) => !open && setViewingPaymentsFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lịch sử thanh toán cho: {viewingPaymentsFor?.name}</DialogTitle>
+            <DialogDescription>
+              Danh sách chi tiết tất cả các khoản thanh toán của khách hàng này.
+            </DialogDescription>
+          </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mã thanh toán</TableHead>
+                <TableHead>Ngày</TableHead>
+                <TableHead className="text-right">Số tiền</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customerPayments.length > 0 ? (
+                customerPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-medium">{payment.id.slice(-6).toUpperCase()}</TableCell>
+                    <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center h-24">
+                    Không có dữ liệu thanh toán cho khách hàng này.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="flex items-center gap-2 mb-4">
          <div className="grid gap-2">
@@ -250,6 +329,7 @@ export default function CustomersPage() {
               <TableRow>
                 <TableHead className="w-16">STT</TableHead>
                 <TableHead>Tên</TableHead>
+                <TableHead>Công nợ (Trả/Nợ)</TableHead>
                 <TableHead>Loại</TableHead>
                 <TableHead>Nhóm</TableHead>
                 <TableHead>Giới tính</TableHead>
@@ -262,14 +342,26 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={9} className="text-center h-24">Đang tải...</TableCell></TableRow>}
-              {!isLoading && filteredCustomers?.map((customer, index) => (
+              {isLoading && <TableRow><TableCell colSpan={10} className="text-center h-24">Đang tải...</TableCell></TableRow>}
+              {!isLoading && filteredCustomers?.map((customer, index) => {
+                const debtInfo = customerDebts.get(customer.id);
+                return (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/customers/${customer.id}`} className="hover:underline">
                         {customer.name}
                       </Link>
+                    </TableCell>
+                     <TableCell>
+                      {debtInfo ? (
+                        <button className="underline cursor-pointer text-left" onClick={() => setViewingPaymentsFor(customer)}>
+                           <div className="text-green-600">{formatCurrency(debtInfo.paid)}</div>
+                           <div className={debtInfo.debt > 0 ? "text-destructive" : ""}>{formatCurrency(debtInfo.debt)}</div>
+                        </button>
+                      ) : (
+                        <span>Đang tính...</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{customer.customerType === 'personal' ? 'Cá nhân' : 'Doanh nghiệp'}</Badge>
@@ -285,7 +377,7 @@ export default function CustomersPage() {
                       {customer.phone}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {new Date(customer.createdAt).toLocaleDateString()}
+                      {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : ''}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -310,10 +402,10 @@ export default function CustomersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
                 {!isLoading && filteredCustomers?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={9} className="text-center h-24">
+                        <TableCell colSpan={10} className="text-center h-24">
                             Không tìm thấy khách hàng nào.
                         </TableCell>
                     </TableRow>
