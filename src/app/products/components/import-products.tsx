@@ -80,8 +80,8 @@ export function ImportProducts() {
           <DialogTitle>Nhập sản phẩm từ file Excel</DialogTitle>
           <DialogDescription>
             Chọn file Excel (.xlsx) chứa dữ liệu sản phẩm để thêm hàng loạt.
-            Hãy chắc chắn file của bạn có các cột: `name`, `categoryId`, `unitName`, `status`, `lowStockThreshold`.
-            Giá trị `categoryId` và `unitName` phải là tên chính xác của danh mục và đơn vị đã có trong hệ thống.
+            Hãy chắc chắn file của bạn có các cột: `name`, `categoryId`, `unitId`, `status`, `lowStockThreshold`.
+            Giá trị `categoryId` phải là tên chính xác của danh mục và `unitId` phải là ID của đơn vị đã có trong hệ thống.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

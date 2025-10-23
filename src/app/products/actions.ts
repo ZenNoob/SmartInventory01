@@ -84,7 +84,7 @@ export async function deleteProduct(productId: string): Promise<{ success: boole
 export async function generateProductTemplate(): Promise<{ success: boolean; error?: string; data?: string }> {
   try {
     const headers = [
-      "name", "categoryId", "unitName", "status", "lowStockThreshold"
+      "name", "categoryId", "unitId", "status", "lowStockThreshold"
     ];
     const ws = xlsx.utils.aoa_to_sheet([headers]);
     const wb = xlsx.utils.book_new();
@@ -118,17 +118,20 @@ export async function importProducts(base64Data: string): Promise<{ success: boo
     const categoriesSnapshot = await firestore.collection('categories').get();
     const categoriesMap = new Map(categoriesSnapshot.docs.map(doc => [doc.data().name, doc.id]));
     
+    // In import, we cannot distinguish units by name, so we must use ID.
+    // For simplicity in the Excel file, we'll continue to match by name, but this has limitations.
+    // A more robust solution would be a separate import step or requiring unit IDs in the sheet.
     const unitsSnapshot = await firestore.collection('units').get();
-    const unitsMap = new Map(unitsSnapshot.docs.map(doc => [doc.data().name, doc.id]));
+    const unitsMap = new Map(unitsSnapshot.docs.map(doc => [doc.id, doc.data()]));
 
     for (const row of productsData) {
       const name = row.name;
-      const categoryName = row.categoryId;
-      const unitName = row.unitName;
+      const categoryName = row.categoryId; // This is a name, not ID from Excel
+      const unitId = row.unitId;
 
       // Basic validation
-      if (!name || !categoryName || !unitName) {
-        console.warn("Skipping row due to missing required fields (name, categoryId, unitName):", row);
+      if (!name || !categoryName || !unitId) {
+        console.warn("Skipping row due to missing required fields (name, categoryId, unitId):", row);
         continue;
       }
       
@@ -138,9 +141,8 @@ export async function importProducts(base64Data: string): Promise<{ success: boo
           continue;
       }
 
-      const unitId = unitsMap.get(unitName);
-      if (!unitId) {
-          console.warn(`Skipping row because unit "${unitName}" was not found.`);
+      if (!unitsMap.has(unitId)) {
+          console.warn(`Skipping row because unit with ID "${unitId}" was not found.`);
           continue;
       }
 
@@ -148,7 +150,7 @@ export async function importProducts(base64Data: string): Promise<{ success: boo
       const newProduct: Omit<Product, 'id'> = {
         name: row.name,
         categoryId,
-        unitName,
+        unitId,
         status: ['active', 'draft', 'archived'].includes(row.status) ? row.status : 'draft',
         lowStockThreshold: !isNaN(parseFloat(row.lowStockThreshold)) ? parseFloat(row.lowStockThreshold) : undefined,
         purchaseLots: [],

@@ -42,13 +42,13 @@ const purchaseLotSchema = z.object({
     importDate: z.string().min(1, "Ngày nhập không được để trống."),
     quantity: z.coerce.number().min(0, "Số lượng phải là số dương."),
     cost: z.coerce.number().min(0, "Giá phải là số dương."),
-    unit: z.string().min(1, "Đơn vị tính không được để trống."),
+    unitId: z.string().min(1, "Đơn vị tính không được để trống."),
 });
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Tên sản phẩm không được để trống."),
   categoryId: z.string().min(1, "Danh mục là bắt buộc."),
-  unitName: z.string().min(1, "Đơn vị tính là bắt buộc."),
+  unitId: z.string().min(1, "Đơn vị tính là bắt buộc."),
   status: z.enum(['active', 'draft', 'archived']),
   lowStockThreshold: z.coerce.number().optional(),
   purchaseLots: z.array(purchaseLotSchema).optional(),
@@ -75,14 +75,8 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
     return map;
   }, [units]);
 
-  const unitsByName = useMemo(() => {
-    const map = new Map<string, Unit>();
-    units?.forEach(u => map.set(u.name, u));
-    return map;
-  }, [units]);
-
-  const getBaseUnitInfo = (unitName: string): { baseUnit?: Unit; conversionFactor: number } => {
-    const unit = unitsByName.get(unitName);
+  const getBaseUnitInfo = (unitId: string): { baseUnit?: Unit; conversionFactor: number } => {
+    const unit = unitsMap.get(unitId);
     if (!unit) return { conversionFactor: 1 };
     
     if (unit.baseUnitId && unit.conversionFactor) {
@@ -97,7 +91,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
     ? { 
         name: product.name, 
         categoryId: product.categoryId,
-        unitName: product.unitName,
+        unitId: product.unitId,
         status: product.status,
         lowStockThreshold: product.lowStockThreshold,
         purchaseLots: product.purchaseLots.map(lot => ({
@@ -107,7 +101,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
     : { 
         name: '', 
         categoryId: '',
-        unitName: '',
+        unitId: '',
         status: 'draft',
         purchaseLots: []
       };
@@ -123,8 +117,10 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
   });
   
   const purchaseLotsValues = form.watch('purchaseLots');
-  const selectedUnitName = form.watch('unitName');
-  const selectedUnit = unitsByName.get(selectedUnitName);
+  const selectedUnitId = form.watch('unitId');
+  const selectedUnit = unitsMap.get(selectedUnitId);
+  const { baseUnit: mainProductBaseUnit } = getBaseUnitInfo(selectedUnitId);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -133,15 +129,15 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                 ? {
                     name: product.name,
                     categoryId: product.categoryId,
-                    unitName: product.unitName,
+                    unitId: product.unitId,
                     status: product.status,
                     lowStockThreshold: product.lowStockThreshold,
-                    purchaseLots: product.purchaseLots && product.purchaseLots.length > 0 ? product.purchaseLots.map(lot => ({...lot, unit: product.unitName })) : []
+                    purchaseLots: product.purchaseLots && product.purchaseLots.length > 0 ? product.purchaseLots.map(lot => ({...lot, unitId: lot.unitId })) : []
                   }
                 : {
                     name: '',
                     categoryId: '',
-                    unitName: '',
+                    unitId: '',
                     status: 'draft',
                     purchaseLots: []
                   }
@@ -154,12 +150,6 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
      const dataToSubmit = {
       ...data,
       id: product?.id,
-      purchaseLots: data.purchaseLots?.map(lot => {
-         return {
-            ...lot,
-            unit: data.unitName,
-         };
-      })
     };
 
     const result = await upsertProduct(dataToSubmit);
@@ -231,7 +221,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                 />
                  <FormField
                   control={form.control}
-                  name="unitName"
+                  name="unitId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Đơn vị tính</FormLabel>
@@ -248,7 +238,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                                 ? `${unit.name} (${unit.conversionFactor} ${baseUnit.name})` 
                                 : unit.name;
                               return (
-                                <SelectItem key={unit.id} value={unit.name}>{displayValue}</SelectItem>
+                                <SelectItem key={unit.id} value={unit.id}>{displayValue}</SelectItem>
                               )
                             })}
                         </SelectContent>
@@ -288,7 +278,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   name="lowStockThreshold"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ngưỡng tồn kho tối thiểu ({selectedUnitName || 'ĐVT'})</FormLabel>
+                      <FormLabel>Ngưỡng tồn kho tối thiểu ({selectedUnit?.name || 'ĐVT'})</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="Ví dụ: 10" {...field} value={field.value ?? ''} />
                       </FormControl>
@@ -313,8 +303,8 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unit: selectedUnitName || '' })}
-                  disabled={!selectedUnitName}
+                  onClick={() => append({ importDate: new Date().toISOString().split('T')[0], quantity: 0, cost: 0, unitId: selectedUnitId || '' })}
+                  disabled={!selectedUnitId}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Thêm đợt nhập
@@ -324,10 +314,11 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
               <div className="space-y-4">
                   {fields.map((field, index) => {
                     const lot = purchaseLotsValues?.[index];
-                    const { baseUnit, conversionFactor } = selectedUnit ? getBaseUnitInfo(selectedUnit.name) : { conversionFactor: 1 };
+                    const selectedLotUnit = lot ? unitsMap.get(lot.unitId) : undefined;
+                    const { baseUnit, conversionFactor } = selectedLotUnit ? getBaseUnitInfo(selectedLotUnit.id) : { conversionFactor: 1 };
                     const convertedQuantity = lot ? lot.quantity * conversionFactor : 0;
                     return (
-                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md relative">
+                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border rounded-md relative">
                            <FormField
                               control={form.control}
                               name={`purchaseLots.${index}.importDate`}
@@ -343,16 +334,40 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                             />
                             <FormField
                               control={form.control}
+                              name={`purchaseLots.${index}.unitId`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Đơn vị</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Chọn ĐVT" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {units.map(unit => {
+                                        const base = unit.baseUnitId ? unitsMap.get(unit.baseUnitId) : null;
+                                        const display = base ? `${unit.name} (${unit.conversionFactor} ${base.name})` : unit.name;
+                                        return <SelectItem key={unit.id} value={unit.id}>{display}</SelectItem>
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
                               name={`purchaseLots.${index}.quantity`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Số lượng (theo {selectedUnitName || 'ĐVT'})</FormLabel>
+                                  <FormLabel>Số lượng ({selectedLotUnit?.name || 'ĐVT'})</FormLabel>
                                   <FormControl>
                                     <Input type="number" {...field} />
                                   </FormControl>
-                                  {baseUnit && baseUnit.name !== selectedUnitName && (
+                                  {baseUnit && baseUnit.name !== selectedLotUnit?.name && (
                                       <FormDescription>
-                                          Tương đương: {convertedQuantity.toLocaleString()} {baseUnit.name}
+                                          ~ {convertedQuantity.toLocaleString()} {baseUnit.name}
                                       </FormDescription>
                                   )}
                                   <FormMessage />
@@ -364,7 +379,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                               name={`purchaseLots.${index}.cost`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Giá nhập (trên 1 {baseUnit?.name || selectedUnitName || 'ĐVT'})</FormLabel>
+                                  <FormLabel>Giá nhập (trên 1 {baseUnit?.name || selectedLotUnit?.name || 'ĐVT'})</FormLabel>
                                   <FormControl>
                                     <Input type="number" {...field} />
                                   </FormControl>

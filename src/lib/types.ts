@@ -16,14 +16,14 @@ export type PurchaseLot = {
   importDate: string; // ISO 8601 date string
   quantity: number;
   cost: number;
-  unit: string; // e.g., 'cái', 'kg', 'hộp'
+  unitId: string;
 }
 
 export type Product = {
   id: string
   name: string
   categoryId: string
-  unitName: string;
+  unitId: string;
   purchaseLots: PurchaseLot[]
   status: 'active' | 'draft' | 'archived'
   lowStockThreshold?: number;
