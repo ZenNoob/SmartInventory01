@@ -453,10 +453,14 @@ const SidebarMenuButton = React.forwardRef<
     const Comp = asChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
 
-    const buttonContent = (
-      <div
-        data-sidebar="button-content"
-        className={cn('flex items-center gap-2 whitespace-nowrap')}
+    const button = (
+      <Comp
+        ref={ref}
+        data-sidebar="menu-button"
+        data-size={size}
+        data-active={isActive}
+        className={cn(sidebarMenuButtonVariants({ variant, size }), state === 'collapsed' && 'justify-center', className)}
+        {...props}
       >
         {React.Children.map(children, (child) => {
           if (
@@ -469,19 +473,6 @@ const SidebarMenuButton = React.forwardRef<
           }
           return child
         })}
-      </div>
-    )
-
-    const button = (
-      <Comp
-        ref={ref}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size }), state === 'collapsed' && 'justify-center', className)}
-        {...props}
-      >
-        {buttonContent}
       </Comp>
     )
 
