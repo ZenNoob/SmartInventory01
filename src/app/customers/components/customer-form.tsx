@@ -51,6 +51,7 @@ const customerFormSchema = z.object({
   birthday: z.date().optional(),
   zalo: z.string().optional(),
   creditLimit: z.coerce.number().min(0, "Hạn mức tín dụng phải là số không âm."),
+  status: z.enum(['active', 'inactive']),
 });
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>;
@@ -77,11 +78,13 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
         birthday: customer.birthday ? new Date(customer.birthday) : undefined,
         zalo: customer.zalo || '',
         creditLimit: customer.creditLimit,
+        status: customer.status,
       }
     : { 
         name: '',
         customerType: 'personal',
         creditLimit: 0,
+        status: 'active',
       };
   
   const form = useForm<CustomerFormValues>({
@@ -104,6 +107,7 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             birthday: customer.birthday ? new Date(customer.birthday) : undefined,
             zalo: customer.zalo || '',
             creditLimit: customer.creditLimit,
+            status: customer.status,
           }
         : { 
             name: '',
@@ -116,6 +120,7 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             birthday: undefined,
             zalo: '',
             creditLimit: 0,
+            status: 'active',
           }
       );
     }
@@ -194,18 +199,39 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
                     />
                      <FormField
                         control={form.control}
-                        name="customerGroup"
+                        name="status"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Nhóm khách hàng</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Vd: VIP, Thân thiết" {...field} />
-                            </FormControl>
+                            <FormLabel>Trạng thái</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Chọn trạng thái" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="active">Đang hoạt động</SelectItem>
+                                    <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                             </FormItem>
                         )}
                     />
                 </div>
+                 <FormField
+                    control={form.control}
+                    name="customerGroup"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Nhóm khách hàng</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Vd: VIP, Thân thiết" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <FormField
                         control={form.control}

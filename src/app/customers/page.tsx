@@ -329,13 +329,13 @@ export default function CustomersPage() {
               <TableRow>
                 <TableHead className="w-16">STT</TableHead>
                 <TableHead>Tên</TableHead>
+                <TableHead>Trạng thái</TableHead>
                 <TableHead>Công nợ (Trả/Nợ)</TableHead>
                 <TableHead>Loại</TableHead>
                 <TableHead>Nhóm</TableHead>
                 <TableHead>Giới tính</TableHead>
                 <TableHead className="hidden md:table-cell">Email</TableHead>
                 <TableHead className="hidden md:table-cell">Điện thoại</TableHead>
-                <TableHead className="hidden">Ngày tạo</TableHead>
                 <TableHead>
                   <span className="sr-only">Hành động</span>
                 </TableHead>
@@ -345,6 +345,7 @@ export default function CustomersPage() {
               {isLoading && <TableRow><TableCell colSpan={10} className="text-center h-24">Đang tải...</TableCell></TableRow>}
               {!isLoading && filteredCustomers?.map((customer, index) => {
                 const debtInfo = customerDebts.get(customer.id);
+                const hasDebt = debtInfo && debtInfo.debt > 0;
                 return (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
@@ -352,6 +353,11 @@ export default function CustomersPage() {
                       <Link href={`/customers/${customer.id}`} className="hover:underline">
                         {customer.name}
                       </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
+                        {customer.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
+                      </Badge>
                     </TableCell>
                      <TableCell>
                       {debtInfo ? (
@@ -376,9 +382,6 @@ export default function CustomersPage() {
                     <TableCell className="hidden md:table-cell">
                       {customer.phone}
                     </TableCell>
-                    <TableCell className="hidden">
-                      {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : ''}
-                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -397,7 +400,7 @@ export default function CustomersPage() {
                              <Link href={`/customers/${customer.id}`}>Xem chi tiết</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEditCustomer(customer)}>Sửa</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setCustomerToDelete(customer)}>Xóa</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setCustomerToDelete(customer)} disabled={hasDebt}>Xóa</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

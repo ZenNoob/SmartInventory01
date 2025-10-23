@@ -40,6 +40,7 @@ export type Customer = {
   creditLimit: number;
   createdAt: string; // ISO 8601 date string
   updatedAt: string; // ISO 8601 date string
+  status: 'active' | 'inactive';
 }
 
 export type SaleItem = {

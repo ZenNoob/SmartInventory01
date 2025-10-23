@@ -195,6 +195,14 @@
           "type": "string",
           "format": "date-time",
           "description": "Last update date of the customer record."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the customer.",
+          "enum": [
+            "active",
+            "inactive"
+          ]
         }
       },
       "required": [
@@ -202,7 +210,8 @@
         "name",
         "customerType",
         "createdAt",
-        "updatedAt"
+        "updatedAt",
+        "status"
       ]
     },
     "SalesTransaction": {
