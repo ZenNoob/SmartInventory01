@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,6 +37,32 @@ import { useRouter } from 'next/navigation'
 import { PlusCircle, Trash2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+
+// Helper component for formatted number input
+const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; onChange: (value: number) => void; [key: string]: any }) => {
+  const [displayValue, setDisplayValue] = useState(value?.toLocaleString('en-US') || '');
+
+  useEffect(() => {
+    // Update display value when the underlying form value changes
+    setDisplayValue(value?.toLocaleString('en-US') || '');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/,/g, '');
+    const numberValue = parseInt(rawValue, 10);
+
+    if (!isNaN(numberValue)) {
+      setDisplayValue(numberValue.toLocaleString('en-US'));
+      onChange(numberValue);
+    } else if (rawValue === '') {
+      setDisplayValue('');
+      onChange(0); // Or handle as needed
+    }
+  };
+
+  return <Input type="text" value={displayValue} onChange={handleChange} {...props} />;
+};
+
 
 const purchaseLotSchema = z.object({
     importDate: z.string().min(1, "Ngày nhập không được để trống."),
@@ -381,7 +407,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                                 <FormItem>
                                   <FormLabel>Giá nhập (trên 1 {baseUnit?.name || selectedLotUnit?.name || 'ĐVT'})</FormLabel>
                                   <FormControl>
-                                    <Input type="number" {...field} />
+                                    <FormattedNumberInput {...field} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
