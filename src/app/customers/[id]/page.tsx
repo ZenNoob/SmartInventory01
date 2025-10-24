@@ -21,13 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { customers, getCustomerDebt, payments, sales } from "@/lib/data"
 import { formatCurrency } from "@/lib/utils"
 import { PredictRiskForm } from "./components/predict-risk-form"
 import { useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { Customer, Payment, Sale } from "@/lib/types"
 import { doc, collection, query, where, getDocs } from "firebase/firestore"
-import { getAdminServices } from "../actions"
+import { getAdminServices } from "@/lib/admin-actions"
 
 async function getCustomerData(customerId: string) {
     const { firestore } = await getAdminServices();

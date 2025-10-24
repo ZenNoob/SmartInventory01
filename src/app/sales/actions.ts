@@ -1,35 +1,8 @@
 'use server'
 
 import { Sale, SalesItem } from "@/lib/types";
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp as initializeAdminApp, getApps as getAdminApps, getApp as getAdminApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue, runTransaction } from "firebase-admin/firestore";
-
-function getServiceAccount() {
-  const serviceAccountB64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
-  if (!serviceAccountB64) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_B64 environment variable is not set.');
-  }
-  try {
-    const serviceAccountJson = Buffer.from(serviceAccountB64, 'base64').toString('utf-8');
-    return JSON.parse(serviceAccountJson);
-  } catch (e) {
-    console.error('Failed to parse service account JSON.', e);
-    throw new Error('Invalid service account credentials format.');
-  }
-}
-
-async function getAdminServices() {
-    if (!getAdminApps().length) {
-       const serviceAccount = getServiceAccount();
-       initializeAdminApp({
-         credential: cert(serviceAccount),
-         databaseURL: `https://${firebaseConfig.projectId}.firebaseio.com`
-       });
-    }
-    const adminApp = getAdminApp();
-    return { firestore: getFirestore(adminApp) };
-}
+import { getAdminServices } from "@/lib/admin-actions";
+import { runTransaction } from "firebase-admin/firestore";
 
 export async function upsertSaleTransaction(
   sale: Omit<Sale, 'id' | 'totalAmount' > & { totalAmount: number }, 

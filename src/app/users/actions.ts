@@ -1,41 +1,7 @@
 'use server'
 
 import { AppUser } from "@/lib/types";
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp as initializeAdminApp, getApps as getAdminApps, getApp as getAdminApp, cert } from 'firebase-admin/app';
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-
-function getServiceAccount() {
-  const serviceAccountB64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
-  if (!serviceAccountB64) {
-    console.error('FIREBASE_SERVICE_ACCOUNT_B64 environment variable is not set. This is required for admin actions.');
-    throw new Error('Server configuration error: Missing service account credentials.');
-  }
-  try {
-    // Decode the Base64 string to get the original JSON string
-    const serviceAccountJson = Buffer.from(serviceAccountB64, 'base64').toString('utf-8');
-    // Parse the decoded JSON string
-    return JSON.parse(serviceAccountJson);
-  } catch (e) {
-    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_B64 JSON.', e);
-    throw new Error('Server configuration error: Invalid service account credentials format.');
-  }
-}
-
-// This is an admin action, so we use firebase-admin
-async function getAdminServices() {
-    if (!getAdminApps().length) {
-       const serviceAccount = getServiceAccount();
-       initializeAdminApp({
-         credential: cert(serviceAccount),
-         databaseURL: `https://${firebaseConfig.projectId}.firebaseio.com`
-       });
-    }
-    const adminApp = getAdminApp();
-    return { auth: getAuth(adminApp), firestore: getFirestore(adminApp) };
-}
-
+import { getAdminServices } from "@/lib/admin-actions";
 
 export async function upsertUser(user: AppUser & { password?: string }): Promise<{ success: boolean; error?: string }> {
   try {

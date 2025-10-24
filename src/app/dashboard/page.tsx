@@ -33,9 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { sales, payments } from "@/lib/data"
 import { formatCurrency } from "@/lib/utils"
-import { getAdminServices } from "../customers/actions"
+import { getAdminServices } from "@/lib/admin-actions"
 import { Customer, Sale, Payment } from "@/lib/types"
 
 async function getDashboardData() {
