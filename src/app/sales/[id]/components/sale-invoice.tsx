@@ -8,7 +8,6 @@ import { ChevronLeft, File, Printer } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
-  Card,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +16,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
+import { Card } from "@/components/ui/card"
 import { Logo } from "@/components/icons"
 import { formatCurrency } from "@/lib/utils"
 import type { Customer, Sale, SalesItem, Product, Unit } from "@/lib/types"
