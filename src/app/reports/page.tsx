@@ -1,23 +1,214 @@
+'use client'
+
+import { useState, useMemo } from "react"
+import { Search, ArrowUp, ArrowDown } from "lucide-react"
+
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableFooter as ShadcnTableFooter
+} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
+import { collection, query } from "firebase/firestore"
+import { Customer, Sale, Payment } from "@/lib/types"
+import { formatCurrency } from "@/lib/utils"
+
+type CustomerDebtInfo = {
+  customerId: string;
+  customerName: string;
+  totalSales: number;
+  totalPayments: number;
+  finalDebt: number;
+}
+
+type SortKey = 'customerName' | 'totalSales' | 'totalPayments' | 'finalDebt';
 
 export default function ReportsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>('finalDebt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const firestore = useFirestore();
+
+  const customersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "customers"));
+  }, [firestore]);
+  
+  const salesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "sales_transactions"));
+  }, [firestore]);
+
+  const paymentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "payments"));
+  }, [firestore]);
+
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
+  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+
+  const customerDebtData = useMemo(() => {
+    if (!customers || !sales || !payments) return [];
+
+    return customers.map(customer => {
+      const customerSales = sales
+        .filter(s => s.customerId === customer.id)
+        .reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      
+      const customerPayments = payments
+        .filter(p => p.customerId === customer.id)
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const finalDebt = customerSales - customerPayments;
+
+      return {
+        customerId: customer.id,
+        customerName: customer.name,
+        totalSales: customerSales,
+        totalPayments: customerPayments,
+        finalDebt: finalDebt,
+      };
+    }).filter(data => data.totalSales > 0 || data.totalPayments > 0 || data.finalDebt !== 0);
+  }, [customers, sales, payments]);
+
+  const filteredDebtData = useMemo(() => {
+    let filtered = customerDebtData;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(data => data.customerName.toLowerCase().includes(term));
+    }
+    return filtered;
+  }, [customerDebtData, searchTerm]);
+
+  const sortedDebtData = useMemo(() => {
+    let sortableItems = [...(filteredDebtData || [])];
+    if (sortKey) {
+      sortableItems.sort((a, b) => {
+        let valA = a[sortKey];
+        let valB = b[sortKey];
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          valA = valA.toLowerCase();
+          valB = valB.toLowerCase();
+        }
+
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredDebtData, sortKey, sortDirection]);
+  
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode; className?: string }) => (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
+        {children}
+        {sortKey === key && (
+          sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />
+        )}
+      </Button>
+    </TableHead>
+  );
+
+  const isLoading = customersLoading || salesLoading || paymentsLoading;
+  
+  const totalRow = useMemo(() => {
+    return {
+      totalSales: sortedDebtData.reduce((acc, curr) => acc + curr.totalSales, 0),
+      totalPayments: sortedDebtData.reduce((acc, curr) => acc + curr.totalPayments, 0),
+      finalDebt: sortedDebtData.reduce((acc, curr) => acc + curr.finalDebt, 0),
+    };
+  }, [sortedDebtData]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Báo cáo</CardTitle>
+        <CardTitle>Báo cáo công nợ khách hàng</CardTitle>
         <CardDescription>
-          Đây là nơi các báo cáo bán hàng, tồn kho và công nợ sẽ được tạo.
+          Tổng hợp công nợ của tất cả các khách hàng.
         </CardDescription>
+        <div className="relative pt-4">
+            <Search className="absolute left-2.5 top-6 h-4 w-4 text-muted-foreground" />
+            <Input
+                type="search"
+                placeholder="Tìm kiếm theo tên khách hàng..."
+                className="w-full rounded-lg bg-background pl-8 md:w-1/3"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
       </CardHeader>
       <CardContent>
-        <p>Chức năng báo cáo đang được xây dựng.</p>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="w-16">STT</TableHead>
+                    <SortableHeader sortKey="customerName">Tên khách hàng</SortableHeader>
+                    <SortableHeader sortKey="totalSales" className="text-right">Tổng phát sinh</SortableHeader>
+                    <SortableHeader sortKey="totalPayments" className="text-right">Đã trả</SortableHeader>
+                    <SortableHeader sortKey="finalDebt" className="text-right">Nợ cuối kỳ</SortableHeader>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center h-24">Đang tải dữ liệu...</TableCell></TableRow>}
+              {!isLoading && sortedDebtData.map((data, index) => (
+                <TableRow key={data.customerId}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-medium">{data.customerName}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(data.totalSales)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(data.totalPayments)}</TableCell>
+                  <TableCell className={`text-right font-semibold ${data.finalDebt > 0 ? 'text-destructive' : ''}`}>
+                    {formatCurrency(data.finalDebt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+               {!isLoading && sortedDebtData.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24">Không có dữ liệu công nợ.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+             <ShadcnTableFooter>
+                <TableRow className="text-base font-bold">
+                    <TableCell colSpan={2}>Tổng cộng</TableCell>
+                    <TableCell className="text-right">{formatCurrency(totalRow.totalSales)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(totalRow.totalPayments)}</TableCell>
+                    <TableCell className={`text-right ${totalRow.finalDebt > 0 ? 'text-destructive' : ''}`}>{formatCurrency(totalRow.finalDebt)}</TableCell>
+                </TableRow>
+            </ShadcnTableFooter>
+        </Table>
       </CardContent>
+       <CardFooter>
+          <div className="text-xs text-muted-foreground">
+            Hiển thị <strong>{sortedDebtData.length}</strong> khách hàng có công nợ.
+          </div>
+        </CardFooter>
     </Card>
   )
 }
