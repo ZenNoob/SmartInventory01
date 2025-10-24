@@ -149,10 +149,20 @@ export default function ReportsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Báo cáo công nợ khách hàng</CardTitle>
-        <CardDescription>
-          Tổng hợp công nợ của tất cả các khách hàng.
-        </CardDescription>
+        <div className="flex justify-between items-start">
+            <div>
+                <CardTitle>Báo cáo công nợ khách hàng</CardTitle>
+                <CardDescription>
+                Tổng hợp công nợ của tất cả các khách hàng.
+                </CardDescription>
+            </div>
+            <div className="text-right">
+                <p className="text-sm text-muted-foreground">Tổng nợ cuối kỳ</p>
+                <p className={`text-2xl font-bold ${totalRow.finalDebt > 0 ? 'text-destructive' : 'text-primary'}`}>
+                    {formatCurrency(totalRow.finalDebt)}
+                </p>
+            </div>
+        </div>
         <div className="relative pt-4">
             <Search className="absolute left-2.5 top-6 h-4 w-4 text-muted-foreground" />
             <Input
