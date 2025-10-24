@@ -175,6 +175,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     return watchedItems.reduce((acc, item) => {
       const product = productsMap.get(item.productId);
       if (!product) return acc;
+      // Note: Here we multiply by the BASE UNIT price, but the quantity is in the SALE unit.
+      // So we need to convert quantity to base unit before multiplying.
       const { conversionFactor } = getUnitInfo(product.unitId);
       return acc + (item.quantity * conversionFactor * item.price);
     }, 0);
@@ -188,6 +190,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         const { conversionFactor } = getUnitInfo(product.unitId);
         return {
             productId: item.productId,
+            // We store quantity in the base unit in Firestore
             quantity: item.quantity * conversionFactor,
             price: item.price,
         };
@@ -327,28 +330,29 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
                     const saleUnitInfo = getUnitInfo(product.unitId);
                     const baseUnit = saleUnitInfo.baseUnit || unitsMap.get(product.unitId);
-                    const convertedQuantity = watchedItems[index].quantity * saleUnitInfo.conversionFactor;
+                    
+                    const itemValues = watchedItems[index];
+                    const lineTotal = (itemValues.quantity || 0) * (itemValues.price || 0) * (saleUnitInfo.conversionFactor || 1) ;
+
                     const stockInfo = getStockInfo(product.id);
                     const avgCostInfo = getAverageCost(product.id);
                     
                     return (
                         <div key={field.id} className="p-3 border rounded-md relative">
                             <p className="font-medium mb-2">{product?.name || 'Sản phẩm không xác định'}</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                <FormField
                                   control={form.control}
                                   name={`items.${index}.quantity`}
                                   render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Số lượng ({saleUnitInfo.name || 'ĐVT'}) <span className="text-muted-foreground">(Tồn: {stockInfo.stock.toFixed(2)})</span></FormLabel>
+                                        <FormLabel>Số lượng ({saleUnitInfo.name || 'ĐVT'})</FormLabel>
                                         <FormControl>
                                             <Input type="number" step="any" {...field} />
                                         </FormControl>
-                                        {baseUnit && saleUnitInfo.name !== baseUnit.name && (
-                                            <FormDescription>
-                                                (Tương đương {convertedQuantity.toLocaleString()} {baseUnit.name})
-                                            </FormDescription>
-                                        )}
+                                        <FormDescription>
+                                            (Tồn: {stockInfo.stock.toFixed(2)})
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                   )}
@@ -358,7 +362,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                   name={`items.${index}.price`}
                                   render={({ field }) => (
                                      <FormItem>
-                                        <FormLabel>Giá bán (VNĐ / {baseUnit?.name || saleUnitInfo.name || 'ĐVT'})</FormLabel>
+                                        <FormLabel>Giá bán (VNĐ / {baseUnit?.name || saleUnitInfo.name})</FormLabel>
                                         <FormControl>
                                             <FormattedNumberInput {...field} />
                                         </FormControl>
@@ -369,6 +373,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                     </FormItem>
                                   )}
                                 />
+                                <div className="space-y-2">
+                                  <Label>Thành tiền</Label>
+                                  <Input value={formatCurrency(lineTotal)} readOnly className="font-semibold" />
+                                </div>
                             </div>
                             <Button
                                 type="button"
@@ -451,5 +459,3 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     </Dialog>
   )
 }
-
-    
