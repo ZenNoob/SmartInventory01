@@ -36,7 +36,6 @@ import { Customer, Product, Unit, SalesItem } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn, formatCurrency } from '@/lib/utils'
 import { upsertSaleTransaction } from '../actions'
 import { Label } from '@/components/ui/label'
@@ -133,7 +132,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
     return { stock: stockInMainUnit, stockInBaseUnit, mainUnit, baseUnit };
   }, [productsMap, allSalesItems, getUnitInfo, unitsMap]);
-
+  
   const getAverageCost = useCallback((productId: string) => {
     const product = productsMap.get(productId);
     if (!product || !product.purchaseLots || product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
@@ -155,11 +154,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     return { avgCost: totalCost / totalQuantityInBaseUnit, baseUnit: costBaseUnit };
   }, [productsMap, getUnitInfo, unitsMap]);
 
-  const refinedSaleFormSchema = saleFormSchema.superRefine((data, ctx) => {
+  const refinedSaleFormSchema = useMemo(() => saleFormSchema.superRefine((data, ctx) => {
     data.items.forEach((item, index) => {
       if (!item.productId) return;
       const { stock, mainUnit } = getStockInfo(item.productId);
-
       if (item.quantity > stock) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -168,7 +166,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         });
       }
     });
-  });
+  }), [getStockInfo]);
 
   const form = useForm<SaleFormValues>({
     resolver: zodResolver(refinedSaleFormSchema),
@@ -178,6 +176,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       items: [],
       discount: 0,
     },
+    mode: "onChange"
   });
   
   const { fields, append, remove } = useFieldArray({
@@ -186,6 +185,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   });
 
   const watchedItems = form.watch("items");
+
+  useEffect(() => {
+    form.trigger('items');
+  }, [watchedItems, form]);
   
   const totalAmount = watchedItems.reduce((acc, item) => {
     if (!item.productId || !item.price || !item.quantity) {
@@ -379,7 +382,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                             <Input type="number" step="any" {...field} />
                                         </FormControl>
                                         <FormDescription>
-                                            (Tồn: {stockInfo.stock.toFixed(2)})
+                                            (Tồn: {stockInfo.stock.toFixed(2)} {stockInfo.mainUnit?.name})
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -487,3 +490,5 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     </Dialog>
   )
 }
+
+    
