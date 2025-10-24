@@ -37,10 +37,26 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { sales, customers } from "@/lib/data"
 import { formatCurrency } from "@/lib/utils"
+import { getAdminServices } from "../customers/actions"
+import { Customer, Sale } from "@/lib/types"
 
-export default function SalesPage() {
+async function getSalesData() {
+    const { firestore } = await getAdminServices();
+
+    const salesSnapshot = await firestore.collection('sales_transactions').get();
+    const sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+
+    const customersSnapshot = await firestore.collection('customers').get();
+    const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
+    
+    return { sales, customers };
+}
+
+
+export default async function SalesPage() {
+  const { sales, customers } = await getSalesData();
+
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -111,13 +127,13 @@ export default function SalesPage() {
                   const customer = customers.find(c => c.id === sale.customerId);
                   return (
                     <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{sale.id}</TableCell>
+                      <TableCell className="font-medium">{sale.id.slice(-6).toUpperCase()}</TableCell>
                       <TableCell>{customer?.name}</TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {new Date(sale.date).toLocaleDateString()}
+                        {new Date(sale.transactionDate).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(sale.total)}
+                        {formatCurrency(sale.totalAmount)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -146,7 +162,7 @@ export default function SalesPage() {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Hiển thị <strong>1-10</strong> trên <strong>{sales.length}</strong>{" "}
+              Hiển thị <strong>1-{sales.length}</strong> trên <strong>{sales.length}</strong>{" "}
               đơn hàng
             </div>
           </CardFooter>

@@ -46,24 +46,26 @@ export type Customer = {
   status: 'active' | 'inactive';
 }
 
-export type SaleItem = {
+export type SalesItem = {
+  id: string;
+  salesTransactionId: string;
   productId: string
   quantity: number
   price: number
 }
 
 export type Sale = {
-  id:string
-  customerId: string
-  date: string
-  items: SaleItem[]
-  total: number
+  id: string;
+  customerId: string;
+  transactionDate: string; // ISO 8601 date string
+  totalAmount: number;
+  discount?: number;
 }
 
 export type Payment = {
   id: string
   customerId: string
-  date: string
+  paymentDate: string
   amount: number
 }
 
