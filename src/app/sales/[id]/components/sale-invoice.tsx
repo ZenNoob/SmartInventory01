@@ -56,17 +56,17 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
 
     // Hide buttons before capturing
     const buttons = input.querySelectorAll('button');
+    links.forEach(link => link.style.display = 'none');
     buttons.forEach(btn => btn.style.display = 'none');
     const links = input.querySelectorAll('a');
-    links.forEach(link => link.style.display = 'none');
 
     html2canvas(input, {
       scale: 2, // Increase scale for better resolution
       useCORS: true,
     }).then((canvas) => {
       // Show buttons after capturing
-      buttons.forEach(btn => btn.style.display = '');
       links.forEach(link => link.style.display = '');
+      buttons.forEach(btn => btn.style.display = '');
       
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
@@ -80,22 +80,12 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
       const canvasAspectRatio = canvasWidth / canvasHeight;
-      const pdfAspectRatio = pdfWidth / pdfHeight;
 
-      let renderWidth = pdfWidth;
-      let renderHeight = pdfWidth / canvasAspectRatio;
+      const renderWidth = pdfWidth;
+      const renderHeight = renderWidth / canvasAspectRatio;
 
-      if (renderHeight > pdfHeight) {
-          renderHeight = pdfHeight;
-          renderWidth = pdfHeight * canvasAspectRatio;
-      }
-      
-      const x = (pdfWidth - renderWidth) / 2;
-      const y = 0;
-
-
-      pdf.addImage(imgData, "PNG", x, y, renderWidth, renderHeight);
-      pdf.save(`HD-${sale.id}.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, renderWidth, renderHeight);
+      pdf.save(`${sale.invoiceNumber}.pdf`);
     });
   };
 
@@ -140,7 +130,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
                     <span>Ngày {new Date(sale.transactionDate).getDate()}</span>
                     <span>Tháng {new Date(sale.transactionDate).getMonth() + 1}</span>
                     <span>Năm {new Date(sale.transactionDate).getFullYear()}</span>
-                    <span className="font-semibold">Số HĐ: {sale.id}</span>
+                    <span className="font-semibold">Số HĐ: {sale.invoiceNumber}</span>
                 </div>
             </div>
 
@@ -236,3 +226,5 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
     </div>
   )
 }
+
+    

@@ -56,6 +56,7 @@ export type SalesItem = {
 
 export type Sale = {
   id: string;
+  invoiceNumber: string;
   customerId: string;
   transactionDate: string; // ISO 8601 date string
   totalAmount: number; // Gross total before discount
@@ -92,3 +93,5 @@ export type ThemeSettings = {
   accentForeground: string;
   lowStockThreshold: number;
 }
+
+    

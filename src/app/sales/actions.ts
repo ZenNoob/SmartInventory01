@@ -3,7 +3,7 @@
 import { Sale, SalesItem } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 
-async function getNextSaleId(firestore: FirebaseFirestore.Firestore, transaction: FirebaseFirestore.Transaction): Promise<string> {
+async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, transaction: FirebaseFirestore.Transaction): Promise<string> {
     const today = new Date();
     const year = today.getFullYear();
     const month = (today.getMonth() + 1).toString().padStart(2, '0');
@@ -11,19 +11,17 @@ async function getNextSaleId(firestore: FirebaseFirestore.Firestore, transaction
     const datePrefix = `HD${year}${month}${day}`;
 
     const salesCollection = firestore.collection('sales_transactions');
-    // We need to query for IDs starting with the prefix.
-    // Firestore's `where` clause with string operations is what we need.
     const query = salesCollection
-        .where('id', '>=', datePrefix)
-        .where('id', '<', datePrefix + 'z') // 'z' is a char that is after all digits
-        .orderBy('id', 'desc')
+        .where('invoiceNumber', '>=', datePrefix)
+        .where('invoiceNumber', '<', datePrefix + 'z') // 'z' is a char that is after all digits
+        .orderBy('invoiceNumber', 'desc')
         .limit(1);
 
     const snapshot = await transaction.get(query);
     
     let nextSequence = 1;
     if (!snapshot.empty) {
-        const lastId = snapshot.docs[0].id;
+        const lastId = snapshot.docs[0].data().invoiceNumber;
         const lastSequence = parseInt(lastId.substring(datePrefix.length), 10);
         nextSequence = lastSequence + 1;
     }
@@ -34,7 +32,7 @@ async function getNextSaleId(firestore: FirebaseFirestore.Firestore, transaction
 
 
 export async function upsertSaleTransaction(
-  sale: Partial<Omit<Sale, 'id'>>, 
+  sale: Partial<Omit<Sale, 'id' | 'invoiceNumber'>> & { id?: string }, 
   items: Omit<SalesItem, 'id' | 'salesTransactionId'>[]
 ): Promise<{ success: boolean; error?: string; saleId?: string }> {
   const { firestore } = await getAdminServices();
@@ -42,13 +40,11 @@ export async function upsertSaleTransaction(
   try {
     return await firestore.runTransaction(async (transaction) => {
       let saleRef;
-      let saleId = sale.id;
-      
-      if (saleId) {
-        // UPDATE LOGIC
-        saleRef = firestore.collection('sales_transactions').doc(saleId);
-        
-        // --- ALL READS FIRST ---
+      const isUpdate = !!sale.id;
+
+      if (isUpdate) {
+        // --- ALL READS FIRST for UPDATE ---
+        saleRef = firestore.collection('sales_transactions').doc(sale.id!);
         const oldSaleDoc = await transaction.get(saleRef);
         if (!oldSaleDoc.exists) {
           throw new Error("Đơn hàng không tồn tại.");
@@ -60,7 +56,7 @@ export async function upsertSaleTransaction(
 
         let oldPaymentDoc: FirebaseFirestore.DocumentSnapshot | undefined;
         if (oldSaleData.customerId && oldSaleData.customerPayment && oldSaleData.customerPayment > 0) {
-          const paymentNote = `Thanh toán cho đơn hàng ${oldSaleData.id}`;
+          const paymentNote = `Thanh toán cho đơn hàng ${oldSaleData.invoiceNumber}`;
           const paymentsQuery = firestore.collection('payments')
             .where('customerId', '==', oldSaleData.customerId)
             .where('notes', '==', paymentNote)
@@ -71,50 +67,59 @@ export async function upsertSaleTransaction(
           }
         }
         
-        // --- ALL WRITES SECOND ---
-        // Delete old items
+        // --- ALL WRITES for UPDATE ---
         oldItemsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
-
-        // Delete old payment
         if (oldPaymentDoc && oldPaymentDoc.exists) {
           transaction.delete(oldPaymentDoc.ref);
         }
         
+        // Set/update the main sale document
+        const saleDataToUpdate = { 
+          ...sale,
+          invoiceNumber: oldSaleData.invoiceNumber // Preserve original invoice number
+        };
+        transaction.set(saleRef, saleDataToUpdate);
+        
       } else {
-        // CREATE LOGIC
-        saleId = await getNextSaleId(firestore, transaction);
-        saleRef = firestore.collection('sales_transactions').doc(saleId);
+        // --- ALL READS FIRST for CREATE ---
+        const invoiceNumber = await getNextInvoiceNumber(firestore, transaction);
+        saleRef = firestore.collection('sales_transactions').doc(); // Let Firestore generate ID
+
+        // --- ALL WRITES for CREATE ---
+        const saleDataToCreate = { 
+            ...sale, 
+            id: saleRef.id, 
+            invoiceNumber 
+        };
+        transaction.set(saleRef, saleDataToCreate);
       }
 
       // --- WRITES for both CREATE and UPDATE ---
-      // Set/update the main sale document
-      const saleDataWithId = { ...sale, id: saleId };
-      transaction.set(saleRef, saleDataWithId);
-
-      // Create the new sales_item documents
       const saleItemsCollection = saleRef.collection('sales_items');
       for (const item of items) {
-        const saleItemRef = saleItemsCollection.doc(); // Firestore auto-generates ID for items
+        const saleItemRef = saleItemsCollection.doc();
         transaction.set(saleItemRef, { 
           ...item, 
           id: saleItemRef.id,
-          salesTransactionId: saleId 
+          salesTransactionId: saleRef.id 
         });
       }
       
-      // Create a new payment document if customerPayment is provided
       if (sale.customerPayment && sale.customerPayment > 0 && sale.customerId) {
         const paymentRef = firestore.collection('payments').doc();
+        const saleDoc = await transaction.get(saleRef); // re-read to get the invoiceNumber
+        const saleData = saleDoc.data();
+
         transaction.set(paymentRef, {
             id: paymentRef.id,
             customerId: sale.customerId,
             paymentDate: sale.transactionDate,
             amount: sale.customerPayment,
-            notes: `Thanh toán cho đơn hàng ${saleId}`
+            notes: `Thanh toán cho đơn hàng ${saleData?.invoiceNumber}`
         });
       }
 
-      return { success: true, saleId: saleId };
+      return { success: true, saleId: saleRef.id };
     });
   } catch (error: any) {
     console.error("Error creating or updating sale transaction:", error);
@@ -143,13 +148,12 @@ export async function deleteSaleTransaction(saleId: string): Promise<{ success: 
 
       // 3. Find and delete the associated payment, if it exists
       if (saleData.customerId && saleData.customerPayment && saleData.customerPayment > 0) {
-        const paymentNote = `Thanh toán cho đơn hàng ${saleId}`;
+        const paymentNote = `Thanh toán cho đơn hàng ${saleData.invoiceNumber}`;
         const paymentsQuery = firestore.collection('payments')
             .where('customerId', '==', saleData.customerId)
             .where('notes', '==', paymentNote);
         
         const paymentsSnapshot = await transaction.get(paymentsQuery);
-        // Assuming the note is unique enough, delete the first one found.
         if (!paymentsSnapshot.empty) {
           transaction.delete(paymentsSnapshot.docs[0].ref);
         }
@@ -165,3 +169,5 @@ export async function deleteSaleTransaction(saleId: string): Promise<{ success: 
     return { success: false, error: error.message || 'Không thể xóa đơn hàng.' };
   }
 }
+
+    

@@ -149,10 +149,10 @@ export default function SalesPage() {
   const filteredSales = useMemo(() => {
     return sales?.filter(sale => {
       const customerName = customersMap.get(sale.customerId)?.toLowerCase() || '';
-      const saleId = sale.id.toLowerCase();
+      const invoiceNumber = sale.invoiceNumber.toLowerCase();
       const term = searchTerm.toLowerCase();
       
-      const termMatch = term ? (saleId.includes(term) || customerName.includes(term)) : true;
+      const termMatch = term ? (invoiceNumber.includes(term) || customerName.includes(term)) : true;
       
       const dateMatch = searchDate ? format(new Date(sale.transactionDate), 'yyyy-MM-dd') === format(searchDate, 'yyyy-MM-dd') : true;
 
@@ -179,7 +179,7 @@ export default function SalesPage() {
     if (result.success) {
       toast({
         title: "Thành công!",
-        description: `Đã xóa đơn hàng ${saleToDelete.id}.`,
+        description: `Đã xóa đơn hàng ${saleToDelete.invoiceNumber}.`,
       });
       router.refresh();
     } else {
@@ -212,7 +212,7 @@ export default function SalesPage() {
             <AlertDialogTitle>Bạn có chắc chắn không?</AlertDialogTitle>
             <AlertDialogDescription>
               Hành động này không thể được hoàn tác. Thao tác này sẽ xóa vĩnh viễn đơn hàng {' '}
-              <strong>{saleToDelete?.id}</strong>.
+              <strong>{saleToDelete?.invoiceNumber}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -314,7 +314,7 @@ export default function SalesPage() {
                     return (
                       <TableRow key={sale.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{sale.id}</TableCell>
+                        <TableCell className="font-medium">{sale.invoiceNumber}</TableCell>
                         <TableCell>{customer?.name || 'Khách lẻ'}</TableCell>
                         <TableCell className="hidden md:table-cell">
                           {new Date(sale.transactionDate).toLocaleDateString()}
@@ -375,3 +375,5 @@ export default function SalesPage() {
     </>
   )
 }
+
+    
