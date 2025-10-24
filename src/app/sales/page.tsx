@@ -160,6 +160,11 @@ export default function SalesPage() {
     }).sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
   }, [sales, searchTerm, searchDate, customersMap]);
 
+  const totalRevenue = useMemo(() => {
+    return filteredSales?.reduce((total, sale) => total + sale.finalAmount, 0) || 0;
+  }, [filteredSales]);
+
+
   const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || paymentsLoading;
 
   const handleAddSale = () => {
@@ -291,6 +296,9 @@ export default function SalesPage() {
                  {searchDate && (
                     <Button variant="ghost" onClick={() => setSearchDate(undefined)}>Xóa lọc ngày</Button>
                  )}
+                 <div className="ml-auto text-lg font-semibold">
+                    Doanh thu: <span className="text-primary">{formatCurrency(totalRevenue)}</span>
+                 </div>
            </div>
             </CardHeader>
             <CardContent>
