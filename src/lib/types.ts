@@ -60,6 +60,9 @@ export type Sale = {
   transactionDate: string; // ISO 8601 date string
   totalAmount: number;
   discount?: number;
+  discountType?: 'percentage' | 'amount';
+  discountValue?: number;
+  customerPayment?: number;
 }
 
 export type Payment = {
@@ -67,6 +70,7 @@ export type Payment = {
   customerId: string
   paymentDate: string
   amount: number
+  notes?: string
 }
 
 export type AppUser = {

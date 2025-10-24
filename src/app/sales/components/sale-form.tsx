@@ -39,6 +39,7 @@ import { Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { upsertSaleTransaction } from '../actions'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Vui lòng chọn sản phẩm."),
@@ -50,7 +51,9 @@ const saleFormSchema = z.object({
   customerId: z.string().min(1, "Vui lòng chọn khách hàng."),
   transactionDate: z.string().min(1, "Ngày giao dịch là bắt buộc."),
   items: z.array(saleItemSchema).min(1, "Đơn hàng phải có ít nhất một sản phẩm."),
-  discount: z.coerce.number().optional(),
+  discountType: z.enum(['percentage', 'amount']).default('amount'),
+  discountValue: z.coerce.number().optional(),
+  customerPayment: z.coerce.number().optional(),
 });
 
 type SaleFormValues = z.infer<typeof saleFormSchema>;
@@ -188,7 +191,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       customerId: '',
       transactionDate: new Date().toISOString().split('T')[0],
       items: [],
-      discount: 0,
+      discountType: 'amount',
+      discountValue: 0,
+      customerPayment: 0,
     },
     mode: "onChange"
   });
@@ -199,11 +204,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   });
 
   const watchedItems = form.watch("items");
+  const discountType = form.watch('discountType');
+  const discountValue = form.watch('discountValue') || 0;
+  const customerPayment = form.watch('customerPayment') || 0;
 
   useEffect(() => {
     form.trigger('items');
   }, [watchedItems, form]);
-  
+
   const totalAmount = watchedItems.reduce((acc, item) => {
     if (!item.productId || !item.price || !item.quantity) {
         return acc;
@@ -214,9 +222,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
     return acc + quantityInBaseUnit * (item.price || 0);
   }, 0);
+  
+  const calculatedDiscount = discountType === 'percentage'
+    ? (totalAmount * discountValue) / 100
+    : discountValue;
+    
+  const finalAmount = totalAmount - calculatedDiscount;
+  const remainingAmount = customerPayment - finalAmount;
 
-
-  const finalAmount = totalAmount - (form.watch('discount') || 0);
 
   const onSubmit = async (data: SaleFormValues) => {
     const itemsData = data.items.map(item => {
@@ -234,7 +247,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),
         totalAmount: finalAmount,
-        discount: data.discount,
+        discount: calculatedDiscount,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        customerPayment: data.customerPayment,
     };
 
     const result = await upsertSaleTransaction(saleData, itemsData);
@@ -489,19 +505,80 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                  <FormMessage>{form.formState.errors.items?.message || form.formState.errors.items?.root?.message}</FormMessage>
 
               </div>
-                <div className="mt-4 pt-4 border-t space-y-2 text-right">
-                   <div className="font-medium">Tổng tiền hàng: {formatCurrency(totalAmount)}</div>
-                   <div className="flex justify-end items-center gap-2">
-                        <Label htmlFor='discount' className="text-right">Giảm giá:</Label>
-                        <Controller
-                            control={form.control}
-                            name={`discount`}
-                            render={({ field }) => (
-                                <FormattedNumberInput {...field} />
-                            )}
-                        />
-                   </div>
-                   <div className="font-semibold text-lg">Thanh toán: {formatCurrency(finalAmount)}</div>
+                <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-x-8 gap-y-4 text-right">
+                    <div className="col-span-2 text-right space-y-2">
+                        <div className="font-medium flex justify-end items-center gap-4">
+                            <span>Tổng tiền hàng:</span>
+                            <span>{formatCurrency(totalAmount)}</span>
+                        </div>
+                        <div className="font-medium flex justify-end items-center gap-4">
+                            <FormField
+                                control={form.control}
+                                name="discountType"
+                                render={({ field }) => (
+                                    <FormItem className="flex items-center gap-2 space-y-0">
+                                        <FormLabel className="p-0 m-0">Giảm giá:</FormLabel>
+                                        <FormControl>
+                                            <RadioGroup
+                                                onValueChange={field.onChange}
+                                                defaultValue={field.value}
+                                                className="flex"
+                                            >
+                                                <FormItem className="flex items-center space-x-1 space-y-0">
+                                                    <FormControl>
+                                                        <RadioGroupItem value="amount" />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal">VNĐ</FormLabel>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-1 space-y-0">
+                                                    <FormControl>
+                                                        <RadioGroupItem value="percentage" />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal">%</FormLabel>
+                                                </FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="discountValue"
+                                render={({ field }) => (
+                                    <FormItem className="w-32">
+                                        <FormControl>
+                                            <Input type="number" {...field} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                         <div className="font-medium flex justify-end items-center gap-4 text-destructive">
+                            <span>Số tiền giảm:</span>
+                            <span>- {formatCurrency(calculatedDiscount)}</span>
+                        </div>
+                    </div>
+
+                    <div className="col-span-2 text-right space-y-2 pt-2 border-t">
+                        <div className="font-semibold text-lg flex justify-end items-center gap-4">
+                            <span>Thanh toán:</span>
+                            <span>{formatCurrency(finalAmount)}</span>
+                        </div>
+                        <div className="font-medium flex justify-end items-center gap-4">
+                            <Label htmlFor='customerPayment' className="text-right">Tiền khách đưa:</Label>
+                             <Controller
+                                control={form.control}
+                                name={`customerPayment`}
+                                render={({ field }) => (
+                                    <FormattedNumberInput {...field} id="customerPayment" className="w-32"/>
+                                )}
+                            />
+                        </div>
+                         <div className={`font-medium flex justify-end items-center gap-4 ${remainingAmount < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            <span>{remainingAmount < 0 ? 'Nợ mới:' : 'Tiền thừa:'}</span>
+                            <span>{formatCurrency(Math.abs(remainingAmount))}</span>
+                        </div>
+                    </div>
                 </div>
 
             </div>
