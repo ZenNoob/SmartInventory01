@@ -179,7 +179,7 @@ const Sidebar = React.forwardRef<
     return (
       <aside
         ref={ref}
-        className={cn("hidden sm:flex flex-col h-screen bg-card text-card-foreground border-r transition-all duration-300 sticky top-0 overflow-x-hidden", 
+        className={cn("sm:flex flex-col h-screen bg-card text-card-foreground border-r transition-all duration-300 sticky top-0 overflow-x-hidden", 
           state === 'expanded' ? 'w-64' : 'w-14',
           className
         )}
