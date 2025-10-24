@@ -53,8 +53,8 @@ export function UserNav() {
           <DropdownMenuItem>
             Hồ sơ
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            Thanh toán
+          <DropdownMenuItem asChild>
+            <Link href="/guide">Hướng dẫn</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/settings">Cài đặt</Link>
