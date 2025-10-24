@@ -107,7 +107,7 @@ export default function SalesPage() {
   const [selectedSale, setSelectedSale] = useState<Sale | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<SaleStatus>('all');
   const [isUpdatingStatus, startStatusTransition] = useTransition();
-  const [sortKey, setSortKey] = useState<SortKey>('transactionDate');
+  const [sortKey, setSortKey] = useState<SortKey>('invoiceNumber');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const firestore = useFirestore();
@@ -411,6 +411,7 @@ export default function SalesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16">STT</TableHead>
                     <SortableHeader sortKey="invoiceNumber">Mã đơn hàng</SortableHeader>
                     <SortableHeader sortKey="customer">Khách hàng</SortableHeader>
                     <SortableHeader sortKey="transactionDate" className="hidden md:table-cell">Ngày</SortableHeader>
@@ -422,11 +423,12 @@ export default function SalesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading && <TableRow><TableCell colSpan={6} className="text-center h-24">Đang tải...</TableCell></TableRow>}
-                  {!isLoading && sortedSales?.map((sale) => {
+                  {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Đang tải...</TableCell></TableRow>}
+                  {!isLoading && sortedSales?.map((sale, index) => {
                     const customer = customers?.find(c => c.id === sale.customerId);
                     return (
                       <TableRow key={sale.id}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-medium">{sale.invoiceNumber}</TableCell>
                         <TableCell>{customer?.name || 'Khách lẻ'}</TableCell>
                         <TableCell className="hidden md:table-cell">
@@ -500,7 +502,7 @@ export default function SalesPage() {
                   })}
                   {!isLoading && !sortedSales?.length && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center h-24">
+                      <TableCell colSpan={7} className="text-center h-24">
                         Không có đơn hàng nào phù hợp.
                       </TableCell>
                     </TableRow>
