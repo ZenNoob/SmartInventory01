@@ -127,7 +127,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     });
     
     const totalSoldInBaseUnit = allSalesItems
-      .filter(item => item.productId === product.id)
+      .filter(item => item.productId === productId)
       .reduce((acc, item) => acc + item.quantity, 0);
 
     const stockInBaseUnit = totalImportedInBaseUnit - totalSoldInBaseUnit;
@@ -237,7 +237,6 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         const { conversionFactor } = getUnitInfo(product.unitId);
         return {
             productId: item.productId,
-            // We store quantity in the base unit in Firestore
             quantity: item.quantity * (conversionFactor || 1),
             price: item.price,
         };
@@ -289,7 +288,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { onOpenChange(open); if(!open) form.reset(); }}>
-      <DialogContent className="sm:max-w-5xl grid-rows-[auto,1fr,auto] max-h-[90vh]">
+      <DialogContent className="sm:max-w-5xl grid-rows-[auto_1fr_auto] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Tạo đơn hàng mới</DialogTitle>
           <DialogDescription>
@@ -297,8 +296,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-rows-[1fr_auto] gap-4 overflow-hidden">
-            <div className='space-y-4 overflow-y-auto pr-6'>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 overflow-hidden">
+            <div className='flex-grow space-y-4 overflow-y-auto pr-6'>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -409,7 +408,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                     return (
                         <div key={field.id} className="p-3 border rounded-md relative">
                             <p className="font-medium mb-2">{product?.name || 'Sản phẩm không xác định'}</p>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                <FormField
                                   control={form.control}
                                   name={`items.${index}.quantity`}
@@ -427,7 +426,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                   )}
                                 />
                                 <div className="space-y-2">
-                                  <FormLabel>Số lượng ({baseUnit?.name || 'ĐVT cơ sở'})</FormLabel>
+                                  <FormLabel>SL ({baseUnit?.name || 'ĐVT cơ sở'})</FormLabel>
                                   <Input value={quantityInBaseUnit.toLocaleString()} readOnly />
                                   <FormDescription>&nbsp;</FormDescription>
                                 </div>
@@ -505,90 +504,91 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                  <FormMessage>{form.formState.errors.items?.message || form.formState.errors.items?.root?.message}</FormMessage>
 
               </div>
-                <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-x-8 gap-y-4 text-right">
-                    <div className="col-span-2 text-right space-y-2">
-                        <div className="font-medium flex justify-end items-center gap-4">
-                            <span>Tổng tiền hàng:</span>
-                            <span>{formatCurrency(totalAmount)}</span>
-                        </div>
-                        <div className="font-medium flex justify-end items-center gap-4">
-                            <FormField
-                                control={form.control}
-                                name="discountType"
-                                render={({ field }) => (
-                                    <FormItem className="flex items-center gap-2 space-y-0">
-                                        <FormLabel className="p-0 m-0">Giảm giá:</FormLabel>
-                                        <FormControl>
-                                            <RadioGroup
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                                className="flex"
-                                            >
-                                                <FormItem className="flex items-center space-x-1 space-y-0">
-                                                    <FormControl>
-                                                        <RadioGroupItem value="amount" />
-                                                    </FormControl>
-                                                    <FormLabel className="font-normal">VNĐ</FormLabel>
-                                                </FormItem>
-                                                <FormItem className="flex items-center space-x-1 space-y-0">
-                                                    <FormControl>
-                                                        <RadioGroupItem value="percentage" />
-                                                    </FormControl>
-                                                    <FormLabel className="font-normal">%</FormLabel>
-                                                </FormItem>
-                                            </RadioGroup>
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="discountValue"
-                                render={({ field }) => (
-                                    <FormItem className="w-32">
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                         <div className="font-medium flex justify-end items-center gap-4 text-destructive">
-                            <span>Số tiền giảm:</span>
-                            <span>- {formatCurrency(calculatedDiscount)}</span>
-                        </div>
-                    </div>
+            </div>
 
-                    <div className="col-span-2 text-right space-y-2 pt-2 border-t">
-                        <div className="font-semibold text-lg flex justify-end items-center gap-4">
-                            <span>Thanh toán:</span>
-                            <span>{formatCurrency(finalAmount)}</span>
-                        </div>
-                        <div className="font-medium flex justify-end items-center gap-4">
-                            <Label htmlFor='customerPayment' className="text-right">Tiền khách đưa:</Label>
-                             <Controller
-                                control={form.control}
-                                name={`customerPayment`}
-                                render={({ field }) => (
-                                    <FormattedNumberInput {...field} id="customerPayment" className="w-32"/>
-                                )}
-                            />
-                        </div>
-                         <div className={`font-medium flex justify-end items-center gap-4 ${remainingAmount < 0 ? 'text-destructive' : 'text-green-600'}`}>
-                            <span>{remainingAmount < 0 ? 'Nợ mới:' : 'Tiền thừa:'}</span>
-                            <span>{formatCurrency(Math.abs(remainingAmount))}</span>
-                        </div>
+            <div className="shrink-0 space-y-4 pt-4 border-t">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-right">
+                <div className="col-start-2 space-y-2">
+                    <div className="font-medium flex justify-end items-center gap-4">
+                        <span>Tổng tiền hàng:</span>
+                        <span>{formatCurrency(totalAmount)}</span>
+                    </div>
+                    <div className="font-medium flex justify-end items-center gap-4">
+                        <FormField
+                            control={form.control}
+                            name="discountType"
+                            render={({ field }) => (
+                                <FormItem className="flex items-center gap-2 space-y-0">
+                                    <FormLabel className="p-0 m-0">Giảm giá:</FormLabel>
+                                    <FormControl>
+                                        <RadioGroup
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                            className="flex"
+                                        >
+                                            <FormItem className="flex items-center space-x-1 space-y-0">
+                                                <FormControl>
+                                                    <RadioGroupItem value="amount" />
+                                                </FormControl>
+                                                <FormLabel className="font-normal">VNĐ</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-1 space-y-0">
+                                                <FormControl>
+                                                    <RadioGroupItem value="percentage" />
+                                                </FormControl>
+                                                <FormLabel className="font-normal">%</FormLabel>
+                                            </FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="discountValue"
+                            render={({ field }) => (
+                                <FormItem className="w-32">
+                                    <FormControl>
+                                        <Input type="number" {...field} />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                      <div className="font-medium flex justify-end items-center gap-4 text-destructive">
+                        <span>Số tiền giảm:</span>
+                        <span>- {formatCurrency(calculatedDiscount)}</span>
                     </div>
                 </div>
 
+                <div className="col-start-2 space-y-2 pt-2 border-t">
+                    <div className="font-semibold text-lg flex justify-end items-center gap-4">
+                        <span>Thanh toán:</span>
+                        <span>{formatCurrency(finalAmount)}</span>
+                    </div>
+                    <div className="font-medium flex justify-end items-center gap-4">
+                        <Label htmlFor='customerPayment' className="text-right">Tiền khách đưa:</Label>
+                          <Controller
+                            control={form.control}
+                            name={`customerPayment`}
+                            render={({ field }) => (
+                                <FormattedNumberInput {...field} id="customerPayment" className="w-32"/>
+                            )}
+                        />
+                    </div>
+                      <div className={`font-medium flex justify-end items-center gap-4 ${remainingAmount < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        <span>{remainingAmount < 0 ? 'Nợ mới:' : 'Tiền thừa:'}</span>
+                        <span>{formatCurrency(Math.abs(remainingAmount))}</span>
+                    </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
+                </Button>
+              </DialogFooter>
             </div>
-
-            <DialogFooter className="pt-4 border-t">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
