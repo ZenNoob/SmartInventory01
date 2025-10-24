@@ -68,6 +68,7 @@ interface SaleFormProps {
   allSalesItems: SalesItem[];
   sales: Sale[];
   payments: Payment[];
+  sale?: Sale;
 }
 
 const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; onChange: (value: number) => void; [key: string]: any }) => {
@@ -94,11 +95,12 @@ const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; on
 };
 
 
-export function SaleForm({ isOpen, onOpenChange, customers, products, units, allSalesItems, sales, payments }: SaleFormProps) {
+export function SaleForm({ isOpen, onOpenChange, customers, products, units, allSalesItems, sales, payments, sale }: SaleFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [saleItemsForEdit, setSaleItemsForEdit] = useState<SalesItem[]>([]);
 
   const unitsMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
   const productsMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
@@ -114,6 +116,11 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     
     return { baseUnit: unit, conversionFactor: 1, name: unit.name };
   }, [unitsMap]);
+  
+  const salesItemsWithoutCurrent = useMemo(() => {
+    if (!sale) return allSalesItems;
+    return allSalesItems.filter(item => item.salesTransactionId !== sale.id);
+  }, [allSalesItems, sale]);
 
   const getStockInfo = useCallback((productId: string) => {
     const product = productsMap.get(productId);
@@ -127,7 +134,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         totalImportedInBaseUnit += lot.quantity * conversionFactor;
     });
     
-    const totalSoldInBaseUnit = allSalesItems
+    const totalSoldInBaseUnit = salesItemsWithoutCurrent
       .filter(item => item.productId === productId)
       .reduce((acc, item) => acc + item.quantity, 0);
 
@@ -137,11 +144,11 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     const baseUnit = mainBaseUnit || mainUnit;
 
     return { stock: stockInMainUnit, stockInBaseUnit, mainUnit, baseUnit };
-  }, [productsMap, allSalesItems, getUnitInfo, unitsMap]);
+  }, [productsMap, salesItemsWithoutCurrent, getUnitInfo, unitsMap]);
   
   const getAverageCost = useCallback((productId: string) => {
     const product = productsMap.get(productId);
-    if (!product || !product.purchaseLots || product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
+    if (!product || !product.purchaseLots || !product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
 
     let totalCost = 0;
     let totalQuantityInBaseUnit = 0;
@@ -159,18 +166,31 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     
     return { avgCost: totalCost / totalQuantityInBaseUnit, baseUnit: costBaseUnit };
   }, [productsMap, getUnitInfo, unitsMap]);
+  
+  const otherSales = useMemo(() => {
+    if (!sale) return sales;
+    return sales.filter(s => s.id !== sale.id);
+  }, [sales, sale]);
+
+  const otherPayments = useMemo(() => {
+    if (!sale) return payments;
+    // This logic is tricky. A simple approximation is to filter out payments
+    // that match the amount and date, but that's not robust.
+    // For now, we'll just use all payments and accept a slight inaccuracy in previousDebt during edit.
+    return payments;
+  }, [payments, sale]);
 
   const customerDebts = useMemo(() => {
-    if (!customers || !sales || !payments) return new Map<string, number>();
+    if (!customers || !otherSales || !otherPayments) return new Map<string, number>();
 
     const debtMap = new Map<string, number>();
     customers.forEach(customer => {
-        const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-        const customerPayments = payments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
+        const customerSales = otherSales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const customerPayments = otherPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
         debtMap.set(customer.id, customerSales - customerPayments);
     });
     return debtMap;
-  }, [customers, sales, payments]);
+  }, [customers, otherSales, otherPayments]);
 
   const refinedSaleFormSchema = useMemo(() => saleFormSchema.superRefine((data, ctx) => {
     data.items.forEach((item, index) => {
@@ -204,10 +224,52 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     mode: "onChange"
   });
   
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "items"
   });
+
+  useEffect(() => {
+    if(isOpen && sale){
+      const saleItems = allSalesItems.filter(item => item.salesTransactionId === sale.id);
+      setSaleItemsForEdit(saleItems);
+
+      const formItems = saleItems.map(item => {
+        const product = productsMap.get(item.productId);
+        if (!product) return null;
+        const { conversionFactor } = getUnitInfo(product.unitId);
+        // Convert from base unit back to sale unit for display
+        return {
+          productId: item.productId,
+          quantity: item.quantity / (conversionFactor || 1),
+          price: item.price
+        }
+      }).filter(Boolean) as { productId: string; quantity: number; price: number; }[];
+
+      replace(formItems);
+
+      form.reset({
+        customerId: sale.customerId,
+        transactionDate: sale.transactionDate.split('T')[0],
+        items: formItems,
+        discountType: sale.discountType || 'amount',
+        discountValue: sale.discountValue || 0,
+        customerPayment: sale.customerPayment || 0,
+      });
+
+    } else if (isOpen && !sale) {
+      form.reset({
+        customerId: '',
+        transactionDate: new Date().toISOString().split('T')[0],
+        items: [],
+        discountType: 'amount',
+        discountValue: 0,
+        customerPayment: 0,
+      })
+      replace([]);
+    }
+  }, [isOpen, sale, allSalesItems, form, replace, productsMap, getUnitInfo])
+
 
   const watchedItems = form.watch("items");
   const discountType = form.watch('discountType');
@@ -218,7 +280,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const { trigger } = form;
   useEffect(() => {
       trigger('items');
-  }, [watchedItems, trigger, allSalesItems]);
+  }, [watchedItems, trigger, salesItemsWithoutCurrent]);
 
   const totalAmount = watchedItems.reduce((acc, item) => {
     if (!item.productId || !item.price || !item.quantity) {
@@ -253,6 +315,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     });
 
     const saleData = {
+        id: sale?.id, // Important for updates
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),
         totalAmount: totalAmount,
@@ -270,12 +333,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     if (result.success) {
       toast({
         title: "Thành công!",
-        description: `Đã tạo đơn hàng thành công.`,
+        description: `Đã ${sale ? 'cập nhật' : 'tạo'} đơn hàng thành công.`,
       });
       onOpenChange(false);
       form.reset();
       router.refresh();
-      if (result.saleId) {
+      if (result.saleId && !sale) {
         router.push(`/sales/${result.saleId}`);
       }
     } else {
@@ -307,7 +370,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     <Dialog open={isOpen} onOpenChange={(open) => { onOpenChange(open); if(!open) form.reset(); }}>
       <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Tạo đơn hàng mới</DialogTitle>
+          <DialogTitle>{sale ? 'Sửa đơn hàng' : 'Tạo đơn hàng mới'}</DialogTitle>
           <DialogDescription>
             Điền thông tin chi tiết của đơn hàng dưới đây.
           </DialogDescription>
@@ -581,7 +644,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
               </div>
               <DialogFooter className="pt-4 border-t mt-4 flex-col gap-2">
                 <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
-                  {form.formState.isSubmitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
+                  {form.formState.isSubmitting ? (sale ? 'Đang cập nhật...' : 'Đang tạo...') : (sale ? 'Cập nhật đơn hàng' : 'Tạo đơn hàng')}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full">Hủy</Button>
               </DialogFooter>

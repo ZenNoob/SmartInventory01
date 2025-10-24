@@ -77,6 +77,7 @@ export default function SalesPage() {
   const [searchDate, setSearchDate] = useState<Date | undefined>();
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | undefined>(undefined);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -162,9 +163,15 @@ export default function SalesPage() {
   const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || paymentsLoading;
 
   const handleAddSale = () => {
+    setSelectedSale(undefined);
     setIsFormOpen(true);
   };
   
+  const handleEditSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    setIsFormOpen(true);
+  }
+
   const handleDelete = async () => {
     if (!saleToDelete) return;
     setIsDeleting(true);
@@ -197,6 +204,7 @@ export default function SalesPage() {
         allSalesItems={allSalesItems || []}
         sales={sales || []}
         payments={payments || []}
+        sale={selectedSale}
       />
       <AlertDialog open={!!saleToDelete} onOpenChange={(open) => !open && setSaleToDelete(null)}>
         <AlertDialogContent>
@@ -330,6 +338,9 @@ export default function SalesPage() {
                               <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                               <DropdownMenuItem asChild>
                                 <Link href={`/sales/${sale.id}`}>Xem chi tiết</Link>
+                              </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleEditSale(sale)}>
+                                Sửa
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => window.open(`/sales/${sale.id}`, '_blank')}>In hóa đơn</DropdownMenuItem>
                               <DropdownMenuSeparator />

@@ -4,49 +4,82 @@ import { Sale, SalesItem } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 
 export async function upsertSaleTransaction(
-  sale: Omit<Sale, 'id'>, 
+  sale: Partial<Omit<Sale, 'id'>> & { id?: string }, 
   items: Omit<SalesItem, 'id' | 'salesTransactionId'>[]
 ): Promise<{ success: boolean; error?: string; saleId?: string }> {
-  const { firestore } = await getAdminServices();
+  const { firestore } = getAdminServices();
 
   try {
-    // Create the main sale document first
-    const saleRef = firestore.collection('sales_transactions').doc();
-    await saleRef.set({ ...sale, id: saleRef.id, finalAmount: sale.finalAmount, totalAmount: sale.totalAmount });
+    return await firestore.runTransaction(async (transaction) => {
+      let saleRef;
+      
+      // If it's an update, delete old items and payments first
+      if (sale.id) {
+        saleRef = firestore.collection('sales_transactions').doc(sale.id);
 
-    // Sequentially create the sales_item documents
-    const saleItemsCollection = saleRef.collection('sales_items');
-    for (const item of items) {
-      const saleItemRef = saleItemsCollection.doc();
-      await saleItemRef.set({ 
-        ...item, 
-        id: saleItemRef.id,
-        salesTransactionId: saleRef.id 
-      });
-    }
-    
-    // Create a payment document if customerPayment is provided and it's a valid customer
-    if (sale.customerPayment && sale.customerPayment > 0 && sale.customerId) {
-      const paymentRef = firestore.collection('payments').doc();
-      await paymentRef.set({
-          id: paymentRef.id,
-          customerId: sale.customerId,
-          paymentDate: sale.transactionDate,
-          amount: sale.customerPayment,
-          notes: `Thanh toán cho đơn hàng ${saleRef.id.slice(-6).toUpperCase()}`
-      });
-    }
+        // Delete all old items in the sales_items subcollection
+        const oldItemsQuery = saleRef.collection('sales_items');
+        const oldItemsSnapshot = await transaction.get(oldItemsQuery);
+        oldItemsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
 
-    return { success: true, saleId: saleRef.id };
+        // Delete the associated old payment, if it exists
+        const saleDocBeforeUpdate = await transaction.get(saleRef);
+        const oldSaleData = saleDocBeforeUpdate.data() as Sale | undefined;
+
+        if (oldSaleData?.customerId && oldSaleData.customerPayment && oldSaleData.customerPayment > 0) {
+          const paymentNote = `Thanh toán cho đơn hàng ${oldSaleData.id.slice(-6).toUpperCase()}`;
+          const paymentsQuery = firestore.collection('payments')
+              .where('customerId', '==', oldSaleData.customerId)
+              .where('notes', '==', paymentNote);
+          
+          const oldPaymentsSnapshot = await transaction.get(paymentsQuery);
+          if (!oldPaymentsSnapshot.empty) {
+            transaction.delete(oldPaymentsSnapshot.docs[0].ref);
+          }
+        }
+      } else {
+        // It's a new sale, create a new document reference
+        saleRef = firestore.collection('sales_transactions').doc();
+      }
+
+      // Set/update the main sale document
+      const saleDataWithId = { ...sale, id: saleRef.id };
+      transaction.set(saleRef, saleDataWithId);
+
+      // Create the new sales_item documents
+      const saleItemsCollection = saleRef.collection('sales_items');
+      for (const item of items) {
+        const saleItemRef = saleItemsCollection.doc();
+        transaction.set(saleItemRef, { 
+          ...item, 
+          id: saleItemRef.id,
+          salesTransactionId: saleRef.id 
+        });
+      }
+      
+      // Create a new payment document if customerPayment is provided
+      if (sale.customerPayment && sale.customerPayment > 0 && sale.customerId) {
+        const paymentRef = firestore.collection('payments').doc();
+        transaction.set(paymentRef, {
+            id: paymentRef.id,
+            customerId: sale.customerId,
+            paymentDate: sale.transactionDate,
+            amount: sale.customerPayment,
+            notes: `Thanh toán cho đơn hàng ${saleRef.id.slice(-6).toUpperCase()}`
+        });
+      }
+
+      return { success: true, saleId: saleRef.id };
+    });
   } catch (error: any) {
-    console.error("Error creating sale transaction:", error);
-    return { success: false, error: error.message || 'Không thể tạo đơn hàng.' };
+    console.error("Error creating or updating sale transaction:", error);
+    return { success: false, error: error.message || 'Không thể tạo hoặc cập nhật đơn hàng.' };
   }
 }
 
 
 export async function deleteSaleTransaction(saleId: string): Promise<{ success: boolean; error?: string }> {
-  const { firestore } = await getAdminServices();
+  const { firestore } = getAdminServices();
   const saleRef = firestore.collection('sales_transactions').doc(saleId);
 
   try {
