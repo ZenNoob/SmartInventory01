@@ -149,9 +149,6 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              +20.1% so với tháng trước
-            </p>
           </CardContent>
         </Card>
         <Card>
@@ -161,9 +158,6 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">+{totalSales}</div>
-            <p className="text-xs text-muted-foreground">
-              +19% so với tháng trước
-            </p>
           </CardContent>
         </Card>
         <Card>
