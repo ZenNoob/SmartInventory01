@@ -219,29 +219,49 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
 
               <div>
                 <h3 className="text-md font-medium mb-2">Chi tiết đơn hàng</h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {fields.map((field, index) => {
                     const product = productsMap.get(watchedItems[index]?.productId);
                     const unit = product ? unitsMap.get(product.unitId) : undefined;
                     return (
-                        <div key={field.id} className="grid grid-cols-[1fr_100px_150px_auto] items-start gap-2 p-2 border rounded-md">
-                            <div className="font-medium">{product?.name || 'Sản phẩm không xác định'}</div>
-                            <Controller
-                                control={form.control}
-                                name={`items.${index}.quantity`}
-                                render={({ field }) => (
-                                    <Input type="number" step="any" {...field} />
-                                )}
-                            />
-                             <Controller
-                                control={form.control}
-                                name={`items.${index}.price`}
-                                render={({ field }) => (
-                                    <FormattedNumberInput {...field} />
-                                )}
-                            />
-                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                                <Trash2 className="h-4 w-4 text-destructive"/>
+                        <div key={field.id} className="p-3 border rounded-md relative">
+                            <p className="font-medium mb-2">{product?.name || 'Sản phẩm không xác định'}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <FormField
+                                  control={form.control}
+                                  name={`items.${index}.quantity`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Số lượng ({unit?.name || 'ĐVT'})</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" step="any" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                               <FormField
+                                  control={form.control}
+                                  name={`items.${index}.price`}
+                                  render={({ field }) => (
+                                     <FormItem>
+                                        <FormLabel>Giá bán (VNĐ / {unit?.name || 'ĐVT'})</FormLabel>
+                                        <FormControl>
+                                            <FormattedNumberInput {...field} />
+                                        </FormControl>
+                                         <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-1 right-1 h-6 w-6"
+                                onClick={() => remove(index)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         </div>
                     )
