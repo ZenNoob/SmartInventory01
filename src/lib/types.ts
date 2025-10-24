@@ -40,6 +40,9 @@ export type Customer = {
   gender?: 'male' | 'female' | 'other';
   birthday?: string; // ISO 8601 date string
   zalo?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
   creditLimit: number;
   createdAt: string; // ISO 8601 date string
   updatedAt: string; // ISO 8601 date string
@@ -94,4 +97,5 @@ export type ThemeSettings = {
   lowStockThreshold: number;
 }
 
+    
     

@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils'
 import { CalendarIcon } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { format } from 'date-fns'
+import { Separator } from '@/components/ui/separator'
 
 const customerFormSchema = z.object({
   name: z.string().min(1, "Tên không được để trống."),
@@ -50,6 +51,9 @@ const customerFormSchema = z.object({
   gender: z.enum(['male', 'female', 'other']).optional(),
   birthday: z.date().optional(),
   zalo: z.string().optional(),
+  bankName: z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankBranch: z.string().optional(),
   creditLimit: z.coerce.number().min(0, "Hạn mức tín dụng phải là số không âm."),
   status: z.enum(['active', 'inactive']),
 });
@@ -77,6 +81,9 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
         gender: customer.gender,
         birthday: customer.birthday ? new Date(customer.birthday) : undefined,
         zalo: customer.zalo || '',
+        bankName: customer.bankName || '',
+        bankAccountNumber: customer.bankAccountNumber || '',
+        bankBranch: customer.bankBranch || '',
         creditLimit: customer.creditLimit,
         status: customer.status,
       }
@@ -106,6 +113,9 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             gender: customer.gender,
             birthday: customer.birthday ? new Date(customer.birthday) : undefined,
             zalo: customer.zalo || '',
+            bankName: customer.bankName || '',
+            bankAccountNumber: customer.bankAccountNumber || '',
+            bankBranch: customer.bankBranch || '',
             creditLimit: customer.creditLimit,
             status: customer.status,
           }
@@ -119,6 +129,9 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
             gender: undefined,
             birthday: undefined,
             zalo: '',
+            bankName: '',
+            bankAccountNumber: '',
+            bankBranch: '',
             creditLimit: 0,
             status: 'active',
           }
@@ -351,6 +364,53 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
                         )}
                     />
                  </div>
+                 <Separator />
+                  <div>
+                    <h3 className="text-md font-medium">Thông tin ngân hàng</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Thông tin thanh toán của khách hàng.</p>
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="bankName"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Tên ngân hàng</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Vd: Vietcombank" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankAccountNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Số tài khoản</FormLabel>
+                            <FormControl>
+                                <Input placeholder="0123456789" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankBranch"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Chi nhánh</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Vd: PGD Thủ Đức" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                 <Separator />
                  <FormField
                         control={form.control}
                         name="creditLimit"
@@ -378,3 +438,5 @@ export function CustomerForm({ isOpen, onOpenChange, customer }: CustomerFormPro
     </Dialog>
   )
 }
+
+    

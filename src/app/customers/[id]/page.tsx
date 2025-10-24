@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { ChevronLeft, PlusCircle, CreditCard, Bot, Phone, Mail, MapPin, Cake, User, Building } from "lucide-react"
+import { ChevronLeft, PlusCircle, CreditCard, Bot, Phone, Mail, MapPin, Cake, User, Building, Landmark } from "lucide-react"
 
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -134,6 +134,16 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                <User className="h-4 w-4 text-muted-foreground" />
               <span className="capitalize">{customer.gender === 'male' ? 'Nam' : customer.gender === 'female' ? 'Nữ' : 'Khác'}</span>
             </div>
+             <div className="flex items-center gap-2 mt-2 pt-2 border-t col-span-2">
+               <Landmark className="h-4 w-4 text-muted-foreground" />
+              <span>{customer.bankName ? `${customer.bankName} - ${customer.bankAccountNumber}` : 'Chưa có thông tin ngân hàng'}</span>
+            </div>
+            {customer.bankBranch && (
+              <div className="flex items-center gap-2 col-span-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>Chi nhánh: {customer.bankBranch}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -173,3 +183,5 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     </div>
   )
 }
+
+    

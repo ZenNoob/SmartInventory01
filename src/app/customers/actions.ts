@@ -68,7 +68,8 @@ export async function generateCustomerTemplate(): Promise<{ success: boolean; er
   try {
     const headers = [
       "name", "customerType", "phone", "email", "address", 
-      "customerGroup", "gender", "birthday", "zalo", "creditLimit"
+      "customerGroup", "gender", "birthday", "zalo", "creditLimit",
+      "bankName", "bankAccountNumber", "bankBranch"
     ];
     const ws = xlsx.utils.aoa_to_sheet([headers]);
     const wb = xlsx.utils.book_new();
@@ -119,6 +120,9 @@ export async function importCustomers(base64Data: string): Promise<{ success: bo
         gender: ['male', 'female', 'other'].includes(row.gender) ? row.gender : undefined,
         birthday: row.birthday ? new Date(row.birthday).toISOString() : undefined,
         zalo: row.zalo?.toString() || undefined,
+        bankName: row.bankName || undefined,
+        bankAccountNumber: row.bankAccountNumber?.toString() || undefined,
+        bankBranch: row.bankBranch || undefined,
         creditLimit: !isNaN(parseFloat(row.creditLimit)) ? parseFloat(row.creditLimit) : 0,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -136,3 +140,5 @@ export async function importCustomers(base64Data: string): Promise<{ success: bo
     return { success: false, error: error.message || 'Không thể nhập file khách hàng.' };
   }
 }
+
+    

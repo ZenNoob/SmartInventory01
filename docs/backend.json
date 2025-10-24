@@ -185,6 +185,18 @@
           "type": "string",
           "description": "Zalo account of the customer."
         },
+        "bankName": {
+          "type": "string",
+          "description": "Name of the customer's bank."
+        },
+        "bankAccountNumber": {
+          "type": "string",
+          "description": "Customer's bank account number."
+        },
+        "bankBranch": {
+          "type": "string",
+          "description": "The branch address of the customer's bank."
+        },
         "gender": {
           "type": "string",
           "description": "Gender of the customer.",
