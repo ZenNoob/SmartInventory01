@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search, ArrowUp, ArrowDown, MoreHorizontal } from "lucide-react"
+import { Search, ArrowUp, ArrowDown, MoreHorizontal, File } from "lucide-react"
+import * as xlsx from 'xlsx';
 
 import {
   Card,
@@ -187,6 +188,59 @@ export default function DebtReportPage() {
     };
   }, [sortedDebtData]);
 
+  const handleExportExcel = () => {
+    const dataToExport = sortedDebtData.map((data, index) => ({
+      'STT': index + 1,
+      'Tên khách hàng': data.customerName,
+      'Số điện thoại': formatPhoneNumber(data.customerPhone),
+      'Tổng phát sinh': data.totalSales,
+      'Đã trả': data.totalPayments,
+      'Nợ cuối kỳ': data.finalDebt,
+    }));
+
+    const totalRowData = {
+      'STT': '',
+      'Tên khách hàng': 'Tổng cộng',
+      'Số điện thoại': '',
+      'Tổng phát sinh': totalRow.totalSales,
+      'Đã trả': totalRow.totalPayments,
+      'Nợ cuối kỳ': totalRow.finalDebt,
+    };
+
+    const worksheet = xlsx.utils.json_to_sheet([...dataToExport, totalRowData]);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "BaoCaoCongNo");
+
+    // Format number columns
+    worksheet['!cols'] = [
+      { wch: 5 }, // STT
+      { wch: 30 }, // Tên khách hàng
+      { wch: 15 }, // Số điện thoại
+      { wch: 20 }, // Tổng phát sinh
+      { wch: 20 }, // Đã trả
+      { wch: 20 }, // Nợ cuối kỳ
+    ];
+
+     const numberFormat = '#,##0';
+     dataToExport.forEach((_, index) => {
+        const rowIndex = index + 2; // 1-based, +1 for header
+        ['D', 'E', 'F'].forEach(col => {
+            const cell = worksheet[`${col}${rowIndex}`];
+            if(cell) cell.z = numberFormat;
+        });
+    });
+     const totalRowIndex = dataToExport.length + 2;
+      ['D', 'E', 'F'].forEach(col => {
+        const cell = worksheet[`${col}${totalRowIndex}`];
+        if(cell) {
+          cell.z = numberFormat;
+          cell.s = { font: { bold: true } }; // Make total row bold
+        }
+    });
+
+    xlsx.writeFile(workbook, "bao_cao_cong_no.xlsx");
+  };
+
   return (
     <>
       {selectedCustomerForPayment && (
@@ -212,15 +266,21 @@ export default function DebtReportPage() {
                   </p>
               </div>
           </div>
-          <div className="relative pt-4">
-              <Search className="absolute left-2.5 top-6 h-4 w-4 text-muted-foreground" />
-              <Input
-                  type="search"
-                  placeholder="Tìm kiếm theo tên hoặc SĐT..."
-                  className="w-full rounded-lg bg-background pl-8 md:w-1/3"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="flex items-center gap-4 pt-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Tìm kiếm theo tên hoặc SĐT..."
+                    className="w-full rounded-lg bg-background pl-8 md:w-80"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleExportExcel} variant="outline" className="ml-auto">
+                <File className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
           </div>
         </CardHeader>
         <CardContent>

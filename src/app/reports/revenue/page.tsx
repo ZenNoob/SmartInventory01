@@ -27,7 +27,8 @@ import { formatCurrency, cn } from "@/lib/utils"
 import { DateRange } from "react-day-picker"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, getMonth, getYear } from "date-fns"
 import { vi } from "date-fns/locale"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, File } from "lucide-react"
+import * as xlsx from 'xlsx';
 import { RevenueChart } from "./components/revenue-chart"
 
 export type MonthlyRevenue = {
@@ -90,6 +91,10 @@ export default function RevenueReportPage() {
   const totalRevenue = useMemo(() => {
     return monthlyData.reduce((acc, curr) => acc + curr.revenue, 0);
   }, [monthlyData]);
+    
+  const totalSalesCount = useMemo(() => {
+    return monthlyData.reduce((acc, curr) => acc + curr.salesCount, 0);
+    }, [monthlyData]);
 
   const setDatePreset = (preset: 'this_week' | 'this_month' | 'this_year') => {
     const now = new Date();
@@ -105,6 +110,50 @@ export default function RevenueReportPage() {
         break;
     }
   }
+
+  const handleExportExcel = () => {
+    const dataToExport = monthlyData.map((data, index) => ({
+      'STT': index + 1,
+      'Tháng': format(new Date(data.month), "MM/yyyy", { locale: vi }),
+      'Số đơn hàng': data.salesCount,
+      'Doanh thu': data.revenue,
+    }));
+    
+    const totalRowData = {
+        'STT': '',
+        'Tháng': 'Tổng cộng',
+        'Số đơn hàng': totalSalesCount,
+        'Doanh thu': totalRevenue,
+    };
+
+    const worksheet = xlsx.utils.json_to_sheet([...dataToExport, totalRowData]);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "BaoCaoDoanhThu");
+
+    worksheet['!cols'] = [
+      { wch: 5 }, // STT
+      { wch: 15 }, // Tháng
+      { wch: 15 }, // Số đơn hàng
+      { wch: 20 }, // Doanh thu
+    ];
+    
+     const numberFormat = '#,##0';
+     dataToExport.forEach((_, index) => {
+        const rowIndex = index + 2;
+        worksheet[`C${rowIndex}`].z = numberFormat;
+        worksheet[`D${rowIndex}`].z = numberFormat;
+    });
+
+    const totalRowIndex = dataToExport.length + 2;
+    worksheet[`C${totalRowIndex}`].z = numberFormat;
+    worksheet[`D${totalRowIndex}`].z = numberFormat;
+    worksheet[`B${totalRowIndex}`].s = { font: { bold: true } };
+    worksheet[`C${totalRowIndex}`].s = { font: { bold: true } };
+    worksheet[`D${totalRowIndex}`].s = { font: { bold: true } };
+
+
+    xlsx.writeFile(workbook, "bao_cao_doanh_thu.xlsx");
+  };
 
 
   return (
@@ -159,6 +208,10 @@ export default function RevenueReportPage() {
                 <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_month')}>Tháng này</Button>
                 <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_year')}>Năm nay</Button>
             </div>
+            <Button onClick={handleExportExcel} variant="outline" className="ml-auto">
+                <File className="mr-2 h-4 w-4" />
+                Xuất Excel
+            </Button>
            </div>
            
            <div className="mb-8">
@@ -204,7 +257,8 @@ export default function RevenueReportPage() {
             </TableBody>
             <TableFooter>
                 <TableRow className="text-base font-bold">
-                    <TableCell colSpan={3}>Tổng cộng</TableCell>
+                    <TableCell colSpan={2}>Tổng cộng</TableCell>
+                    <TableCell className="text-right">{totalSalesCount}</TableCell>
                     <TableCell className="text-right">{formatCurrency(totalRevenue)}</TableCell>
                 </TableRow>
             </TableFooter>
