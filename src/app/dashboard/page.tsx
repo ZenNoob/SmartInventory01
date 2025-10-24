@@ -65,13 +65,41 @@ async function getDashboardData() {
 
     const settingsDoc = await firestore.collection('settings').doc('theme').get();
     const settings = settingsDoc.exists ? toPlainObject(settingsDoc.data()) as ThemeSettings : null;
+    
+    // --- Monthly Comparison Logic ---
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    return { customers, sales, payments, products, units, salesItems, settings };
+    const currentMonthSales = sales.filter(s => new Date(s.transactionDate) >= startOfCurrentMonth);
+    const previousMonthSales = sales.filter(s => {
+        const saleDate = new Date(s.transactionDate);
+        return saleDate >= startOfPreviousMonth && saleDate <= endOfPreviousMonth;
+    });
+
+    const totalRevenueCurrentMonth = currentMonthSales.reduce((acc, sale) => acc + sale.finalAmount, 0);
+    const totalRevenuePreviousMonth = previousMonthSales.reduce((acc, sale) => acc + sale.finalAmount, 0);
+    const totalSalesCurrentMonth = currentMonthSales.length;
+    const totalSalesPreviousMonth = previousMonthSales.length;
+
+    const calculatePercentageChange = (current: number, previous: number) => {
+        if (previous === 0) {
+            return current > 0 ? 100 : 0; // If previous is 0, any increase is 100%
+        }
+        return ((current - previous) / previous) * 100;
+    };
+    
+    const revenuePercentageChange = calculatePercentageChange(totalRevenueCurrentMonth, totalRevenuePreviousMonth);
+    const salesPercentageChange = calculatePercentageChange(totalSalesCurrentMonth, totalSalesPreviousMonth);
+
+
+    return { customers, sales, payments, products, units, salesItems, settings, revenuePercentageChange, salesPercentageChange };
 }
 
 
 export default async function Dashboard() {
-  const { customers, sales, payments, products, units, salesItems, settings } = await getDashboardData();
+  const { customers, sales, payments, products, units, salesItems, settings, revenuePercentageChange, salesPercentageChange } = await getDashboardData();
   
   const unitsMap = new Map(units.map(u => [u.id, u]));
 
@@ -149,6 +177,9 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">
+                {revenuePercentageChange >= 0 ? '+' : ''}{revenuePercentageChange.toFixed(1)}% so với tháng trước
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -158,6 +189,9 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">+{totalSales}</div>
+            <p className="text-xs text-muted-foreground">
+                {salesPercentageChange >= 0 ? '+' : ''}{salesPercentageChange.toFixed(1)}% so với tháng trước
+            </p>
           </CardContent>
         </Card>
         <Card>
