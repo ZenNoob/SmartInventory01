@@ -103,6 +103,18 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
   const unitsMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
   const productsMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
 
+  const getUnitInfo = (unitId: string): { baseUnit?: Unit; conversionFactor: number, name: string } => {
+    const unit = unitsMap.get(unitId);
+    if (!unit) return { conversionFactor: 1, name: '' };
+    
+    if (unit.baseUnitId && unit.conversionFactor) {
+      const baseUnit = unitsMap.get(unit.baseUnitId);
+      return { baseUnit, conversionFactor: unit.conversionFactor, name: unit.name };
+    }
+    
+    return { baseUnit: unit, conversionFactor: 1, name: unit.name };
+  };
+
   const form = useForm<SaleFormValues>({
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
@@ -119,25 +131,36 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
   });
 
   const watchedItems = form.watch("items");
+  
   const totalAmount = useMemo(() => {
-    return watchedItems.reduce((acc, item) => acc + (item.quantity * item.price), 0);
-  }, [watchedItems]);
+    return watchedItems.reduce((acc, item) => {
+      const product = productsMap.get(item.productId);
+      if (!product) return acc;
+      const { conversionFactor } = getUnitInfo(product.unitId);
+      return acc + (item.quantity * conversionFactor * item.price);
+    }, 0);
+  }, [watchedItems, productsMap, getUnitInfo]);
 
   const finalAmount = totalAmount - (form.watch('discount') || 0);
 
   const onSubmit = async (data: SaleFormValues) => {
+    // The quantity to save should be in the base unit.
+    const itemsData = data.items.map(item => {
+        const product = productsMap.get(item.productId)!;
+        const { conversionFactor } = getUnitInfo(product.unitId);
+        return {
+            productId: item.productId,
+            quantity: item.quantity * conversionFactor, // Convert to base unit for storage
+            price: item.price, // Price is already per base unit
+        };
+    });
+
     const saleData = {
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),
         totalAmount: finalAmount,
         discount: data.discount,
     };
-    
-    const itemsData = data.items.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-    }));
 
     const result = await upsertSaleTransaction(saleData, itemsData);
 
@@ -161,8 +184,6 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
   const addProductToSale = (productId: string) => {
     const product = productsMap.get(productId);
     if (product) {
-      // For now, let's assume a default selling price or leave it as 0
-      // In a real app, you might fetch a default price.
       append({ productId: product.id, quantity: 1, price: 0 });
     }
   }
@@ -222,7 +243,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
                 <div className="space-y-3">
                   {fields.map((field, index) => {
                     const product = productsMap.get(watchedItems[index]?.productId);
-                    const unit = product ? unitsMap.get(product.unitId) : undefined;
+                    if (!product) return null;
+
+                    const saleUnitInfo = getUnitInfo(product.unitId);
+                    const baseUnit = saleUnitInfo.baseUnit || unitsMap.get(product.unitId);
+                    const convertedQuantity = watchedItems[index].quantity * saleUnitInfo.conversionFactor;
+                    
                     return (
                         <div key={field.id} className="p-3 border rounded-md relative">
                             <p className="font-medium mb-2">{product?.name || 'Sản phẩm không xác định'}</p>
@@ -232,10 +258,15 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
                                   name={`items.${index}.quantity`}
                                   render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Số lượng ({unit?.name || 'ĐVT'})</FormLabel>
+                                        <FormLabel>Số lượng ({saleUnitInfo.name || 'ĐVT'})</FormLabel>
                                         <FormControl>
                                             <Input type="number" step="any" {...field} />
                                         </FormControl>
+                                        {baseUnit && saleUnitInfo.name !== baseUnit.name && (
+                                            <FormDescription>
+                                                (Tương đương {convertedQuantity.toLocaleString()} {baseUnit.name})
+                                            </FormDescription>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                   )}
@@ -245,7 +276,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units }: S
                                   name={`items.${index}.price`}
                                   render={({ field }) => (
                                      <FormItem>
-                                        <FormLabel>Giá bán (VNĐ / {unit?.name || 'ĐVT'})</FormLabel>
+                                        <FormLabel>Giá bán (VNĐ / {baseUnit?.name || saleUnitInfo.name || 'ĐVT'})</FormLabel>
                                         <FormControl>
                                             <FormattedNumberInput {...field} />
                                         </FormControl>

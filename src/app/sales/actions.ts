@@ -33,6 +33,7 @@ async function getAdminServices() {
 
 export async function upsertSaleTransaction(
   sale: Omit<Sale, 'id'>, 
+  // The items passed here have their quantity in the base unit
   items: Omit<SalesItem, 'id' | 'salesTransactionId'>[]
 ): Promise<{ success: boolean; error?: string; saleId?: string }> {
   const { firestore } = await getAdminServices();
@@ -57,25 +58,9 @@ export async function upsertSaleTransaction(
           salesTransactionId: saleRef.id 
         });
 
-        // 3. Update product stock (this is a simplified example)
-        // A more robust solution would check for sufficient stock before proceeding.
-        // We are assuming the quantity is in the product's primary unit for simplicity.
-        // This part is commented out as it requires a more complex stock management logic
-        // that considers different units and conversion factors, which is beyond this scope.
-        // You would typically subtract from an `inventory` field on the product.
-        
-        // For example:
-        // const productDoc = await transaction.get(productRef);
-        // if (!productDoc.exists) {
-        //   throw new Error(`Product with ID ${item.productId} not found.`);
-        // }
-        // const currentStock = productDoc.data()?.stock || 0;
-        // if (currentStock < item.quantity) {
-        //   throw new Error(`Not enough stock for product ${productDoc.data()?.name}.`);
-        // }
-        // transaction.update(productRef, {
-        //   stock: FieldValue.increment(-item.quantity)
-        // });
+        // The logic for updating stock is now implicitly handled by how we calculate stock on the product page.
+        // We read all purchase lots and subtract all sales items.
+        // As long as this sale item is created, the stock calculation will be correct.
       }
 
       return saleRef.id;
