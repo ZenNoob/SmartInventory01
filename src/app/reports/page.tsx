@@ -47,12 +47,15 @@ export type CustomerDebtInfo = {
 type SortKey = 'customerName' | 'customerPhone' | 'totalSales' | 'totalPayments' | 'finalDebt';
 
 const formatPhoneNumber = (phone?: string) => {
-  if (!phone) return 'N/A';
-  // Assuming 10-digit phone numbers like 0905123456
-  if (phone.length === 10) {
-    return `${phone.substring(0, 4)} ${phone.substring(4, 7)} ${phone.substring(7, 10)}`;
-  }
-  return phone; // Return as is if not 10 digits
+    if (!phone) return 'N/A';
+    const cleaned = phone.replace(/\s/g, ''); // Remove existing spaces
+    if (cleaned.length === 10) {
+        return `${cleaned.substring(0, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7, 10)}`;
+    }
+    if (cleaned.length === 9) {
+        return `${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6, 9)}`;
+    }
+    return phone;
 };
 
 export default function ReportsPage() {
