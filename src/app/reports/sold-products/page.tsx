@@ -42,6 +42,8 @@ type SoldProductInfo = {
   totalRevenue: number;
   avgPrice: number;
   baseUnitName: string;
+  saleUnitName?: string;
+  conversionFactor?: number;
 };
 
 type SortKey = 'productName' | 'categoryName' | 'totalQuantity' | 'avgPrice' | 'totalRevenue';
@@ -126,8 +128,8 @@ export default function SoldProductsReportPage() {
     productSalesMap.forEach((data, productId) => {
       const product = productsMap.get(productId);
       if (product) {
-        const productUnit = unitsMap.get(product.unitId);
-        const baseUnit = productUnit?.baseUnitId ? unitsMap.get(productUnit.baseUnitId) : productUnit;
+        const saleUnit = unitsMap.get(product.unitId);
+        const baseUnit = saleUnit?.baseUnitId ? unitsMap.get(saleUnit.baseUnitId) : saleUnit;
         
         results.push({
           productId,
@@ -137,6 +139,8 @@ export default function SoldProductsReportPage() {
           totalRevenue: data.totalRevenue,
           avgPrice: data.totalRevenue / data.totalQuantity,
           baseUnitName: baseUnit?.name || '',
+          saleUnitName: saleUnit?.name,
+          conversionFactor: saleUnit?.conversionFactor,
         });
       }
     });
@@ -144,6 +148,14 @@ export default function SoldProductsReportPage() {
     return results;
   }, [products, allSalesItems, productsMap, categoriesMap, unitsMap]);
 
+  const formatSoldQuantity = (item: SoldProductInfo) => {
+    const { totalQuantity, baseUnitName, saleUnitName, conversionFactor } = item;
+    if (saleUnitName && conversionFactor && conversionFactor > 1 && saleUnitName !== baseUnitName) {
+      const quantityInSaleUnit = totalQuantity / conversionFactor;
+      return `${totalQuantity.toLocaleString()} ${baseUnitName} (${quantityInSaleUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${saleUnitName})`;
+    }
+    return `${totalQuantity.toLocaleString()} ${baseUnitName}`;
+  };
 
   const filteredSoldProducts = useMemo(() => {
     return soldProductsData.filter(data => 
@@ -211,8 +223,7 @@ export default function SoldProductsReportPage() {
       'STT': index + 1,
       'Tên sản phẩm': data.productName,
       'Loại': data.categoryName,
-      'SL đã bán': data.totalQuantity,
-      'ĐVT': data.baseUnitName,
+      'SL đã bán': formatSoldQuantity(data),
       'Đơn giá TB': data.avgPrice,
       'Thành tiền': data.totalRevenue,
     }));
@@ -228,20 +239,20 @@ export default function SoldProductsReportPage() {
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "BaoCaoSanPhamBan");
 
-    worksheet['!cols'] = [ {wch: 5}, {wch: 40}, {wch: 20}, {wch: 15}, {wch: 10}, {wch: 20}, {wch: 20} ];
+    worksheet['!cols'] = [ {wch: 5}, {wch: 40}, {wch: 20}, {wch: 25}, {wch: 20}, {wch: 20} ];
 
     const numberFormat = '#,##0';
     dataToExport.forEach((_, index) => {
        const rowIndex = index + 2;
-       ['D', 'F', 'G'].forEach(col => {
+       ['E', 'F'].forEach(col => {
            const cell = worksheet[`${col}${rowIndex}`];
            if(cell) cell.z = numberFormat;
        });
    });
 
    const totalRowIndex = dataToExport.length + 2;
-   worksheet[`G${totalRowIndex}`].z = numberFormat;
-   worksheet[`G${totalRowIndex}`].s = { font: { bold: true } };
+   worksheet[`F${totalRowIndex}`].z = numberFormat;
+   worksheet[`F${totalRowIndex}`].s = { font: { bold: true } };
    worksheet[`B${totalRowIndex}`].s = { font: { bold: true } };
 
     xlsx.writeFile(workbook, "bao_cao_san_pham_da_ban.xlsx");
@@ -299,13 +310,12 @@ export default function SoldProductsReportPage() {
               <SortableHeader sortKey="productName">Tên sản phẩm</SortableHeader>
               <SortableHeader sortKey="categoryName">Loại</SortableHeader>
               <SortableHeader sortKey="totalQuantity" className="text-right">SL đã bán</SortableHeader>
-              <TableHead>ĐVT</TableHead>
               <SortableHeader sortKey="avgPrice" className="text-right">Đơn giá TB</SortableHeader>
               <SortableHeader sortKey="totalRevenue" className="text-right">Thành tiền</SortableHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Đang tải dữ liệu...</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={6} className="text-center h-24">Đang tải dữ liệu...</TableCell></TableRow>}
             {!isLoading && sortedSoldProducts.map((data, index) => (
               <TableRow key={data.productId}>
                 <TableCell>{index + 1}</TableCell>
@@ -315,21 +325,20 @@ export default function SoldProductsReportPage() {
                   </Link>
                 </TableCell>
                 <TableCell>{data.categoryName}</TableCell>
-                <TableCell className="text-right font-medium">{data.totalQuantity.toLocaleString()}</TableCell>
-                <TableCell>{data.baseUnitName}</TableCell>
+                <TableCell className="text-right font-medium">{formatSoldQuantity(data)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(data.avgPrice)}</TableCell>
                 <TableCell className="text-right font-semibold text-primary">{formatCurrency(data.totalRevenue)}</TableCell>
               </TableRow>
             ))}
             {!isLoading && sortedSoldProducts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">Không có sản phẩm nào được bán trong khoảng thời gian đã chọn.</TableCell>
+                <TableCell colSpan={6} className="text-center h-24">Không có sản phẩm nào được bán trong khoảng thời gian đã chọn.</TableCell>
               </TableRow>
             )}
           </TableBody>
           <ShadcnTableFooter>
             <TableRow className="text-base font-bold">
-              <TableCell colSpan={6}>Tổng cộng</TableCell>
+              <TableCell colSpan={5}>Tổng cộng</TableCell>
               <TableCell className="text-right">{formatCurrency(totalRevenue)}</TableCell>
             </TableRow>
           </ShadcnTableFooter>
