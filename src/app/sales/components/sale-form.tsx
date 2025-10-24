@@ -504,7 +504,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                             <Input type="number" step="any" {...field} />
                                         </FormControl>
                                         <FormDescription>
-                                            Tồn: {stockInfo.stock.toFixed(2)} {stockInfo.mainUnit?.name}
+                                            Tồn: {stockInfo.stock.toLocaleString('en-US', { maximumFractionDigits: 2 })} {stockInfo.mainUnit?.name}
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
