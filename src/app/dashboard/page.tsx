@@ -41,13 +41,36 @@ async function getDashboardData() {
     const { firestore } = await getAdminServices();
 
     const customersSnapshot = await firestore.collection('customers').get();
-    const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Customer[];
+    const customers = customersSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return { 
+        id: doc.id, 
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+        birthday: data.birthday?.toDate ? data.birthday.toDate().toISOString() : data.birthday,
+      } as Customer;
+    })
 
     const salesSnapshot = await firestore.collection('sales_transactions').get();
-    const sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+    const sales = salesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            ...data,
+            transactionDate: data.transactionDate?.toDate ? data.transactionDate.toDate().toISOString() : data.transactionDate,
+        } as Sale
+    });
 
     const paymentsSnapshot = await firestore.collection('payments').get();
-    const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
+    const payments = paymentsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            ...data,
+            paymentDate: data.paymentDate?.toDate ? data.paymentDate.toDate().toISOString() : data.paymentDate,
+        } as Payment
+    });
     
     return { customers, sales, payments };
 }

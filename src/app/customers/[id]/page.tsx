@@ -42,14 +42,29 @@ async function getCustomerData(customerId: string) {
       ...customerData,
       createdAt: customerData?.createdAt.toDate().toISOString(),
       updatedAt: customerData?.updatedAt.toDate().toISOString(),
+      birthday: customerData?.birthday ? new Date(customerData.birthday).toISOString() : undefined,
     } as Customer;
 
 
     const salesSnapshot = await firestore.collection('sales_transactions').where('customerId', '==', customerId).get();
-    const sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Sale[];
+    const sales = salesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return { 
+        id: doc.id, 
+        ...data,
+        transactionDate: data.transactionDate?.toDate ? data.transactionDate.toDate().toISOString() : data.transactionDate,
+      } as Sale;
+    });
 
     const paymentsSnapshot = await firestore.collection('payments').where('customerId', '==', customerId).get();
-    const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
+    const payments = paymentsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return { 
+        id: doc.id, 
+        ...data,
+        paymentDate: data.paymentDate?.toDate ? data.paymentDate.toDate().toISOString() : data.paymentDate,
+      } as Payment;
+    });
     
     return { customer, sales, payments };
 }
