@@ -33,13 +33,14 @@ interface SaleInvoiceProps {
 
 export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, settings, autoPrint }: SaleInvoiceProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const invoicePrintRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     if (autoPrint) {
-      // Timeout to allow the page to render fully before printing
       const timer = setTimeout(() => {
-        window.print();
-      }, 500);
+        handlePrint();
+      }, 500); 
       return () => clearTimeout(timer);
     }
   }, [autoPrint]);
@@ -73,17 +74,16 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
     links.forEach(link => link.style.display = 'none');
     buttons.forEach(btn => btn.style.display = 'none');
 
-    html2canvas(input, {
-      scale: 2, // Increase scale for better resolution
+    html2canvas(input.querySelector('.invoice-card') as HTMLElement, {
+      scale: 2,
       useCORS: true,
     }).then((canvas) => {
-      // Show buttons after capturing
       links.forEach(link => link.style.display = '');
       buttons.forEach(btn => btn.style.display = '');
       
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
-        orientation: 'p', // portrait
+        orientation: 'p',
         unit: 'px',
         format: 'a4'
       });
@@ -104,7 +104,6 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
 
       const xOffset = (pdfWidth - renderWidth) / 2;
 
-
       pdf.addImage(imgData, "PNG", xOffset, 0, renderWidth, renderHeight);
       pdf.save(`${sale.invoiceNumber}.pdf`);
     });
@@ -112,7 +111,15 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
 
   return (
     <div ref={invoiceRef}>
-        <div className="flex items-center gap-4 mb-4 print:hidden">
+        <style type="text/css" media="print">
+          {`
+            @page { size: auto;  margin: 0mm; }
+            body { background-color: #fff; }
+            .no-print { display: none; }
+            .invoice-card { box-shadow: none; border: none; }
+          `}
+        </style>
+        <div className="flex items-center gap-4 mb-4 no-print">
             <Button variant="outline" size="icon" className="h-7 w-7" asChild>
             <Link href="/sales">
                 <ChevronLeft className="h-4 w-4" />
@@ -130,7 +137,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
             </Button>
             </div>
       </div>
-        <Card className="p-6 sm:p-8 shadow-none border-none sm:border-solid sm:shadow-sm">
+        <Card className="p-6 sm:p-8 shadow-none border-none sm:border-solid sm:shadow-sm invoice-card" ref={invoicePrintRef}>
             <header className="flex items-start justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <Logo className="h-16 w-16 text-primary" />
