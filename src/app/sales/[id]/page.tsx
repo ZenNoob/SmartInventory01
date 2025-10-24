@@ -28,7 +28,7 @@ async function getSaleData(saleId: string) {
     const productIds = [...new Set(items.map(item => item.productId))];
     const productsMap = new Map<string, Product>();
     if (productIds.length > 0) {
-        const productsSnapshot = await firestore.collection('products').where('id', 'in', productIds).get();
+        const productsSnapshot = await firestore.collection('products').where('__name__', 'in', productIds).get();
         productsSnapshot.forEach(doc => {
             productsMap.set(doc.id, toPlainObject({ id: doc.id, ...doc.data() }) as Product);
         });

@@ -7,7 +7,7 @@ import html2canvas from 'html2canvas'
 import { ChevronLeft, File, Printer } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -77,31 +77,27 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
-      
       const canvasAspectRatio = canvasWidth / canvasHeight;
-      let finalWidth, finalHeight;
+      const pdfAspectRatio = pdfWidth / pdfHeight;
 
-      if (canvasAspectRatio > (pdfWidth/pdfHeight)) {
-          finalWidth = pdfWidth;
-          finalHeight = pdfWidth / canvasAspectRatio;
-      } else {
-          finalHeight = pdfHeight;
-          finalWidth = pdfHeight * canvasAspectRatio;
+      let renderWidth = pdfWidth;
+      let renderHeight = pdfWidth / canvasAspectRatio;
+
+      if (renderHeight > pdfHeight) {
+          renderHeight = pdfHeight;
+          renderWidth = pdfHeight * canvasAspectRatio;
       }
+      
+      const x = (pdfWidth - renderWidth) / 2;
+      const y = 0;
 
-      let x = (pdfWidth - finalWidth) / 2;
-      let y = (pdfHeight - finalHeight) / 2;
 
-
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
-      pdf.save(`HD-${sale.id.slice(-6).toUpperCase()}.pdf`);
+      pdf.addImage(imgData, "PNG", x, y, renderWidth, renderHeight);
+      pdf.save(`HD-${sale.id}.pdf`);
     });
   };
-
-  const totalBeforeDiscount = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   return (
     <div ref={invoiceRef}>
@@ -144,7 +140,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap }: Sa
                     <span>Ngày {new Date(sale.transactionDate).getDate()}</span>
                     <span>Tháng {new Date(sale.transactionDate).getMonth() + 1}</span>
                     <span>Năm {new Date(sale.transactionDate).getFullYear()}</span>
-                    <span className="font-semibold">Số HĐ: {sale.id.slice(-6).toUpperCase()}</span>
+                    <span className="font-semibold">Số HĐ: {sale.id}</span>
                 </div>
             </div>
 

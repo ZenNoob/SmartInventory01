@@ -177,7 +177,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     // This logic is tricky. A simple approximation is to filter out payments
     // that match the amount and date, but that's not robust.
     // For now, we'll just use all payments and accept a slight inaccuracy in previousDebt during edit.
-    return payments;
+    return payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.id}`);
   }, [payments, sale]);
 
   const customerDebts = useMemo(() => {
@@ -250,7 +250,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
       form.reset({
         customerId: sale.customerId,
-        transactionDate: sale.transactionDate.split('T')[0],
+        transactionDate: new Date(sale.transactionDate).toISOString().split('T')[0],
         items: formItems,
         discountType: sale.discountType || 'amount',
         discountValue: sale.discountValue || 0,
@@ -314,7 +314,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         };
     });
 
-    const saleData = {
+    const saleData: Partial<Sale> = {
         id: sale?.id, // Important for updates
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),

@@ -154,7 +154,7 @@ export default function SalesPage() {
       
       const termMatch = term ? (saleId.includes(term) || customerName.includes(term)) : true;
       
-      const dateMatch = searchDate ? format(parseISO(sale.transactionDate), 'yyyy-MM-dd') === format(searchDate, 'yyyy-MM-dd') : true;
+      const dateMatch = searchDate ? format(new Date(sale.transactionDate), 'yyyy-MM-dd') === format(searchDate, 'yyyy-MM-dd') : true;
 
       return termMatch && dateMatch;
     }).sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
@@ -179,7 +179,7 @@ export default function SalesPage() {
     if (result.success) {
       toast({
         title: "Thành công!",
-        description: `Đã xóa đơn hàng ${saleToDelete.id.slice(-6).toUpperCase()}.`,
+        description: `Đã xóa đơn hàng ${saleToDelete.id}.`,
       });
       router.refresh();
     } else {
@@ -212,7 +212,7 @@ export default function SalesPage() {
             <AlertDialogTitle>Bạn có chắc chắn không?</AlertDialogTitle>
             <AlertDialogDescription>
               Hành động này không thể được hoàn tác. Thao tác này sẽ xóa vĩnh viễn đơn hàng {' '}
-              <strong>{saleToDelete?.id.slice(-6).toUpperCase()}</strong>.
+              <strong>{saleToDelete?.id}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -314,7 +314,7 @@ export default function SalesPage() {
                     return (
                       <TableRow key={sale.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{sale.id.slice(-6).toUpperCase()}</TableCell>
+                        <TableCell className="font-medium">{sale.id}</TableCell>
                         <TableCell>{customer?.name || 'Khách lẻ'}</TableCell>
                         <TableCell className="hidden md:table-cell">
                           {new Date(sale.transactionDate).toLocaleDateString()}
