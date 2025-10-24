@@ -37,9 +37,10 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
   useEffect(() => {
     if (autoPrint) {
       // Timeout to allow the page to render fully before printing
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         window.print();
       }, 500);
+      return () => clearTimeout(timer);
     }
   }, [autoPrint]);
 
