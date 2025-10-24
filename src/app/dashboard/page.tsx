@@ -1,3 +1,4 @@
+
 import {
   Activity,
   ArrowUpRight,
@@ -10,6 +11,7 @@ import {
   Users,
 } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 import {
   Avatar,
@@ -169,42 +171,48 @@ export default async function Dashboard() {
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tổng doanh thu
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">
-                {revenuePercentageChange >= 0 ? '+' : ''}{revenuePercentageChange.toFixed(1)}% so với tháng trước
-            </p>
-          </CardContent>
+          <Link href="/sales">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Tổng doanh thu
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
+              <p className="text-xs text-muted-foreground">
+                  {revenuePercentageChange >= 0 ? '+' : ''}{revenuePercentageChange.toFixed(1)}% so với tháng trước
+              </p>
+            </CardContent>
+          </Link>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng doanh số</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{totalSales}</div>
-            <p className="text-xs text-muted-foreground">
-                {salesPercentageChange >= 0 ? '+' : ''}{salesPercentageChange.toFixed(1)}% so với tháng trước
-            </p>
-          </CardContent>
+          <Link href="/sales">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tổng doanh số</CardTitle>
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">+{totalSales}</div>
+              <p className="text-xs text-muted-foreground">
+                  {salesPercentageChange >= 0 ? '+' : ''}{salesPercentageChange.toFixed(1)}% so với tháng trước
+              </p>
+            </CardContent>
+          </Link>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nợ tồn đọng</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(totalCustomerDebt)}</div>
-             <p className="text-xs text-muted-foreground">
-              Có {customersWithDebt} khách hàng đang nợ
-            </p>
-          </CardContent>
+          <Link href="/reports">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Nợ tồn đọng</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">{formatCurrency(totalCustomerDebt)}</div>
+              <p className="text-xs text-muted-foreground">
+                Có {customersWithDebt} khách hàng đang nợ
+              </p>
+            </CardContent>
+          </Link>
         </Card>
       </div>
       <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
@@ -294,3 +302,5 @@ export default async function Dashboard() {
     </div>
   )
 }
+
+    
