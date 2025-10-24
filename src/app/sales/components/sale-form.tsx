@@ -175,8 +175,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     return watchedItems.reduce((acc, item) => {
       const product = productsMap.get(item.productId);
       if (!product || !item.price) return acc;
-      const { conversionFactor } = getUnitInfo(product.unitId);
-      const quantityInBaseUnit = (item.quantity || 0) * conversionFactor;
+      
+      const saleUnitInfo = getUnitInfo(product.unitId);
+      const quantityInBaseUnit = (item.quantity || 0) * saleUnitInfo.conversionFactor;
+      
       return acc + (quantityInBaseUnit * item.price);
     }, 0);
   }, [watchedItems, productsMap, getUnitInfo]);
@@ -438,7 +440,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                             control={form.control}
                             name={`discount`}
                             render={({ field }) => (
-                                <FormattedNumberInput {...field} className="w-32 text-right" />
+                                <FormattedNumberInput {...field} />
                             )}
                         />
                    </div>
