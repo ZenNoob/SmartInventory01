@@ -115,7 +115,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
   });
 
   useEffect(() => {
-    if(isEditMode) {
+    if(isEditMode && purchaseOrder) {
       form.reset({
         importDate: new Date(purchaseOrder.importDate).toISOString().split('T')[0],
         notes: purchaseOrder.notes || '',
@@ -162,17 +162,22 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
 
 
   const watchedItems = form.watch("items");
+  
+  const [totalAmount, setTotalAmount] = useState(0);
 
-  const totalAmount = useMemo(() => watchedItems.reduce((acc, item) => {
-    if (!item.productId || item.cost === undefined || item.quantity === undefined) {
-        return acc;
-    }
-    const product = productsMap.get(item.productId)!;
-    const { conversionFactor } = getUnitInfo(item.unitId);
-    const quantityInBaseUnit = (item.quantity || 0) * (conversionFactor || 1);
+  useEffect(() => {
+    const newTotal = watchedItems.reduce((acc, item) => {
+      if (!item.productId || item.cost === undefined || item.quantity === undefined) {
+          return acc;
+      }
+      const product = productsMap.get(item.productId)!;
+      const { conversionFactor } = getUnitInfo(item.unitId);
+      const quantityInBaseUnit = (item.quantity || 0) * (conversionFactor || 1);
 
-    return acc + quantityInBaseUnit * (item.cost || 0);
-  }, 0), [watchedItems, productsMap, getUnitInfo]);
+      return acc + quantityInBaseUnit * (item.cost || 0);
+    }, 0);
+    setTotalAmount(newTotal);
+  }, [watchedItems, productsMap, getUnitInfo]);
 
 
   const onSubmit = async (data: PurchaseOrderFormValues) => {
