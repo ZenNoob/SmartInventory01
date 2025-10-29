@@ -1,3 +1,4 @@
+
 export type Category = {
   id: string
   name: string
@@ -24,6 +25,7 @@ export type Product = {
   name: string
   categoryId: string
   unitId: string;
+  sellingPrice?: number;
   purchaseLots: PurchaseLot[]
   status: 'active' | 'draft' | 'archived'
   lowStockThreshold?: number;
@@ -63,8 +65,9 @@ export type Sale = {
   customerId: string;
   transactionDate: string; // ISO 8601 date string
   status: 'pending' | 'unprinted' | 'printed';
-  totalAmount: number; // Gross total before discount
-  finalAmount: number; // Net total after discount
+  totalAmount: number; // Gross total before discount and VAT
+  vatAmount?: number; // VAT amount
+  finalAmount: number; // Net total after discount and VAT
   discount?: number;
   discountType?: 'percentage' | 'amount';
   discountValue?: number;
@@ -96,8 +99,29 @@ export type ThemeSettings = {
   accent: string;
   accentForeground: string;
   lowStockThreshold: number;
+  vatRate?: number;
   companyName?: string;
   companyBusinessLine?: string;
   companyAddress?: string;
   companyPhone?: string;
+}
+
+export type PurchaseOrderItem = {
+  id: string;
+  purchaseOrderId: string;
+  productId: string;
+  productName?: string;
+  quantity: number;
+  cost: number;
+  unitId: string;
+}
+
+export type PurchaseOrder = {
+  id: string;
+  orderNumber: string;
+  importDate: string; // ISO date string
+  items: PurchaseOrderItem[];
+  totalAmount: number;
+  notes?: string;
+  createdAt: any; // server timestamp
 }

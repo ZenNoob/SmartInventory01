@@ -85,7 +85,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
     links.forEach(link => link.style.display = 'none');
     buttons.forEach(btn => btn.style.display = 'none');
 
-    html2canvas(input.querySelector('.invoice-card') as HTMLElement, {
+    html2canvas(input, {
       scale: 2,
       useCORS: true,
     }).then((canvas) => {
@@ -225,6 +225,12 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
                         <TableRow>
                             <TableCell colSpan={6} className="text-right font-medium">Giảm giá</TableCell>
                             <TableCell className="text-right font-semibold">-{formatCurrency(sale.discount)}</TableCell>
+                        </TableRow>
+                    ) : null}
+                     {sale.vatAmount && sale.vatAmount > 0 && settings?.vatRate ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-right font-medium">Thuế VAT ({settings.vatRate}%)</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(sale.vatAmount)}</TableCell>
                         </TableRow>
                     ) : null}
                      <TableRow>

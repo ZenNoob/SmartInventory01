@@ -1,3 +1,5 @@
+
+
 'use client'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -32,7 +34,7 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from "@/components/ui/input"
-import { Customer, Product, Unit, SalesItem, Sale, Payment } from '@/lib/types'
+import { Customer, Product, Unit, SalesItem, Sale, Payment, ThemeSettings } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react'
@@ -45,7 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Vui lòng chọn sản phẩm."),
-  quantity: z.coerce.number().min(0.01, "Số lượng phải lớn hơn 0."),
+  quantity: z.coerce.number().refine(val => val !== 0, "Số lượng không được bằng 0."),
   price: z.coerce.number().min(0, "Giá phải là số không âm."),
 });
 
@@ -70,6 +72,7 @@ interface SaleFormProps {
   allSalesItems: SalesItem[];
   sales: Sale[];
   payments: Payment[];
+  settings: ThemeSettings | null;
   sale?: Sale;
 }
 
@@ -82,13 +85,14 @@ const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; on
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/,/g, '');
-    const numberValue = parseInt(rawValue, 10);
+    // Allow negative sign
+    const numberValue = parseFloat(rawValue);
 
     if (!isNaN(numberValue)) {
       setDisplayValue(numberValue.toLocaleString('en-US'));
       onChange(numberValue);
-    } else if (rawValue === '') {
-      setDisplayValue('');
+    } else if (e.target.value === '' || e.target.value === '-') {
+      setDisplayValue(e.target.value);
       onChange(0);
     }
   };
@@ -97,7 +101,7 @@ const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; on
 };
 
 
-export function SaleForm({ isOpen, onOpenChange, customers, products, units, allSalesItems, sales, payments, sale }: SaleFormProps) {
+export function SaleForm({ isOpen, onOpenChange, customers, products, units, allSalesItems, sales, payments, settings, sale }: SaleFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [productSearchOpen, setProductSearchOpen] = useState(false);
@@ -150,7 +154,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   
   const getAverageCost = useCallback((productId: string) => {
     const product = productsMap.get(productId);
-    if (!product || !product.purchaseLots || !product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
+    if (!product || !product.purchaseLots || product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
 
     let totalCost = 0;
     let totalQuantityInBaseUnit = 0;
@@ -199,6 +203,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       if (!item.productId) return;
       const product = productsMap.get(item.productId);
       if (!product) return;
+      
+      // For returns (negative quantity), we don't check stock
+      if (item.quantity <= 0) return;
+
       const { stockInBaseUnit } = getStockInfo(item.productId);
       const { conversionFactor } = getUnitInfo(product.unitId);
       const requestedQuantityInBase = item.quantity * (conversionFactor || 1);
@@ -302,7 +310,11 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     ? (totalAmount * discountValue) / 100
     : discountValue;
     
-  const finalAmount = totalAmount - calculatedDiscount;
+  const amountAfterDiscount = totalAmount - calculatedDiscount;
+  const vatRate = settings?.vatRate || 0;
+  const vatAmount = (amountAfterDiscount * vatRate) / 100;
+  const finalAmount = amountAfterDiscount + vatAmount;
+
   const previousDebt = customerDebts.get(selectedCustomerId) || 0;
   const totalPayable = finalAmount + previousDebt;
   const remainingDebt = totalPayable - (customerPayment || 0);
@@ -324,6 +336,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),
         totalAmount: totalAmount,
+        vatAmount: vatAmount,
         finalAmount: finalAmount,
         discount: calculatedDiscount,
         discountType: data.discountType,
@@ -367,8 +380,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         });
         return;
       }
-      // Default price to 0, let user input it
-      append({ productId: product.id, quantity: 1, price: 0 });
+      // Default price to product's sellingPrice if available, otherwise 0
+      append({ 
+        productId: product.id, 
+        quantity: 1, 
+        price: product.sellingPrice || 0 
+      });
     }
   }
 
@@ -613,8 +630,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                 </FormItem>
                             )}
                         />
+                        {vatRate > 0 && (
+                        <div className="flex justify-between items-center">
+                            <span>Thuế VAT ({vatRate}%):</span>
+                            <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+                        </div>
+                        )}
                         <div className="flex justify-between items-center font-bold text-lg text-primary">
-                          <span>Thanh toán:</span>
+                          <span>Tổng cộng:</span>
                           <span>{formatCurrency(finalAmount)}</span>
                       </div>
                     </div>
@@ -625,7 +648,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                           <span className="font-semibold">{formatCurrency(previousDebt)}</span>
                       </div>
                       <div className="flex justify-between items-center font-bold">
-                          <span>Tổng cộng:</span>
+                          <span>Tổng phải trả:</span>
                           <span>{formatCurrency(totalPayable)}</span>
                       </div>
                       <FormField

@@ -14,7 +14,9 @@ import {
   ArrowDown,
   ChevronsUpDown,
   Check,
+  Undo2,
 } from "lucide-react"
+import * as xlsx from 'xlsx';
 
 import {
   Card,
@@ -69,14 +71,20 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { cn, formatCurrency } from "@/lib/utils"
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
-import { Customer, Sale, Product, Unit, SalesItem, Payment } from "@/lib/types"
-import { collection, query, getDocs } from "firebase/firestore"
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
+import { Customer, Sale, Product, Unit, SalesItem, Payment, ThemeSettings } from "@/lib/types"
+import { collection, query, getDocs, doc } from "firebase/firestore"
 import { SaleForm } from "./components/sale-form"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
@@ -152,11 +160,18 @@ export default function SalesPage() {
     return query(collection(firestore, "payments"));
   }, [firestore]);
 
+  const settingsRef = useMemoFirebase(() => {
+    if(!firestore) return null;
+    return doc(firestore, 'settings', 'theme');
+  }, [firestore])
+
+
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
   const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  const { data: settings, isLoading: settingsLoading } = useDoc<ThemeSettings>(settingsRef);
   
   const customersMap = useMemo(() => {
     if (!customers) return new Map();
@@ -258,7 +273,7 @@ export default function SalesPage() {
   }, [sortedSales]);
 
 
-  const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || paymentsLoading;
+  const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || paymentsLoading || settingsLoading;
 
   const handleAddSale = () => {
     setSelectedSale(undefined);
@@ -310,6 +325,52 @@ export default function SalesPage() {
     });
   };
 
+  const handleExportExcel = () => {
+    const dataToExport = sortedSales.map((sale, index) => ({
+      'STT': index + 1,
+      'Mã đơn hàng': sale.invoiceNumber,
+      'Khách hàng': customersMap.get(sale.customerId) || 'Khách lẻ',
+      'Ngày': format(new Date(sale.transactionDate), 'dd/MM/yyyy'),
+      'Trạng thái': getStatusText(sale.status),
+      'Tổng cộng': sale.finalAmount,
+    }));
+
+    const totalRowData = {
+      'STT': '',
+      'Mã đơn hàng': 'Tổng cộng',
+      'Khách hàng': '',
+      'Ngày': '',
+      'Trạng thái': '',
+      'Tổng cộng': totalRevenue,
+    };
+
+    const worksheet = xlsx.utils.json_to_sheet([...dataToExport, totalRowData]);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "DanhSachDonHang");
+
+    worksheet['!cols'] = [
+      { wch: 5 },  // STT
+      { wch: 20 }, // Mã đơn hàng
+      { wch: 30 }, // Khách hàng
+      { wch: 15 }, // Ngày
+      { wch: 15 }, // Trạng thái
+      { wch: 20 }, // Tổng cộng
+    ];
+    
+    const numberFormat = '#,##0';
+    dataToExport.forEach((_, index) => {
+        const rowIndex = index + 2;
+        worksheet[`F${rowIndex}`].z = numberFormat;
+    });
+    
+    const totalRowIndex = dataToExport.length + 2;
+    worksheet[`F${totalRowIndex}`].z = numberFormat;
+    worksheet[`F${totalRowIndex}`].s = { font: { bold: true } };
+    worksheet[`B${totalRowIndex}`].s = { font: { bold: true } };
+
+    xlsx.writeFile(workbook, "danh_sach_don_hang.xlsx");
+  };
+
   const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode, className?: string }) => (
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
@@ -332,6 +393,7 @@ export default function SalesPage() {
         allSalesItems={allSalesItems || []}
         sales={sales || []}
         payments={payments || []}
+        settings={settings || null}
         sale={selectedSale}
       />
       <AlertDialog open={!!saleToDelete} onOpenChange={(open) => !open && setSaleToDelete(null)}>
@@ -360,10 +422,10 @@ export default function SalesPage() {
             <TabsTrigger value="printed">Đã in</TabsTrigger>
           </TabsList>
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-8 gap-1" disabled>
+            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportExcel}>
               <File className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Xuất
+                Xuất Excel
               </span>
             </Button>
             <Button size="sm" className="h-8 gap-1" onClick={handleAddSale} disabled={isLoading}>
@@ -500,90 +562,107 @@ export default function SalesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Đang tải...</TableCell></TableRow>}
-                  {!isLoading && sortedSales?.map((sale, index) => {
-                    const customer = customers?.find(c => c.id === sale.customerId);
-                    return (
-                      <TableRow key={sale.id}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{sale.invoiceNumber}</TableCell>
-                        <TableCell>{customer?.name || 'Khách lẻ'}</TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {new Date(sale.transactionDate).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="p-1 h-auto" disabled={isUpdatingStatus}>
-                                <Badge variant={getStatusVariant(sale.status)}>
-                                  {getStatusText(sale.status)}
-                                  <ChevronDown className="h-3 w-3 ml-1" />
-                                </Badge>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
-                              <DropdownMenuItem 
-                                onClick={() => handleStatusChange(sale.id, 'pending')}
-                                disabled={sale.status === 'pending' || isUpdatingStatus}
-                              >
-                                Chờ xử lý
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusChange(sale.id, 'unprinted')}
-                                disabled={sale.status === 'unprinted' || isUpdatingStatus}
-                              >
-                                Chưa in
-                              </DropdownMenuItem>
-                               <DropdownMenuItem
-                                onClick={() => handleStatusChange(sale.id, 'printed')}
-                                disabled={sale.status === 'printed' || isUpdatingStatus}
-                              >
-                                Đã in
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(sale.finalAmount)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-haspopup="true"
-                                size="icon"
-                                variant="ghost"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Chuyển đổi menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/sales/${sale.id}`}>Xem chi tiết</Link>
-                              </DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => handleEditSale(sale)}>
-                                Sửa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => window.open(`/sales/${sale.id}?print=true`, '_blank')}>In hóa đơn</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => setSaleToDelete(sale)}>
-                                Xóa
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                  <TooltipProvider>
+                    {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Đang tải...</TableCell></TableRow>}
+                    {!isLoading && sortedSales?.map((sale, index) => {
+                      const customer = customers?.find(c => c.id === sale.customerId);
+                      const isReturnOrder = sale.finalAmount < 0;
+                      return (
+                        <TableRow key={sale.id}>
+                          <TableCell className="font-medium">{index + 1}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {isReturnOrder && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Undo2 className="h-4 w-4 text-muted-foreground" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Đơn hàng trả</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {sale.invoiceNumber}
+                            </div>
+                          </TableCell>
+                          <TableCell>{customer?.name || 'Khách lẻ'}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {new Date(sale.transactionDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="p-1 h-auto" disabled={isUpdatingStatus}>
+                                  <Badge variant={getStatusVariant(sale.status)}>
+                                    {getStatusText(sale.status)}
+                                    <ChevronDown className="h-3 w-3 ml-1" />
+                                  </Badge>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuItem 
+                                  onClick={() => handleStatusChange(sale.id, 'pending')}
+                                  disabled={sale.status === 'pending' || isUpdatingStatus}
+                                >
+                                  Chờ xử lý
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleStatusChange(sale.id, 'unprinted')}
+                                  disabled={sale.status === 'unprinted' || isUpdatingStatus}
+                                >
+                                  Chưa in
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleStatusChange(sale.id, 'printed')}
+                                  disabled={sale.status === 'printed' || isUpdatingStatus}
+                                >
+                                  Đã in
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(sale.finalAmount)}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  aria-haspopup="true"
+                                  size="icon"
+                                  variant="ghost"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Chuyển đổi menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/sales/${sale.id}`}>Xem chi tiết</Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditSale(sale)}>
+                                  Sửa
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => window.open(`/sales/${sale.id}?print=true`, '_blank')}>In hóa đơn</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={() => setSaleToDelete(sale)}>
+                                  Xóa
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {!isLoading && !sortedSales?.length && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center h-24">
+                          Không có đơn hàng nào phù hợp.
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                  {!isLoading && !sortedSales?.length && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center h-24">
-                        Không có đơn hàng nào phù hợp.
-                      </TableCell>
-                    </TableRow>
-                  )}
+                    )}
+                  </TooltipProvider>
                 </TableBody>
               </Table>
             </CardContent>
