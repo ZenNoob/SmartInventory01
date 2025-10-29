@@ -12,6 +12,7 @@ import {
   Users2,
   Folder,
   Scale,
+  Truck,
 } from 'lucide-react'
 
 import {
@@ -123,6 +124,18 @@ export function MainNav() {
                   <Link href="/products">
                     <Package />
                     {state === 'expanded' && <span>Sản phẩm</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/purchases')}
+                  tooltip="Nhập hàng"
+                >
+                  <Link href="/purchases">
+                    <Truck />
+                    {state === 'expanded' && <span>Nhập hàng</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

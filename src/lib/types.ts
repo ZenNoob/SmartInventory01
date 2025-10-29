@@ -101,3 +101,23 @@ export type ThemeSettings = {
   companyAddress?: string;
   companyPhone?: string;
 }
+
+export type PurchaseOrderItem = {
+  id: string;
+  purchaseOrderId: string;
+  productId: string;
+  productName?: string;
+  quantity: number;
+  cost: number;
+  unitId: string;
+}
+
+export type PurchaseOrder = {
+  id: string;
+  orderNumber: string;
+  importDate: string; // ISO date string
+  items: PurchaseOrderItem[];
+  totalAmount: number;
+  notes?: string;
+  createdAt: any; // server timestamp
+}
