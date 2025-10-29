@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition } from "react"
 import Link from "next/link"
 import {
   MoreHorizontal,
   PlusCircle,
   Search,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  File
 } from "lucide-react"
 
 import {
@@ -50,7 +51,7 @@ import { collection, query, orderBy } from "firebase/firestore"
 import { PurchaseOrder } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { formatCurrency } from "@/lib/utils"
-import { deletePurchaseOrder } from "./actions"
+import { deletePurchaseOrder, generatePurchaseOrdersExcel } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 
@@ -62,6 +63,7 @@ export default function PurchasesPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, startExportingTransition] = useTransition();
   
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -145,6 +147,31 @@ export default function PurchasesPage() {
     setIsDeleting(false);
     setOrderToDelete(null);
   };
+  
+  const handleExport = () => {
+    if (!sortedPurchases || sortedPurchases.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Không có dữ liệu",
+        description: "Không có đơn nhập hàng nào để xuất.",
+      });
+      return;
+    }
+    startExportingTransition(async () => {
+      const result = await generatePurchaseOrdersExcel(sortedPurchases);
+      if (result.success && result.data) {
+        const link = document.createElement("a");
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.data}`;
+        link.download = "phieu_nhap_hang.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: "Thành công", description: "Đã xuất danh sách đơn nhập hàng." });
+      } else {
+        toast({ variant: "destructive", title: "Lỗi", description: result.error });
+      }
+    });
+  };
 
   const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode, className?: string; }) => (
     <TableHead className={className}>
@@ -185,6 +212,12 @@ export default function PurchasesPage() {
             </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport} disabled={isExporting}>
+              <File className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                {isExporting ? "Đang xuất..." : "Xuất Excel"}
+              </span>
+            </Button>
           <Button size="sm" className="h-8 gap-1" asChild>
             <Link href="/purchases/new">
               <PlusCircle className="h-3.5 w-3.5" />

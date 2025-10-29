@@ -3,6 +3,7 @@
 import { PurchaseOrder, PurchaseOrderItem, PurchaseLot } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 import { FieldValue } from "firebase-admin/firestore";
+import * as xlsx from 'xlsx';
 
 async function getNextOrderNumber(firestore: FirebaseFirestore.Firestore, transaction: FirebaseFirestore.Transaction): Promise<string> {
     const today = new Date();
@@ -174,5 +175,61 @@ export async function deletePurchaseOrder(orderId: string): Promise<{ success: b
   } catch (error: any) {
     console.error("Error deleting purchase order:", error);
     return { success: false, error: error.message || 'Không thể xóa đơn nhập hàng.' };
+  }
+}
+
+export async function generatePurchaseOrdersExcel(orders: PurchaseOrder[]): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    const dataToExport = orders.map((order, index) => ({
+      'STT': index + 1,
+      'Mã đơn': order.orderNumber,
+      'Ngày nhập': new Date(order.importDate).toLocaleDateString('vi-VN'),
+      'Số SP': order.items.length,
+      'Tổng tiền': order.totalAmount,
+      'Ghi chú': order.notes || '',
+    }));
+
+    const totalAmount = orders.reduce((acc, order) => acc + order.totalAmount, 0);
+
+    const totalRow = {
+      'STT': '',
+      'Mã đơn': 'Tổng cộng',
+      'Ngày nhập': '',
+      'Số SP': '',
+      'Tổng tiền': totalAmount,
+      'Ghi chú': '',
+    };
+    
+    const worksheet = xlsx.utils.json_to_sheet([...dataToExport, totalRow]);
+
+    worksheet['!cols'] = [
+      { wch: 5 },  // STT
+      { wch: 20 }, // Mã đơn
+      { wch: 15 }, // Ngày nhập
+      { wch: 10 }, // Số SP
+      { wch: 20 }, // Tổng tiền
+      { wch: 40 }, // Ghi chú
+    ];
+
+    const numberFormat = '#,##0';
+    dataToExport.forEach((_, index) => {
+        const rowIndex = index + 2; // 1-based index, +1 for header
+        worksheet[`E${rowIndex}`].z = numberFormat;
+    });
+
+    const totalRowIndex = dataToExport.length + 2;
+    worksheet[`E${totalRowIndex}`].z = numberFormat;
+    worksheet[`B${totalRowIndex}`].s = { font: { bold: true } };
+    worksheet[`E${totalRowIndex}`].s = { font: { bold: true } };
+
+
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'DonNhapHang');
+
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return { success: true, data: buffer.toString('base64') };
+  } catch (error: any) {
+    console.error("Error generating purchase orders excel:", error);
+    return { success: false, error: 'Không thể tạo file excel.' };
   }
 }
