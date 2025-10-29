@@ -151,7 +151,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
   const watchedItems = form.watch("items");
 
   const totalAmount = watchedItems.reduce((acc, item) => {
-    if (!item.productId || !item.price || !item.quantity) {
+    if (!item.productId || item.cost === undefined || item.quantity === undefined) {
         return acc;
     }
     const product = productsMap.get(item.productId)!;
@@ -168,8 +168,6 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
         const { conversionFactor } = getUnitInfo(product.unitId);
         return {
             ...item,
-            // Quantity is based on the selected unit, but cost is per base unit.
-            // The total amount is calculated correctly before submitting.
         };
     });
 
