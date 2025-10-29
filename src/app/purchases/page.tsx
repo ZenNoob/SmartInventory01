@@ -61,7 +61,7 @@ export default function PurchasesPage() {
     if (!term) return true;
     return (
       order.orderNumber.toLowerCase().includes(term) ||
-      order.items.some(item => item.productName?.toLowerCase().includes(term))
+      (order.notes && order.notes.toLowerCase().includes(term))
     );
   });
 
@@ -143,7 +143,7 @@ export default function PurchasesPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder="Tìm theo mã đơn, tên sản phẩm..."
+                    placeholder="Tìm theo mã đơn, ghi chú..."
                     className="w-full rounded-lg bg-background pl-8 md:w-1/3"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
