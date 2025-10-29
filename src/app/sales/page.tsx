@@ -15,6 +15,7 @@ import {
   ChevronsUpDown,
   Check,
 } from "lucide-react"
+import * as xlsx from 'xlsx';
 
 import {
   Card,
@@ -310,6 +311,52 @@ export default function SalesPage() {
     });
   };
 
+  const handleExportExcel = () => {
+    const dataToExport = sortedSales.map((sale, index) => ({
+      'STT': index + 1,
+      'Mã đơn hàng': sale.invoiceNumber,
+      'Khách hàng': customersMap.get(sale.customerId) || 'Khách lẻ',
+      'Ngày': format(new Date(sale.transactionDate), 'dd/MM/yyyy'),
+      'Trạng thái': getStatusText(sale.status),
+      'Tổng cộng': sale.finalAmount,
+    }));
+
+    const totalRowData = {
+      'STT': '',
+      'Mã đơn hàng': 'Tổng cộng',
+      'Khách hàng': '',
+      'Ngày': '',
+      'Trạng thái': '',
+      'Tổng cộng': totalRevenue,
+    };
+
+    const worksheet = xlsx.utils.json_to_sheet([...dataToExport, totalRowData]);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "DanhSachDonHang");
+
+    worksheet['!cols'] = [
+      { wch: 5 },  // STT
+      { wch: 20 }, // Mã đơn hàng
+      { wch: 30 }, // Khách hàng
+      { wch: 15 }, // Ngày
+      { wch: 15 }, // Trạng thái
+      { wch: 20 }, // Tổng cộng
+    ];
+    
+    const numberFormat = '#,##0';
+    dataToExport.forEach((_, index) => {
+        const rowIndex = index + 2;
+        worksheet[`F${rowIndex}`].z = numberFormat;
+    });
+    
+    const totalRowIndex = dataToExport.length + 2;
+    worksheet[`F${totalRowIndex}`].z = numberFormat;
+    worksheet[`F${totalRowIndex}`].s = { font: { bold: true } };
+    worksheet[`B${totalRowIndex}`].s = { font: { bold: true } };
+
+    xlsx.writeFile(workbook, "danh_sach_don_hang.xlsx");
+  };
+
   const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode, className?: string }) => (
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
@@ -360,10 +407,10 @@ export default function SalesPage() {
             <TabsTrigger value="printed">Đã in</TabsTrigger>
           </TabsList>
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-8 gap-1" disabled>
+            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportExcel}>
               <File className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Xuất
+                Xuất Excel
               </span>
             </Button>
             <Button size="sm" className="h-8 gap-1" onClick={handleAddSale} disabled={isLoading}>
