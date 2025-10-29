@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
   Table,
@@ -33,12 +34,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy } from "firebase/firestore"
 import { PurchaseOrder } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { formatCurrency } from "@/lib/utils"
+import { deletePurchaseOrder } from "./actions"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 type SortKey = 'orderNumber' | 'importDate' | 'totalAmount' | 'itemCount';
 
@@ -46,8 +60,13 @@ export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>('importDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const firestore = useFirestore();
+  const { toast } = useToast();
+  const router = useRouter();
+
 
   const purchasesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -106,6 +125,27 @@ export default function PurchasesPage() {
     return sortableItems;
   }, [filteredPurchases, sortKey, sortDirection]);
 
+  const handleDelete = async () => {
+    if (!orderToDelete) return;
+    setIsDeleting(true);
+    const result = await deletePurchaseOrder(orderToDelete.id);
+    if (result.success) {
+      toast({
+        title: "Thành công!",
+        description: `Đã xóa đơn nhập hàng "${orderToDelete.orderNumber}".`,
+      });
+      router.refresh();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Ôi! Đã có lỗi xảy ra.",
+        description: result.error,
+      });
+    }
+    setIsDeleting(false);
+    setOrderToDelete(null);
+  };
+
   const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode, className?: string; }) => (
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
@@ -119,6 +159,24 @@ export default function PurchasesPage() {
 
   return (
     <>
+      <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn không?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể được hoàn tác. Thao tác này sẽ xóa vĩnh viễn đơn nhập hàng{' '}
+              <strong>{orderToDelete?.orderNumber}</strong> và cập nhật lại tồn kho của các sản phẩm liên quan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center gap-2 mb-4">
         <div className="grid gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">Đơn nhập hàng</h1>
@@ -203,7 +261,8 @@ export default function PurchasesPage() {
                           <DropdownMenuItem asChild>
                              <Link href={`/purchases/${order.id}/edit`}>Sửa</Link>
                           </DropdownMenuItem>
-                          {/* <DropdownMenuItem className="text-destructive">Xóa</DropdownMenuItem> */}
+                           <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => setOrderToDelete(order)}>Xóa</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

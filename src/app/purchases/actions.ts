@@ -137,3 +137,42 @@ export async function updatePurchaseOrder(
     return { success: false, error: error.message || 'Không thể cập nhật đơn nhập hàng.' };
   }
 }
+
+
+export async function deletePurchaseOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
+  const { firestore } = await getAdminServices();
+  const purchaseOrderRef = firestore.collection('purchase_orders').doc(orderId);
+
+  try {
+    await firestore.runTransaction(async (transaction) => {
+      // 1. Get the original purchase order
+      const orderDoc = await transaction.get(purchaseOrderRef);
+      if (!orderDoc.exists) {
+        throw new Error("Không tìm thấy đơn nhập hàng để xóa.");
+      }
+      const order = orderDoc.data() as PurchaseOrder;
+
+      // 2. Remove the purchase lots from each affected product
+      for (const item of order.items) {
+        const productRef = firestore.collection('products').doc(item.productId);
+        const purchaseLotToRemove: PurchaseLot = {
+          importDate: order.importDate,
+          quantity: item.quantity,
+          cost: item.cost,
+          unitId: item.unitId,
+        };
+        transaction.update(productRef, {
+          purchaseLots: FieldValue.arrayRemove(purchaseLotToRemove),
+        });
+      }
+
+      // 3. Delete the main purchase order document
+      transaction.delete(purchaseOrderRef);
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting purchase order:", error);
+    return { success: false, error: error.message || 'Không thể xóa đơn nhập hàng.' };
+  }
+}
