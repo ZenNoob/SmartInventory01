@@ -163,17 +163,15 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
 
   const watchedItems = form.watch("items");
   
-  const totalAmount = useMemo(() => {
-    return watchedItems.reduce((acc, item) => {
-      if (!item.productId || item.cost === undefined || item.quantity === undefined) {
-          return acc;
-      }
-      const { conversionFactor } = getUnitInfo(item.unitId);
-      const quantityInBaseUnit = (item.quantity || 0) * (conversionFactor || 1);
+  const totalAmount = watchedItems.reduce((acc, item) => {
+    if (!item.productId || item.cost === undefined || item.quantity === undefined) {
+        return acc;
+    }
+    const { conversionFactor } = getUnitInfo(item.unitId);
+    const quantityInBaseUnit = (item.quantity || 0) * (conversionFactor || 1);
 
-      return acc + quantityInBaseUnit * (item.cost || 0);
-    }, 0);
-  }, [watchedItems, getUnitInfo]);
+    return acc + quantityInBaseUnit * (item.cost || 0);
+  }, 0);
 
 
   const onSubmit = async (data: PurchaseOrderFormValues) => {
@@ -203,7 +201,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
         title: "Thành công!",
         description: `Đã ${isEditMode ? 'cập nhật' : 'tạo'} đơn nhập hàng thành công.`,
       });
-      router.push('/purchases');
+      router.push(isEditMode ? `/purchases/${purchaseOrder.id}` : '/purchases');
       router.refresh();
     } else {
       toast({
@@ -240,7 +238,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-                <Link href="/purchases">
+                <Link href={isEditMode ? `/purchases/${purchaseOrder.id}` : '/purchases'}>
                     <ChevronLeft className="h-4 w-4" />
                     <span className="sr-only">Quay lại</span>
                 </Link>
@@ -254,7 +252,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                 </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
-                 <Button type="button" variant="outline" onClick={() => router.push('/purchases')}>
+                 <Button type="button" variant="outline" onClick={() => router.push(isEditMode ? `/purchases/${purchaseOrder.id}` : '/purchases')}>
                     Hủy
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -274,7 +272,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                             const product = productsMap.get(watchedItems[index]?.productId);
                             if (!product) return null;
 
-                            const itemUnitInfo = getUnitInfo(product.unitId);
+                            const itemUnitInfo = getUnitInfo(watchedItems[index]?.unitId);
                             const baseUnit = itemUnitInfo.baseUnit || unitsMap.get(product.unitId);
                             
                             const avgCostInfo = getAverageCost(product);
@@ -286,15 +284,6 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                                 <div key={field.id} className="p-4 border rounded-md relative space-y-3">
                                     <p className="font-semibold">{product.name}</p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        
-                                        <div className="space-y-2">
-                                          <FormLabel>Đơn vị tính</FormLabel>
-                                          <Input value={itemUnitInfo.name} readOnly disabled />
-                                          {itemUnitInfo.conversionFactor && itemUnitInfo.conversionFactor > 1 && (
-                                            <FormDescription>Quy cách: 1 {itemUnitInfo.name} = {itemUnitInfo.conversionFactor} {itemUnitInfo.baseUnit?.name}</FormDescription>
-                                          )}
-                                        </div>
-
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.quantity`}
@@ -320,8 +309,11 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                                                 </FormItem>
                                             )}
                                         />
+                                         <div className="space-y-2">
+                                            <FormLabel>Thành tiền</FormLabel>
+                                            <Input value={formatCurrency(lineTotal)} readOnly disabled className="font-semibold border-none" />
+                                        </div>
                                     </div>
-                                    <p className="text-right text-sm font-medium">Thành tiền: {formatCurrency(lineTotal)}</p>
                                      <Button
                                         type="button"
                                         variant="ghost"
