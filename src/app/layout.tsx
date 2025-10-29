@@ -54,7 +54,7 @@ export default async function RootLayout({
             <SidebarProvider>
               <div className="flex min-h-screen">
                 <MainNav />
-                <div className="flex-1 flex flex-col p-6 gap-6">
+                <div className="flex-1 flex flex-col p-6 gap-6 min-w-0">
                   <Header />
                   <main className="flex-1 overflow-y-auto">
                     {children}
