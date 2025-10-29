@@ -16,7 +16,7 @@ export default function EditPurchasePage({ params }: { params: { id: string } })
     const purchaseOrderRef = useMemoFirebase(() => {
         if (!firestore) return null;
         return doc(firestore, 'purchase_orders', params.id);
-    }, [firestore, params]);
+    }, [firestore, params.id]);
 
     const { data: purchaseOrder, isLoading: purchaseOrderLoading } = useDoc<PurchaseOrder>(purchaseOrderRef);
 
