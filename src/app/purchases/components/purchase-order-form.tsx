@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from "@/components/ui/input"
-import { Product, Unit, PurchaseOrderItem, PurchaseOrder } from '@/lib/types'
+import { Product, Unit, PurchaseOrderItem, PurchaseOrder, SalesItem } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown, PlusCircle, Trash2, ChevronLeft } from 'lucide-react'
@@ -40,7 +40,6 @@ import { cn, formatCurrency } from '@/lib/utils'
 import { createPurchaseOrder } from '../actions'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Link from 'next/link'
 
 const purchaseOrderItemSchema = z.object({
@@ -62,6 +61,7 @@ type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
 interface PurchaseOrderFormProps {
   products: Product[];
   units: Unit[];
+  allSalesItems: SalesItem[];
   purchaseOrder?: PurchaseOrder;
 }
 
@@ -89,7 +89,7 @@ const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; on
 };
 
 
-export function PurchaseOrderForm({ products, units, purchaseOrder }: PurchaseOrderFormProps) {
+export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrder }: PurchaseOrderFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [productSearchOpen, setProductSearchOpen] = useState(false);
@@ -106,22 +106,76 @@ export function PurchaseOrderForm({ products, units, purchaseOrder }: PurchaseOr
     },
   });
   
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items"
   });
+  
+  const getUnitInfo = useCallback((unitId: string): { baseUnit?: Unit; conversionFactor: number, name: string } => {
+    const unit = unitsMap.get(unitId);
+    if (!unit) return { conversionFactor: 1, name: '' };
+    
+    if (unit.baseUnitId && unit.conversionFactor) {
+      const baseUnit = unitsMap.get(unit.baseUnitId);
+      return { baseUnit, conversionFactor: unit.conversionFactor, name: unit.name };
+    }
+    
+    return { baseUnit: unit, conversionFactor: 1, name: unit.name };
+  }, [unitsMap]);
+
+  const getAverageCost = useCallback((product: Product) => {
+    if (!product.purchaseLots || product.purchaseLots.length === 0 || !product.unitId) return { avgCost: 0, baseUnit: undefined};
+
+    let totalCost = 0;
+    let totalQuantityInBaseUnit = 0;
+    let costBaseUnit: Unit | undefined;
+
+    product.purchaseLots.forEach(lot => {
+        const { baseUnit, conversionFactor } = getUnitInfo(lot.unitId);
+        const quantityInBaseUnit = lot.quantity * conversionFactor;
+        totalCost += lot.cost * quantityInBaseUnit;
+        totalQuantityInBaseUnit += quantityInBaseUnit;
+        if (baseUnit) {
+          costBaseUnit = baseUnit;
+        } else if(unitsMap.has(lot.unitId)) {
+          costBaseUnit = unitsMap.get(lot.unitId);
+        }
+    });
+    
+    if (totalQuantityInBaseUnit === 0) return { avgCost: 0, baseUnit: costBaseUnit };
+    
+    return { avgCost: totalCost / totalQuantityInBaseUnit, baseUnit: costBaseUnit };
+  }, [getUnitInfo, unitsMap]);
+
 
   const watchedItems = form.watch("items");
 
   const totalAmount = watchedItems.reduce((acc, item) => {
-    const { quantity = 0, cost = 0 } = item;
-    return acc + (quantity * cost);
+    if (!item.productId || !item.price || !item.quantity) {
+        return acc;
+    }
+    const product = productsMap.get(item.productId)!;
+    const { conversionFactor } = getUnitInfo(product.unitId);
+    const quantityInBaseUnit = (item.quantity || 0) * (conversionFactor || 1);
+
+    return acc + quantityInBaseUnit * (item.cost || 0);
   }, 0);
 
 
   const onSubmit = async (data: PurchaseOrderFormValues) => {
+    const itemsData = data.items.map(item => {
+        const product = productsMap.get(item.productId)!;
+        const { conversionFactor } = getUnitInfo(product.unitId);
+        return {
+            ...item,
+            // Quantity is based on the selected unit, but cost is per base unit.
+            // The total amount is calculated correctly before submitting.
+        };
+    });
+
     const result = await createPurchaseOrder({
         ...data,
+        items: itemsData,
         totalAmount
     });
 
@@ -198,35 +252,34 @@ export function PurchaseOrderForm({ products, units, purchaseOrder }: PurchaseOr
                     <CardContent className="space-y-4">
                         {fields.map((field, index) => {
                             const product = productsMap.get(watchedItems[index]?.productId);
-                            const selectedUnit = unitsMap.get(watchedItems[index]?.unitId);
-                            const itemTotal = (watchedItems[index]?.quantity || 0) * (watchedItems[index]?.cost || 0);
+                            if (!product) return null;
+
+                            const itemUnitInfo = getUnitInfo(product.unitId);
+                            const baseUnit = itemUnitInfo.baseUnit || unitsMap.get(product.unitId);
+                            
+                            const avgCostInfo = getAverageCost(product);
+                            const itemTotal = (watchedItems[index]?.quantity || 0) * (itemUnitInfo.conversionFactor || 1) * (watchedItems[index]?.cost || 0);
+
                             return (
                                 <div key={field.id} className="p-4 border rounded-md relative space-y-3">
-                                    <p className="font-semibold">{product?.name}</p>
+                                    <p className="font-semibold">{product.name}</p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        
+                                        <div className="space-y-2">
+                                          <FormLabel>Đơn vị tính</FormLabel>
+                                          <Input value={itemUnitInfo.name} readOnly />
+                                          {itemUnitInfo.conversionFactor && itemUnitInfo.conversionFactor > 1 && (
+                                            <FormDescription>Quy cách: 1 {itemUnitInfo.name} = {itemUnitInfo.conversionFactor} {itemUnitInfo.baseUnit?.name}</FormDescription>
+                                          )}
+                                        </div>
+
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.quantity`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Số lượng</FormLabel>
+                                                    <FormLabel>Số lượng ({itemUnitInfo.name})</FormLabel>
                                                     <FormControl><Input type="number" step="any" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.unitId`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Đơn vị</FormLabel>
-                                                    <Select onValueChange={field.onChange} value={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn ĐVT" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            {units.map(unit => <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -236,8 +289,11 @@ export function PurchaseOrderForm({ products, units, purchaseOrder }: PurchaseOr
                                             name={`items.${index}.cost`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Giá nhập / {selectedUnit?.name || 'ĐVT'}</FormLabel>
+                                                    <FormLabel>Giá nhập / {baseUnit?.name}</FormLabel>
                                                     <FormControl><FormattedNumberInput {...field} /></FormControl>
+                                                    <FormDescription>
+                                                      Giá nhập TB: {formatCurrency(avgCostInfo.avgCost)}
+                                                    </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
