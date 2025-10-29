@@ -9,14 +9,15 @@ import { notFound } from "next/navigation";
 
 
 export default function EditPurchasePage({ params }: { params: { id: string } }) {
+    const { id: purchaseOrderId } = params;
     const firestore = useFirestore();
     const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
     const [salesItemsLoading, setSalesItemsLoading] = useState(true);
 
     const purchaseOrderRef = useMemoFirebase(() => {
         if (!firestore) return null;
-        return doc(firestore, 'purchase_orders', params.id);
-    }, [firestore, params.id]);
+        return doc(firestore, 'purchase_orders', purchaseOrderId);
+    }, [firestore, purchaseOrderId]);
 
     const { data: purchaseOrder, isLoading: purchaseOrderLoading } = useDoc<PurchaseOrder>(purchaseOrderRef);
 
