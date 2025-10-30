@@ -68,6 +68,7 @@ import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { formatCurrency } from "@/lib/utils"
 import { ImportCustomers } from "./components/import-customers"
+import { DebtPaymentDialog } from "./components/debt-payment-dialog"
 
 type CustomerTypeFilter = 'all' | 'personal' | 'business';
 type GenderFilter = 'all' | 'male' | 'female' | 'other';
@@ -84,6 +85,7 @@ export default function CustomersPage() {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
   const [groupFilter, setGroupFilter] = useState("");
   const [viewingPaymentsFor, setViewingPaymentsFor] = useState<Customer | null>(null);
+  const [customerForPayment, setCustomerForPayment] = useState<Customer | null>(null);
   const [isUpdating, startTransition] = useTransition();
   const [isExporting, startExportingTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -292,6 +294,7 @@ export default function CustomersPage() {
   const isLoading = customersLoading || salesLoading || paymentsLoading;
   
   const customerPayments = viewingPaymentsFor ? customerDebts.get(viewingPaymentsFor.id)?.payments || [] : [];
+  const currentDebtInfo = customerForPayment ? customerDebts.get(customerForPayment.id) : undefined;
 
   return (
     <>
@@ -300,6 +303,14 @@ export default function CustomersPage() {
         onOpenChange={setIsFormOpen}
         customer={selectedCustomer}
       />
+       {currentDebtInfo && (
+        <DebtPaymentDialog
+          isOpen={!!customerForPayment}
+          onOpenChange={() => setCustomerForPayment(null)}
+          customer={customerForPayment!}
+          debtInfo={currentDebtInfo}
+        />
+      )}
       <AlertDialog open={!!customerToDelete} onOpenChange={(open) => !open && setCustomerToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -498,9 +509,9 @@ export default function CustomersPage() {
                           >
                             {formatCurrency(debtInfo.paid)}
                           </button>
-                          <Link href={`/customers/${customer.id}`} className={`block underline cursor-pointer ${debtInfo.debt > 0 ? "text-destructive" : ""}`}>
+                           <button onClick={() => hasDebt && setCustomerForPayment(customer)} className={`block w-full text-left underline cursor-pointer ${debtInfo.debt > 0 ? "text-destructive" : ""}`} disabled={!hasDebt}>
                             {formatCurrency(debtInfo.debt)}
-                          </Link>
+                          </button>
                         </div>
                       ) : (
                         <span>Đang tính...</span>
