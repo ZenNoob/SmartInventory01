@@ -55,6 +55,8 @@ const prompt = ai.definePrompt({
   output: {schema: ForecastSalesOutputSchema},
   prompt: `You are a data scientist for a retail company. Your task is to analyze historical sales data and current inventory levels to forecast future sales and provide re-ordering recommendations.
 
+  **IMPORTANT: All output text must be in Vietnamese.**
+
   **Analyze the following data:**
   1.  **Historical Sales Data:** A JSON array of past sales transactions. Analyze this data to identify trends, seasonality, and sales velocity for each product.
       \`\`\`json
@@ -69,9 +71,9 @@ const prompt = ai.definePrompt({
   **Your Task:**
   1.  **Forecast Sales:** Predict the sales for each product for the next {{{forecastPeriodDays}}} days. Use time-series analysis principles. Consider recent sales velocity more heavily.
   2.  **Provide Re-order Suggestions:** For each product, compare the forecasted sales with the current stock.
-      - If forecasted sales exceed current stock, set 'suggestion' to "Re-order" and calculate a 'suggestedReorderQuantity'. The re-order quantity should be enough to cover the forecasted deficit plus a safety buffer (e.g., 20% of the forecasted sales).
-      - If stock is sufficient, set 'suggestion' to "OK" and 'suggestedReorderQuantity' to 0.
-  3.  **Summarize Findings:** Provide a brief 'analysisSummary' of the overall sales trends you observed (e.g., "Overall sales are trending up, with strong performance in product X, but product Y is slowing down.").
+      - If forecasted sales exceed current stock, set 'suggestion' to "Cần nhập" and calculate a 'suggestedReorderQuantity'. The re-order quantity should be enough to cover the forecasted deficit plus a safety buffer (e.g., 20% of the forecasted sales).
+      - If stock is sufficient, set 'suggestion' to "Ổn định" and 'suggestedReorderQuantity' to 0.
+  3.  **Summarize Findings:** Provide a brief 'analysisSummary' of the overall sales trends you observed (e.g., "Doanh số bán hàng tổng thể đang có xu hướng tăng, với sự tăng trưởng mạnh ở sản phẩm X, nhưng sản phẩm Y đang chậm lại.").
 
   **Output Format:**
   Return a JSON object that strictly adheres to the 'ForecastSalesOutputSchema'.
