@@ -43,6 +43,7 @@ export function PredictShortageForm() {
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
   const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
 
+  const productsMap = useMemo(() => new Map(products?.map(p => [p.id, p])), [products]);
   const unitsMap = useMemo(() => new Map(units?.map(u => [u.id, u])), [units]);
 
   const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
@@ -190,21 +191,25 @@ export function PredictShortageForm() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {prediction.forecastedProducts.map(p => (
+                            {prediction.forecastedProducts.map(p => {
+                                const product = productsMap.get(p.productId);
+                                const mainUnit = product ? unitsMap.get(product.unitId) : undefined;
+                                const baseUnit = mainUnit?.baseUnitId ? unitsMap.get(mainUnit.baseUnitId) : mainUnit;
+                                return (
                                 <TableRow key={p.productId}>
                                     <TableCell className="font-medium">{p.productName}</TableCell>
                                     <TableCell className="text-right">{p.currentStock.toLocaleString()}</TableCell>
                                     <TableCell className="text-right">{p.forecastedSales.toLocaleString()}</TableCell>
                                     <TableCell className="text-center">
-                                        <Badge variant={p.suggestion === 'Re-order' ? 'destructive' : 'default'}>
-                                            {p.suggestion === 'Re-order' ? 'Cần nhập' : 'Ổn định'}
+                                        <Badge variant={p.suggestion === 'Re-order' || p.suggestion === 'Cần nhập' ? 'destructive' : 'default'}>
+                                            {p.suggestion === 'Re-order' ? 'Cần nhập' : p.suggestion}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right font-semibold">
-                                        {p.suggestedReorderQuantity > 0 ? p.suggestedReorderQuantity.toLocaleString() : '-'}
+                                        {p.suggestedReorderQuantity > 0 ? `${p.suggestedReorderQuantity.toLocaleString()} ${baseUnit?.name || ''}` : '-'}
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )})}
                         </TableBody>
                     </Table>
                 </ScrollArea>
