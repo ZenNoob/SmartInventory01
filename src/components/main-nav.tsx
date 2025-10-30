@@ -183,6 +183,11 @@ export function MainNav() {
                                 <Link href="/reports/debt">Công nợ</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/debt-tracking')}>
+                                <Link href="/reports/debt-tracking">Theo dõi công nợ</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                          <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={isActive('/reports/revenue')}>
                                 <Link href="/reports/revenue">Doanh thu</Link>
