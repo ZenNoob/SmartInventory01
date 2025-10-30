@@ -80,11 +80,12 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns"
+import { DateRange } from "react-day-picker"
 import { cn, formatCurrency } from "@/lib/utils"
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { Customer, Sale, Product, Unit, SalesItem, Payment, ThemeSettings } from "@/lib/types"
-import { collection, query, getDocs, doc } from "firebase/firestore"
+import { collection, query, getDocs, doc, where } from "firebase/firestore"
 import { SaleForm } from "./components/sale-form"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
@@ -120,7 +121,10 @@ export default function SalesPage() {
   const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
   const [salesItemsLoading, setSalesItemsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchDate, setSearchDate] = useState<Date | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+  });
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | undefined>(undefined);
@@ -136,9 +140,16 @@ export default function SalesPage() {
   const router = useRouter();
 
   const salesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "sales_transactions"));
-  }, [firestore]);
+    if (!firestore || !dateRange?.from) return null;
+    const toDate = dateRange.to || dateRange.from;
+
+    return query(
+      collection(firestore, "sales_transactions"),
+      where('transactionDate', '>=', dateRange.from.toISOString()),
+      where('transactionDate', '<=', toDate.toISOString())
+    );
+  }, [firestore, dateRange]);
+
 
   const customersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -213,6 +224,24 @@ export default function SalesPage() {
       setSortDirection('asc');
     }
   };
+  
+  const setDatePreset = (preset: 'this_week' | 'this_month' | 'this_quarter' | 'this_year') => {
+    const now = new Date();
+    switch (preset) {
+      case 'this_week':
+        setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
+        break;
+      case 'this_month':
+        setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+        break;
+      case 'this_quarter':
+        setDateRange({ from: startOfQuarter(now), to: endOfQuarter(now) });
+        break;
+      case 'this_year':
+        setDateRange({ from: startOfYear(now), to: endOfYear(now) });
+        break;
+    }
+  }
 
   const sortedSales = useMemo(() => {
     let sortableItems = sales?.filter(sale => {
@@ -221,14 +250,10 @@ export default function SalesPage() {
       const term = searchTerm.toLowerCase();
       
       const termMatch = term ? (invoiceNumber.includes(term) || customerName.includes(term)) : true;
-      
-      const dateMatch = searchDate ? format(new Date(sale.transactionDate), 'yyyy-MM-dd') === format(searchDate, 'yyyy-MM-dd') : true;
-
       const statusMatch = statusFilter !== 'all' ? sale.status === statusFilter : true;
-
       const customerMatch = customerFilter !== 'all' ? sale.customerId === customerFilter : true;
 
-      return termMatch && dateMatch && statusMatch && customerMatch;
+      return termMatch && statusMatch && customerMatch;
     }) || [];
 
     sortableItems.sort((a, b) => {
@@ -265,7 +290,7 @@ export default function SalesPage() {
     });
 
     return sortableItems;
-  }, [sales, searchTerm, searchDate, customersMap, statusFilter, customerFilter, sortKey, sortDirection]);
+  }, [sales, searchTerm, customersMap, statusFilter, customerFilter, sortKey, sortDirection]);
 
 
   const totalRevenue = useMemo(() => {
@@ -460,25 +485,28 @@ export default function SalesPage() {
                         variant={"outline"}
                         className={cn(
                             "w-[240px] justify-start text-left font-normal",
-                            !searchDate && "text-muted-foreground"
+                            !dateRange && "text-muted-foreground"
                         )}
                         >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {searchDate ? format(searchDate, "dd/MM/yyyy") : <span>Lọc theo ngày</span>}
+                        {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}</> : format(dateRange.from, "dd/MM/yyyy")) : <span>Chọn khoảng ngày</span>}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
-                            mode="single"
-                            selected={searchDate}
-                            onSelect={setSearchDate}
+                            mode="range"
+                            selected={dateRange}
+                            onSelect={setDateRange}
                             initialFocus
                         />
+                         <div className="p-2 border-t flex justify-around">
+                            <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_week')}>Tuần này</Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_month')}>Tháng này</Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_quarter')}>Quý này</Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_year')}>Năm nay</Button>
+                        </div>
                     </PopoverContent>
                  </Popover>
-                 {searchDate && (
-                    <Button variant="ghost" onClick={() => setSearchDate(undefined)}>Xóa lọc ngày</Button>
-                 )}
                 <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
