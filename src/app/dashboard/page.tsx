@@ -82,7 +82,9 @@ export default function Dashboard() {
   });
   const [isInventoryDetailOpen, setIsInventoryDetailOpen] = useState(false);
   const [isDebtDetailOpen, setIsDebtDetailOpen] = useState(false);
+  const [isSalesDetailOpen, setIsSalesDetailOpen] = useState(false);
   const [debtSearchTerm, setDebtSearchTerm] = useState("");
+  const [salesSearchTerm, setSalesSearchTerm] = useState("");
 
 
   const firestore = useFirestore();
@@ -107,6 +109,7 @@ export default function Dashboard() {
   const productsMap = useMemo(() => new Map(products?.map(p => [p.id, p])), [products]);
   const unitsMap = useMemo(() => new Map(units?.map(u => [u.id, u])), [units]);
   const categoriesMap = useMemo(() => new Map(categories?.map(c => [c.id, c.name])), [categories]);
+  const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
 
 
   const filteredSales = useMemo(() => {
@@ -121,6 +124,15 @@ export default function Dashboard() {
       return saleDate >= fromDate && saleDate <= toDate;
     });
   }, [sales, dateRange]);
+
+  const filteredSalesForDialog = useMemo(() => {
+    if (!salesSearchTerm) return filteredSales;
+    const term = salesSearchTerm.toLowerCase();
+    return filteredSales.filter(sale => 
+      sale.invoiceNumber.toLowerCase().includes(term) ||
+      (customersMap.get(sale.customerId) || '').toLowerCase().includes(term)
+    );
+  }, [filteredSales, salesSearchTerm, customersMap]);
 
 
   useEffect(() => {
@@ -369,19 +381,76 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              Trong khoảng thời gian đã chọn
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
+        <Dialog open={isSalesDetailOpen} onOpenChange={setIsSalesDetailOpen}>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:bg-muted/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Trong khoảng thời gian đã chọn
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+           <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Chi tiết Doanh thu & Doanh số</DialogTitle>
+              <DialogDescription>
+                Danh sách các đơn hàng trong khoảng thời gian đã chọn.
+              </DialogDescription>
+            </DialogHeader>
+             <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
+                className="w-full rounded-lg bg-background pl-8"
+                value={salesSearchTerm}
+                onChange={(e) => setSalesSearchTerm(e.target.value)}
+              />
+            </div>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              {isLoading ? (
+                <p>Đang tải dữ liệu...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mã đơn hàng</TableHead>
+                      <TableHead>Khách hàng</TableHead>
+                      <TableHead>Ngày</TableHead>
+                      <TableHead className="text-right">Số tiền</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSalesForDialog.map(sale => (
+                      <TableRow key={sale.id}>
+                        <TableCell>
+                          <Link href={`/sales/${sale.id}`} className="font-medium hover:underline">
+                            {sale.invoiceNumber}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{customersMap.get(sale.customerId) || 'N/A'}</TableCell>
+                        <TableCell>{format(new Date(sale.transactionDate), 'dd/MM/yyyy')}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(sale.finalAmount)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredSalesForDialog.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center h-24">Không có đơn hàng nào.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setIsSalesDetailOpen(true)}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng doanh số</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -599,3 +668,5 @@ export default function Dashboard() {
     </div>
   )
 }
+
+    

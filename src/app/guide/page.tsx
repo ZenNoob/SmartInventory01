@@ -38,8 +38,8 @@ export default function GuidePage() {
                 </AccordionTrigger>
                 <AccordionContent className="prose prose-sm max-w-none pl-7 text-muted-foreground">
                   <ul>
-                    <li><strong>Các thẻ chỉ số nhanh:</strong> Hiển thị tổng doanh thu, số lượng đơn hàng, và tổng nợ phải thu. Bạn có thể lọc các chỉ số này theo khoảng thời gian bằng bộ lọc ngày.</li>
-                    <li><strong>Thẻ "Sản phẩm trong kho":</strong> Nhấp vào thẻ này để xem chi tiết danh sách sản phẩm tồn kho được nhóm theo từng danh mục.</li>
+                    <li><strong>Các thẻ chỉ số nhanh:</strong> Hiển thị tổng doanh thu, số lượng đơn hàng, tổng nợ phải thu và tổng số sản phẩm. Bạn có thể lọc các chỉ số này theo khoảng thời gian bằng bộ lọc ngày.</li>
+                    <li><strong>Xem chi tiết:</strong> Nhấp vào các thẻ <strong>Tổng doanh thu</strong>, <strong>Tổng doanh số</strong>, <strong>Tổng nợ phải thu</strong>, và <strong>Sản phẩm trong kho</strong> để xem danh sách chi tiết tương ứng trong một hộp thoại.</li>
                     <li><strong>Biểu đồ Doanh thu:</strong> Trực quan hóa doanh thu theo từng tháng trong khoảng thời gian bạn đã chọn.</li>
                     <li><strong>Sản phẩm bán chạy:</strong> Liệt kê 5 sản phẩm có doanh thu cao nhất.</li>
                     <li><strong>Tồn kho hiện tại:</strong> Hiển thị danh sách tất cả sản phẩm và số lượng tồn kho của chúng, giúp bạn dễ dàng theo dõi.</li>
@@ -233,3 +233,5 @@ export default function GuidePage() {
     </div>
   )
 }
+
+    
