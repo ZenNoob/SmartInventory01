@@ -7,9 +7,10 @@ import {
   Package,
   Calendar as CalendarIcon,
   File,
+  Boxes,
 } from "lucide-react"
 import Link from "next/link"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { DateRange } from "react-day-picker"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns"
 import * as xlsx from 'xlsx';
@@ -38,6 +39,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { Customer, Sale, Payment, Product, SalesItem, Unit } from "@/lib/types"
 import { collection, query, getDocs } from "firebase/firestore"
 import { RevenueChart } from "../reports/revenue/components/revenue-chart"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export type MonthlyRevenue = {
   month: string;
@@ -97,7 +99,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchAllSalesItems() {
-      if (!firestore || !filteredSales) {
+      if (!firestore || !sales) { // Fetch for all sales, not just filtered ones
         if (!salesLoading) setSalesItemsLoading(false);
         return;
       }
@@ -105,7 +107,7 @@ export default function Dashboard() {
       setSalesItemsLoading(true);
       const items: SalesItem[] = [];
       try {
-        for (const sale of filteredSales) {
+        for (const sale of sales) {
           const itemsCollectionRef = collection(firestore, `sales_transactions/${sale.id}/sales_items`);
           const itemsSnapshot = await getDocs(itemsCollectionRef);
           itemsSnapshot.forEach(doc => {
@@ -120,9 +122,72 @@ export default function Dashboard() {
       }
     }
     fetchAllSalesItems();
-  }, [firestore, filteredSales, salesLoading]);
+  }, [firestore, sales, salesLoading]);
   
   const isLoading = customersLoading || salesLoading || paymentsLoading || productsLoading || unitsLoading || salesItemsLoading;
+
+  const getUnitInfo = useCallback((unitId: string) => {
+    const unit = unitsMap.get(unitId);
+    if (!unit) return { baseUnit: undefined, conversionFactor: 1, name: '' };
+    
+    if (unit.baseUnitId && unit.conversionFactor) {
+      const baseUnit = unitsMap.get(unit.baseUnitId);
+      return { baseUnit, conversionFactor: unit.conversionFactor, name: unit.name };
+    }
+    
+    return { baseUnit: unit, conversionFactor: 1, name: unit.name };
+  }, [unitsMap]);
+
+  const getStockInfo = useCallback((product: Product) => {
+    if (!product.unitId) return { stock: 0, sold: 0, stockInBaseUnit: 0, importedInBaseUnit: 0, baseUnit: undefined, mainUnit: undefined };
+
+    const { name: mainUnitName, baseUnit: mainBaseUnit, conversionFactor: mainConversionFactor } = getUnitInfo(product.unitId);
+    const mainUnit = unitsMap.get(product.unitId);
+    
+    let totalImportedInBaseUnit = 0;
+    product.purchaseLots?.forEach(lot => {
+        const { conversionFactor } = getUnitInfo(lot.unitId);
+        totalImportedInBaseUnit += lot.quantity * conversionFactor;
+    });
+    
+    const totalSoldInBaseUnit = allSalesItems
+      .filter(item => item.productId === product.id)
+      .reduce((acc, item) => acc + item.quantity, 0);
+
+    const stockInBaseUnit = totalImportedInBaseUnit - totalSoldInBaseUnit;
+    const stockInMainUnit = stockInBaseUnit / (mainConversionFactor || 1);
+
+    return { stock: stockInMainUnit, sold: totalSoldInBaseUnit, stockInBaseUnit, importedInBaseUnit: totalImportedInBaseUnit, baseUnit: mainBaseUnit || mainUnit, mainUnit };
+  }, [allSalesItems, getUnitInfo, unitsMap]);
+
+  const formatStockDisplay = (stock: number, mainUnit?: Unit, baseUnit?: Unit): string => {
+    if (!mainUnit) return stock.toString();
+
+    if (mainUnit.id !== baseUnit?.id && mainUnit.conversionFactor && baseUnit) {
+        const stockInBaseUnits = stock * mainUnit.conversionFactor;
+        const wholePart = Math.floor(stock);
+        const fractionalPartInBase = stockInBaseUnits % mainUnit.conversionFactor;
+        
+        if (fractionalPartInBase > 0.01) {
+            return `${wholePart.toLocaleString()} ${mainUnit.name}, ${fractionalPartInBase.toFixed(1).replace(/\.0$/, '')} ${baseUnit.name}`;
+        }
+        return `${wholePart.toLocaleString()} ${mainUnit.name}`;
+    }
+    
+    return `${stock.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${mainUnit.name}`;
+  };
+
+  const inventoryData = useMemo(() => {
+    if (!products) return [];
+    return products.map(product => {
+      const { stock, mainUnit, baseUnit } = getStockInfo(product);
+      return {
+        product,
+        stockDisplay: formatStockDisplay(stock, mainUnit, baseUnit),
+        stock,
+      };
+    }).sort((a,b) => a.stock - b.stock); // Sort by lowest stock
+  }, [products, getStockInfo]);
 
 
   // Memoized calculations
@@ -156,10 +221,19 @@ export default function Dashboard() {
   }, [filteredSales]);
 
   const soldProductsData = useMemo((): SoldProductInfo[] => {
-    if (allSalesItems.length === 0) return [];
+    const itemsInDateRange = allSalesItems.filter(item => {
+        const sale = sales?.find(s => s.id === item.salesTransactionId);
+        if (!sale || !dateRange?.from) return false;
+        const saleDate = new Date(sale.transactionDate);
+        const toDate = dateRange.to || dateRange.from;
+        return saleDate >= dateRange.from && saleDate <= toDate;
+    });
+
+    if (itemsInDateRange.length === 0) return [];
+
     const productSalesMap = new Map<string, { totalQuantity: number; totalRevenue: number }>();
 
-    allSalesItems.forEach(item => {
+    itemsInDateRange.forEach(item => {
       const existing = productSalesMap.get(item.productId) || { totalQuantity: 0, totalRevenue: 0 };
       existing.totalQuantity += item.quantity;
       existing.totalRevenue += item.quantity * item.price;
@@ -183,7 +257,7 @@ export default function Dashboard() {
     });
 
     return results.sort((a,b) => b.totalRevenue - a.totalRevenue);
-  }, [allSalesItems, productsMap, unitsMap]);
+  }, [allSalesItems, productsMap, unitsMap, sales, dateRange]);
 
 
   const setDatePreset = (preset: 'this_week' | 'this_month' | 'this_year') => {
@@ -245,7 +319,7 @@ export default function Dashboard() {
             </Button>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
@@ -279,6 +353,18 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-destructive">{formatCurrency(totalDebt)}</div>
             <p className="text-xs text-muted-foreground">
               Tổng công nợ của tất cả khách hàng
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sản phẩm trong kho</CardTitle>
+            <Boxes className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{products?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Tổng số loại sản phẩm đang quản lý
             </p>
           </CardContent>
         </Card>
@@ -325,6 +411,40 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+            <CardTitle>Tồn kho Hiện tại</CardTitle>
+            <CardDescription>
+                Danh sách các sản phẩm và số lượng tồn kho hiện tại.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <ScrollArea className="h-96">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Sản phẩm</TableHead>
+                        <TableHead className="text-right">Tồn kho</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading && <TableRow><TableCell colSpan={2} className="h-24 text-center">Đang tải...</TableCell></TableRow>}
+                        {!isLoading && inventoryData.length === 0 && <TableRow><TableCell colSpan={2} className="h-24 text-center">Không có sản phẩm nào.</TableCell></TableRow>}
+                        {!isLoading && inventoryData.map(({ product, stockDisplay }) => (
+                        <TableRow key={product.id}>
+                            <TableCell>
+                                <Link href={`/products?q=${product.name}`} className="font-medium hover:underline">
+                                    {product.name}
+                                </Link>
+                            </TableCell>
+                            <TableCell className="text-right">{stockDisplay}</TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   )
 }

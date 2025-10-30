@@ -11,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { List, ListChecks, ListPlus, Truck } from "lucide-react"
+import { List, ListChecks, ListPlus, Truck, BarChart2 } from "lucide-react"
 
 export default function GuidePage() {
   return (
@@ -22,6 +22,33 @@ export default function GuidePage() {
       </p>
 
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Bảng điều khiển (Dashboard)</CardTitle>
+            <CardDescription>Nơi tổng quan nhanh về tình hình kinh doanh của bạn.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="h-5 w-5 text-primary" />
+                    <span>Các chỉ số và biểu đồ chính</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="prose prose-sm max-w-none pl-7 text-muted-foreground">
+                  <ul>
+                    <li><strong>Các thẻ chỉ số nhanh:</strong> Hiển thị tổng doanh thu, số lượng đơn hàng, tổng nợ phải thu, và tổng số sản phẩm trong kho. Bạn có thể lọc các chỉ số này theo khoảng thời gian bằng bộ lọc ngày.</li>
+                    <li><strong>Biểu đồ Doanh thu:</strong> Trực quan hóa doanh thu theo từng tháng trong khoảng thời gian bạn đã chọn.</li>
+                    <li><strong>Sản phẩm bán chạy:</strong> Liệt kê 5 sản phẩm có doanh thu cao nhất.</li>
+                    <li><strong>Tồn kho hiện tại:</strong> Hiển thị danh sách tất cả sản phẩm và số lượng tồn kho của chúng, giúp bạn dễ dàng theo dõi.</li>
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader>
             <CardTitle>Quản lý Sản phẩm & Kho</CardTitle>
