@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import {
@@ -52,6 +53,8 @@ import { RevenueChart } from "../reports/revenue/components/revenue-chart"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
+import { PaymentForm } from "../reports/debt/components/payment-form"
+
 
 export type MonthlyRevenue = {
   month: string;
@@ -67,11 +70,13 @@ type SoldProductInfo = {
   baseUnitName: string;
 };
 
-type CustomerDebtInfo = {
+export type CustomerDebtInfo = {
   customerId: string;
   customerName: string;
   customerPhone?: string;
-  debt: number;
+  totalSales: number;
+  totalPayments: number;
+  finalDebt: number;
 };
 
 
@@ -85,6 +90,8 @@ export default function Dashboard() {
   const [isSalesDetailOpen, setIsSalesDetailOpen] = useState(false);
   const [debtSearchTerm, setDebtSearchTerm] = useState("");
   const [salesSearchTerm, setSalesSearchTerm] = useState("");
+  const [customerForPayment, setCustomerForPayment] = useState<CustomerDebtInfo | undefined>(undefined);
+  const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
 
 
   const firestore = useFirestore();
@@ -250,7 +257,15 @@ export default function Dashboard() {
         const customerSales = sales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
         const customerPayments = payments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
         const debt = customerSales - customerPayments;
-        return { customerId: customer.id, customerName: customer.name, customerPhone: customer.phone, debt };
+        return { 
+          customerId: customer.id, 
+          customerName: customer.name, 
+          customerPhone: customer.phone, 
+          debt,
+          totalSales: customerSales,
+          totalPayments: customerPayments,
+          finalDebt: debt,
+        };
     }).filter(c => c.debt > 0).sort((a,b) => b.debt - a.debt);
   }, [customers, sales, payments]);
 
@@ -336,6 +351,11 @@ export default function Dashboard() {
     }
   }
 
+  const handleOpenPaymentForm = (customer: CustomerDebtInfo) => {
+    setCustomerForPayment(customer);
+    setIsPaymentFormOpen(true);
+  };
+
   const handleExportExcel = () => {
     const wb = xlsx.utils.book_new();
 
@@ -354,6 +374,14 @@ export default function Dashboard() {
   }
 
   return (
+    <>
+    {customerForPayment && (
+        <PaymentForm
+          isOpen={isPaymentFormOpen}
+          onOpenChange={setIsPaymentFormOpen}
+          customer={customerForPayment}
+        />
+      )}
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-2xl font-semibold">Phân tích kinh doanh</h1>
@@ -463,71 +491,71 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Dialog open={isDebtDetailOpen} onOpenChange={setIsDebtDetailOpen}>
-          <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:bg-muted/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tổng nợ phải thu</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-destructive">{formatCurrency(totalDebt)}</div>
-                <p className="text-xs text-muted-foreground">
-                  Trên tổng số {customersWithDebt.length} khách hàng
-                </p>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Chi tiết nợ phải thu</DialogTitle>
-              <DialogDescription>
-                Danh sách các khách hàng đang có công nợ.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Tìm theo tên hoặc SĐT..."
-                className="w-full rounded-lg bg-background pl-8"
-                value={debtSearchTerm}
-                onChange={(e) => setDebtSearchTerm(e.target.value)}
-              />
-            </div>
-            <ScrollArea className="max-h-[60vh] pr-4">
-              {isLoading ? (
-                <p>Đang tải dữ liệu công nợ...</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Khách hàng</TableHead>
-                      <TableHead>SĐT</TableHead>
-                      <TableHead className="text-right">Số nợ</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCustomersWithDebt.map(customer => (
-                      <TableRow key={customer.customerId}>
-                        <TableCell>
-                          <Link href={`/customers/${customer.customerId}`} className="font-medium hover:underline">
-                            {customer.customerName}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{customer.customerPhone || 'N/A'}</TableCell>
-                        <TableCell className="text-right font-semibold text-destructive">{formatCurrency(customer.debt)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredCustomersWithDebt.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center h-24">Không có khách hàng nào đang nợ.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </ScrollArea>
-          </DialogContent>
+            <DialogTrigger asChild>
+                <Card className="cursor-pointer hover:bg-muted/50">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Tổng nợ phải thu</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-destructive">{formatCurrency(totalDebt)}</div>
+                        <p className="text-xs text-muted-foreground">
+                        Trên tổng số {customersWithDebt.length} khách hàng
+                        </p>
+                    </CardContent>
+                </Card>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                <DialogTitle>Chi tiết nợ phải thu</DialogTitle>
+                <DialogDescription>
+                    Danh sách các khách hàng đang có công nợ. Nhấp vào một khách hàng để thanh toán.
+                </DialogDescription>
+                </DialogHeader>
+                <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Tìm theo tên hoặc SĐT..."
+                    className="w-full rounded-lg bg-background pl-8"
+                    value={debtSearchTerm}
+                    onChange={(e) => setDebtSearchTerm(e.target.value)}
+                />
+                </div>
+                <ScrollArea className="max-h-[60vh] pr-4">
+                {isLoading ? (
+                    <p>Đang tải dữ liệu công nợ...</p>
+                ) : (
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Khách hàng</TableHead>
+                        <TableHead>SĐT</TableHead>
+                        <TableHead className="text-right">Số nợ</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredCustomersWithDebt.map(customer => (
+                        <TableRow key={customer.customerId} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenPaymentForm(customer)}>
+                            <TableCell>
+                            <Link href={`/customers/${customer.customerId}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+                                {customer.customerName}
+                            </Link>
+                            </TableCell>
+                            <TableCell>{customer.customerPhone || 'N/A'}</TableCell>
+                            <TableCell className="text-right font-semibold text-destructive">{formatCurrency(customer.debt)}</TableCell>
+                        </TableRow>
+                        ))}
+                        {filteredCustomersWithDebt.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={3} className="text-center h-24">Không có khách hàng nào đang nợ.</TableCell>
+                        </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                )}
+                </ScrollArea>
+            </DialogContent>
         </Dialog>
         <Dialog open={isInventoryDetailOpen} onOpenChange={setIsInventoryDetailOpen}>
           <DialogTrigger asChild>
@@ -666,7 +694,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     </div>
+    </>
   )
 }
-
-    
