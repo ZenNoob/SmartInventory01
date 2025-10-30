@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Bot } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Bot, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,33 +12,93 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { getInventoryShortagePrediction } from '@/app/actions'
-import { type PredictInventoryShortageOutput } from '@/ai/flows/predict-inventory-shortage'
+import { getSalesForecast } from '@/app/actions'
+import { type ForecastSalesOutput } from '@/ai/flows/forecast-sales'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
-import { collection, query } from 'firebase/firestore'
-import { Product, Sale } from '@/lib/types'
+import { collection, query, getDocs } from 'firebase/firestore'
+import { Product, Sale, SalesItem, Unit } from '@/lib/types'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from '@/components/ui/badge'
 
 export function PredictShortageForm() {
   const [open, setOpen] = useState(false)
-  const [prediction, setPrediction] = useState<PredictInventoryShortageOutput | null>(null)
+  const [prediction, setPrediction] = useState<ForecastSalesOutput | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const firestore = useFirestore();
 
-  const productsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "products"));
-  }, [firestore]);
+  const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "products")) : null, [firestore]);
+  const salesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "sales_transactions")) : null, [firestore]);
+  const unitsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "units")) : null, [firestore]);
 
-  const salesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "sales_transactions"));
-  }, [firestore]);
+  const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
+  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
+  const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
 
-  const { data: products } = useCollection<Product>(productsQuery);
-  const { data: sales } = useCollection<Sale>(salesQuery);
+  const unitsMap = useMemo(() => new Map(units?.map(u => [u.id, u])), [units]);
+
+  const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
+  const [salesItemsLoading, setSalesItemsLoading] = useState(true);
+
+  const getUnitInfo = useCallback((unitId: string): { baseUnit?: Unit; conversionFactor: number, name: string } => {
+    const unit = unitsMap.get(unitId);
+    if (!unit) return { conversionFactor: 1, name: '' };
+    
+    if (unit.baseUnitId && unit.conversionFactor) {
+      const baseUnit = unitsMap.get(unit.baseUnitId);
+      return { baseUnit, conversionFactor: unit.conversionFactor, name: unit.name };
+    }
+    
+    return { baseUnit: unit, conversionFactor: 1, name: unit.name };
+  }, [unitsMap]);
+
+  const getStockInBaseUnit = useCallback((product: Product): number => {
+      let totalImportedInBaseUnit = 0;
+      product.purchaseLots?.forEach(lot => {
+          const { conversionFactor } = getUnitInfo(lot.unitId);
+          totalImportedInBaseUnit += lot.quantity * conversionFactor;
+      });
+      
+      const totalSoldInBaseUnit = allSalesItems
+        .filter(item => item.productId === product.id)
+        .reduce((acc, item) => acc + item.quantity, 0);
+
+      return totalImportedInBaseUnit - totalSoldInBaseUnit;
+  }, [allSalesItems, getUnitInfo]);
+
+
+  useMemo(async () => {
+    if (!firestore || !sales) {
+        if (!salesLoading) setSalesItemsLoading(false);
+        return;
+    };
+    
+    setSalesItemsLoading(true);
+    const items: SalesItem[] = [];
+    try {
+        for (const sale of sales) {
+        const itemsCollectionRef = collection(firestore, `sales_transactions/${sale.id}/sales_items`);
+        const itemsSnapshot = await getDocs(itemsCollectionRef);
+        itemsSnapshot.forEach(doc => {
+            const itemData = doc.data() as SalesItem;
+            items.push({ ...itemData, salesTransactionId: sale.id });
+        });
+        }
+        setAllSalesItems(items);
+    } catch (error) {
+        console.error("Error fetching sales items: ", error);
+    } finally {
+        setSalesItemsLoading(false);
+    }
+  }, [sales, firestore, salesLoading]);
 
 
   const handlePredict = async () => {
@@ -46,16 +106,33 @@ export function PredictShortageForm() {
     setError(null)
     setPrediction(null)
 
-    const historicalSalesData = JSON.stringify(sales);
-    const currentInventoryLevels = JSON.stringify(products?.map(p => ({ 
-        productId: p.id, 
-        quantity: p.purchaseLots.reduce((acc, lot) => acc + lot.quantity, 0)
-    })) || []);
+    if (!products || !sales || !allSalesItems) {
+        setError('Không thể tải dữ liệu cần thiết để dự báo.');
+        setIsLoading(false);
+        return;
+    }
     
-    const result = await getInventoryShortagePrediction({
-        historicalSalesData,
-        currentInventoryLevels,
-        upcomingSalesEvents: 'Giảm giá Black Friday vào tháng tới, dự kiến doanh số bán hàng điện tử tăng 50%.',
+    const historicalSalesData = allSalesItems.map(item => {
+        const sale = sales.find(s => s.id === item.salesTransactionId);
+        const product = products.find(p => p.id === item.productId);
+        return {
+            productId: item.productId,
+            productName: product?.name,
+            quantity: item.quantity,
+            date: sale?.transactionDate,
+        }
+    });
+
+    const currentInventoryLevels = products.map(p => ({ 
+        productId: p.id,
+        productName: p.name,
+        quantityInStock: getStockInBaseUnit(p)
+    }));
+    
+    const result = await getSalesForecast({
+        historicalSalesData: JSON.stringify(historicalSalesData),
+        currentInventoryLevels: JSON.stringify(currentInventoryLevels),
+        forecastPeriodDays: 30,
     })
 
     if (result.success && result.data) {
@@ -66,26 +143,28 @@ export function PredictShortageForm() {
     setIsLoading(false)
   }
 
+  const dataIsLoading = productsLoading || salesLoading || unitsLoading || salesItemsLoading;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-8 gap-1">
           <Bot className="h-3.5 w-3.5" />
           <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            Dự đoán thiếu hụt
+            Dự báo & Đề xuất
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Dự đoán thiếu hụt hàng tồn kho</DialogTitle>
+          <DialogTitle>Dự báo doanh số và Đề xuất nhập hàng</DialogTitle>
           <DialogDescription>
-            Sử dụng AI để dự báo tình trạng thiếu hụt sản phẩm tiềm năng dựa trên dữ liệu lịch sử.
+            Sử dụng AI để phân tích dữ liệu bán hàng, dự báo nhu cầu và đưa ra khuyến nghị nhập hàng cho 30 ngày tới.
           </DialogDescription>
         </DialogHeader>
         {!prediction && !isLoading && !error && (
-            <div className="flex items-center space-x-2">
-                <p>Nhấp vào nút bên dưới để bắt đầu dự đoán của AI.</p>
+            <div className="flex items-center space-x-2 p-4">
+                <p>Nhấp vào nút bên dưới để bắt đầu phân tích của AI.</p>
             </div>
         )}
         
@@ -94,36 +173,50 @@ export function PredictShortageForm() {
         {error && <div className="text-destructive p-4 bg-destructive/10 rounded-md">{error}</div>}
 
         {prediction && (
-            <ScrollArea className="max-h-96 p-4 border rounded-md">
-                <h4 className="font-semibold mb-2">Kết quả dự đoán</h4>
-                
-                <div className="mb-4">
-                    <h5 className="font-medium text-sm">Thiếu hụt dự đoán</h5>
-                    <pre className="text-xs bg-muted p-2 rounded-md mt-1">{prediction.predictedShortages}</pre>
-                </div>
-                
-                <Separator className="my-4" />
-
-                <div className="mb-4">
-                    <h5 className="font-medium text-sm">Mức độ tin cậy</h5>
-                    <pre className="text-xs bg-muted p-2 rounded-md mt-1">{prediction.confidenceLevels}</pre>
-                </div>
-
-                <Separator className="my-4" />
-                
+            <div className='space-y-4'>
                 <div>
-                    <h5 className="font-medium text-sm">Khuyến nghị</h5>
-                     <pre className="text-xs bg-muted p-2 rounded-md mt-1">{prediction.recommendations}</pre>
+                    <h4 className="font-semibold mb-2">Tóm tắt phân tích</h4>
+                    <p className='text-sm text-muted-foreground bg-muted p-3 rounded-md'>{prediction.analysisSummary}</p>
                 </div>
-            </ScrollArea>
+                <ScrollArea className="max-h-96 border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Sản phẩm</TableHead>
+                                <TableHead className="text-right">Tồn kho</TableHead>
+                                <TableHead className="text-right">Dự báo bán</TableHead>
+                                <TableHead className="text-center">Đề xuất</TableHead>
+                                <TableHead className="text-right">SL cần nhập</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {prediction.forecastedProducts.map(p => (
+                                <TableRow key={p.productId}>
+                                    <TableCell className="font-medium">{p.productName}</TableCell>
+                                    <TableCell className="text-right">{p.currentStock.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">{p.forecastedSales.toLocaleString()}</TableCell>
+                                    <TableCell className="text-center">
+                                        <Badge variant={p.suggestion === 'Re-order' ? 'destructive' : 'default'}>
+                                            {p.suggestion === 'Re-order' ? 'Cần nhập' : 'Ổn định'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold">
+                                        {p.suggestedReorderQuantity > 0 ? p.suggestedReorderQuantity.toLocaleString() : '-'}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+            </div>
         )}
         
         <DialogFooter className="sm:justify-between">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
                 Đóng
             </Button>
-            <Button type="button" onClick={handlePredict} disabled={isLoading || !products || !sales}>
-                {isLoading ? 'Đang dự đoán...' : 'Chạy dự đoán AI'}
+            <Button type="button" onClick={handlePredict} disabled={isLoading || dataIsLoading}>
+                {isLoading ? 'Đang dự đoán...' : 'Chạy lại phân tích'}
             </Button>
         </DialogFooter>
       </DialogContent>
