@@ -31,15 +31,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { cn, formatCurrency } from "@/lib/utils"
-import { Customer, Sale, Payment, Product, SalesItem, Unit } from "@/lib/types"
+import { Customer, Sale, Payment, Product, SalesItem, Unit, Category } from "@/lib/types"
 import { collection, query, getDocs } from "firebase/firestore"
 import { RevenueChart } from "../reports/revenue/components/revenue-chart"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export type MonthlyRevenue = {
   month: string;
@@ -61,6 +70,7 @@ export default function Dashboard() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  const [isInventoryDetailOpen, setIsInventoryDetailOpen] = useState(false);
 
   const firestore = useFirestore();
 
@@ -69,18 +79,21 @@ export default function Dashboard() {
   const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "payments")) : null, [firestore]);
   const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "products")) : null, [firestore]);
   const unitsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "units")) : null, [firestore]);
+  const categoriesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "categories")) : null, [firestore]);
   
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);
   const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
+  const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesQuery);
 
   const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([]);
   const [salesItemsLoading, setSalesItemsLoading] = useState(true);
   
   const productsMap = useMemo(() => new Map(products?.map(p => [p.id, p])), [products]);
   const unitsMap = useMemo(() => new Map(units?.map(u => [u.id, u])), [units]);
+  const categoriesMap = useMemo(() => new Map(categories?.map(c => [c.id, c.name])), [categories]);
 
 
   const filteredSales = useMemo(() => {
@@ -124,7 +137,7 @@ export default function Dashboard() {
     fetchAllSalesItems();
   }, [firestore, sales, salesLoading]);
   
-  const isLoading = customersLoading || salesLoading || paymentsLoading || productsLoading || unitsLoading || salesItemsLoading;
+  const isLoading = customersLoading || salesLoading || paymentsLoading || productsLoading || unitsLoading || salesItemsLoading || categoriesLoading;
 
   const getUnitInfo = useCallback((unitId: string) => {
     const unit = unitsMap.get(unitId);
@@ -188,6 +201,18 @@ export default function Dashboard() {
       };
     }).sort((a,b) => a.stock - b.stock); // Sort by lowest stock
   }, [products, getStockInfo]);
+
+  const inventoryByCategory = useMemo(() => {
+    if (isLoading) return new Map<string, typeof inventoryData>();
+    const grouped = new Map<string, typeof inventoryData>();
+    inventoryData.forEach(item => {
+      const categoryId = item.product.categoryId;
+      const categoryItems = grouped.get(categoryId) || [];
+      categoryItems.push(item);
+      grouped.set(categoryId, categoryItems);
+    });
+    return grouped;
+  }, [inventoryData, isLoading]);
 
 
   // Memoized calculations
@@ -294,6 +319,53 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Dialog open={isInventoryDetailOpen} onOpenChange={setIsInventoryDetailOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Chi tiết tồn kho</DialogTitle>
+            <DialogDescription>
+              Danh sách sản phẩm trong kho được nhóm theo danh mục.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+             {isLoading ? (
+                 <p>Đang tải dữ liệu tồn kho...</p>
+             ) : (
+                <Accordion type="multiple" className="w-full" defaultValue={Array.from(inventoryByCategory.keys())}>
+                  {categories?.filter(c => inventoryByCategory.has(c.id)).map(category => (
+                    <AccordionItem value={category.id} key={category.id}>
+                      <AccordionTrigger>{category.name} ({inventoryByCategory.get(category.id)?.length} sản phẩm)</AccordionTrigger>
+                      <AccordionContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Sản phẩm</TableHead>
+                              <TableHead className="text-right">Tồn kho</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {inventoryByCategory.get(category.id)?.map(({ product, stockDisplay }) => (
+                              <TableRow key={product.id}>
+                                <TableCell>
+                                    <Link href={`/products?q=${product.name}`} className="font-medium hover:underline">
+                                        {product.name}
+                                    </Link>
+                                </TableCell>
+                                <TableCell className="text-right">{stockDisplay}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+             )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-2xl font-semibold">Phân tích kinh doanh</h1>
         <div className="flex flex-wrap items-center gap-2 ml-auto">
@@ -356,18 +428,20 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sản phẩm trong kho</CardTitle>
-            <Boxes className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{products?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Tổng số loại sản phẩm đang quản lý
-            </p>
-          </CardContent>
-        </Card>
+        <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:bg-muted/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Sản phẩm trong kho</CardTitle>
+                <Boxes className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{products?.length || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  Tổng số loại sản phẩm đang quản lý
+                </p>
+              </CardContent>
+            </Card>
+        </DialogTrigger>
       </div>
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2">
         <Card className="lg:col-span-1">
