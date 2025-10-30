@@ -85,7 +85,7 @@ import { DateRange } from "react-day-picker"
 import { cn, formatCurrency } from "@/lib/utils"
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { Customer, Sale, Product, Unit, SalesItem, Payment, ThemeSettings } from "@/lib/types"
-import { collection, query, getDocs, doc, where } from "firebase/firestore"
+import { collection, query, getDocs, doc, where, orderBy } from "firebase/firestore"
 import { SaleForm } from "./components/sale-form"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
@@ -140,14 +140,36 @@ export default function SalesPage() {
   const router = useRouter();
 
   const salesQuery = useMemoFirebase(() => {
-    if (!firestore || !dateRange?.from) return null;
-    const toDate = dateRange.to || dateRange.from;
+    if (!firestore) return null;
 
-    return query(
-      collection(firestore, "sales_transactions"),
-      where('transactionDate', '>=', dateRange.from.toISOString()),
-      where('transactionDate', '<=', toDate.toISOString())
-    );
+    // If dateRange is undefined, fetch all sales ordered by date.
+    if (!dateRange) {
+      return query(
+        collection(firestore, "sales_transactions"),
+        orderBy('transactionDate', 'desc')
+      );
+    }
+    
+    // If only `from` date is set, use it for both start and end of range.
+    if (dateRange.from && !dateRange.to) {
+       return query(
+        collection(firestore, "sales_transactions"),
+        where('transactionDate', '>=', dateRange.from.toISOString()),
+        where('transactionDate', '<=', dateRange.from.toISOString())
+      );
+    }
+
+    // If both `from` and `to` are set.
+    if (dateRange.from && dateRange.to) {
+        return query(
+        collection(firestore, "sales_transactions"),
+        where('transactionDate', '>=', dateRange.from.toISOString()),
+        where('transactionDate', '<=', dateRange.to.toISOString())
+      );
+    }
+
+    return null;
+
   }, [firestore, dateRange]);
 
 
@@ -225,8 +247,12 @@ export default function SalesPage() {
     }
   };
   
-  const setDatePreset = (preset: 'this_week' | 'this_month' | 'this_quarter' | 'this_year') => {
+  const setDatePreset = (preset: 'this_week' | 'this_month' | 'this_quarter' | 'this_year' | 'all') => {
     const now = new Date();
+    if (preset === 'all') {
+      setDateRange(undefined);
+      return;
+    }
     switch (preset) {
       case 'this_week':
         setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
@@ -489,7 +515,7 @@ export default function SalesPage() {
                         )}
                         >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}</> : format(dateRange.from, "dd/MM/yyyy")) : <span>Chọn khoảng ngày</span>}
+                        {dateRange?.from ? (dateRange.to ? <>{format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}</> : format(dateRange.from, "dd/MM/yyyy")) : <span>Tất cả</span>}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -499,11 +525,12 @@ export default function SalesPage() {
                             onSelect={setDateRange}
                             initialFocus
                         />
-                         <div className="p-2 border-t flex justify-around">
+                         <div className="p-2 border-t grid grid-cols-3 gap-1">
                             <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_week')}>Tuần này</Button>
                             <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_month')}>Tháng này</Button>
                             <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_quarter')}>Quý này</Button>
                             <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_year')}>Năm nay</Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDatePreset('all')}>Tất cả</Button>
                         </div>
                     </PopoverContent>
                  </Popover>
