@@ -84,7 +84,6 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         </Badge>
         <div className="hidden items-center gap-2 md:ml-auto md:flex">
           <PredictRiskForm customer={customer} sales={sales} payments={payments} />
-          <Button size="sm">Ghi lại thanh toán</Button>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -100,11 +99,6 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               Hạn mức tín dụng: {formatCurrency(customer.creditLimit)}
             </div>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full">
-              <PlusCircle className="mr-2 h-4 w-4" /> Ghi lại thanh toán
-            </Button>
-          </CardFooter>
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader>
