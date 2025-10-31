@@ -1,4 +1,5 @@
 
+
 export type Category = {
   id: string
   name: string
@@ -23,6 +24,7 @@ export type PurchaseLot = {
 export type Product = {
   id: string
   name: string
+  barcode?: string;
   categoryId: string
   unitId: string;
   sellingPrice?: number;

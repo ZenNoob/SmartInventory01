@@ -102,6 +102,10 @@
           "type": "string",
           "description": "Name of the product."
         },
+        "barcode": {
+          "type": "string",
+          "description": "The barcode for the product, used for scanning."
+        },
         "categoryId": {
           "type": "string",
           "description": "Reference to Category. (Relationship: Category 1:N Product)"

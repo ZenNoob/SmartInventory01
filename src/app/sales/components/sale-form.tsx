@@ -1,8 +1,9 @@
 
 
+
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,7 +38,7 @@ import { Input } from "@/components/ui/input"
 import { Customer, Product, Unit, SalesItem, Sale, Payment, ThemeSettings } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react'
+import { Check, ChevronsUpDown, PlusCircle, Trash2, Barcode } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { upsertSaleTransaction } from '../actions'
 import { Label } from '@/components/ui/label'
@@ -107,9 +108,20 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [saleItemsForEdit, setSaleItemsForEdit] = useState<SalesItem[]>([]);
+  const [barcode, setBarcode] = useState('');
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   const unitsMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
   const productsMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const productsByBarcode = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => {
+      if (p.barcode) {
+        map.set(p.barcode, p);
+      }
+    });
+    return map;
+  }, [products]);
 
   const getUnitInfo = useCallback((unitId: string): { baseUnit?: Unit; conversionFactor: number, name: string } => {
     const unit = unitsMap.get(unitId);
@@ -235,7 +247,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     mode: "onChange"
   });
   
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove, replace, update } = useFieldArray({
     control: form.control,
     name: "items"
   });
@@ -294,6 +306,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   useEffect(() => {
       trigger('items');
   }, [watchedItems, trigger, salesItemsWithoutCurrent]);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
 
   const totalAmount = watchedItems.reduce((acc, item) => {
     if (!item.productId || !item.price || !item.quantity) {
@@ -370,24 +388,45 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   };
   
   const addProductToSale = (productId: string) => {
-    const product = productsMap.get(productId);
-    if (product) {
-      if (watchedItems.some(item => item.productId === productId)) {
-        toast({
-          variant: "destructive",
-          title: "Sản phẩm đã tồn tại",
-          description: "Sản phẩm này đã có trong đơn hàng.",
-        });
-        return;
-      }
-      // Default price to product's sellingPrice if available, otherwise 0
-      append({ 
-        productId: product.id, 
-        quantity: 1, 
-        price: product.sellingPrice || 0 
+    const existingItemIndex = watchedItems.findIndex(item => item.productId === productId);
+    
+    if (existingItemIndex > -1) {
+      const existingItem = watchedItems[existingItemIndex];
+      update(existingItemIndex, {
+        ...existingItem,
+        quantity: existingItem.quantity + 1,
       });
+    } else {
+      const product = productsMap.get(productId);
+      if (product) {
+        append({ 
+          productId: product.id, 
+          quantity: 1, 
+          price: product.sellingPrice || 0 
+        });
+      }
     }
   }
+
+  const handleBarcodeScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!barcode) return;
+
+      const product = productsByBarcode.get(barcode);
+      
+      if (product) {
+        addProductToSale(product.id);
+        setBarcode(''); // Clear input after adding
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Không tìm thấy sản phẩm",
+          description: `Không có sản phẩm nào khớp với mã vạch "${barcode}".`,
+        });
+      }
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { onOpenChange(open); if(!open) form.reset(); }}>
@@ -488,6 +527,56 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                 />
               </div>
 
+              <div className="flex items-center gap-4">
+                <div className="relative flex-grow">
+                  <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    ref={barcodeInputRef}
+                    placeholder="Quét mã vạch sản phẩm..."
+                    className="pl-10"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    onKeyDown={handleBarcodeScan}
+                  />
+                </div>
+                 <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                    <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="sm" className="shrink-0">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Thêm thủ công
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                         <Command>
+                            <CommandInput placeholder="Tìm kiếm sản phẩm..." />
+                            <CommandList>
+                                <CommandEmpty>Không tìm thấy sản phẩm.</CommandEmpty>
+                                <CommandGroup>
+                                    {products.map((product) => (
+                                    <CommandItem
+                                        key={product.id}
+                                        value={product.name}
+                                        onSelect={() => {
+                                            addProductToSale(product.id);
+                                            setProductSearchOpen(false);
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                watchedItems.some(i => i.productId === product.id) ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        {product.name}
+                                    </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                 </Popover>
+              </div>
+
               <Separator />
 
               <div className='flex-grow space-y-4 overflow-y-auto pr-6 -mr-6'>
@@ -567,42 +656,6 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                     )
                   })}
                 </div>
-                 <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                    <PopoverTrigger asChild>
-                        <Button type="button" variant="outline" size="sm" className="mt-2">
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Thêm sản phẩm
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
-                         <Command>
-                            <CommandInput placeholder="Tìm kiếm sản phẩm..." />
-                            <CommandList>
-                                <CommandEmpty>Không tìm thấy sản phẩm.</CommandEmpty>
-                                <CommandGroup>
-                                    {products.map((product) => (
-                                    <CommandItem
-                                        key={product.id}
-                                        value={product.name}
-                                        onSelect={() => {
-                                            addProductToSale(product.id);
-                                            setProductSearchOpen(false);
-                                        }}
-                                    >
-                                        <Check
-                                            className={cn(
-                                                "mr-2 h-4 w-4",
-                                                watchedItems.some(i => i.productId === product.id) ? "opacity-100" : "opacity-0"
-                                            )}
-                                        />
-                                        {product.name}
-                                    </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                 </Popover>
                  <FormMessage>{form.formState.errors.items?.message || form.formState.errors.items?.root?.message}</FormMessage>
 
               </div>

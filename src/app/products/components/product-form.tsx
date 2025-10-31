@@ -1,5 +1,6 @@
 
 
+
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -76,6 +77,7 @@ const purchaseLotSchema = z.object({
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Tên sản phẩm không được để trống."),
+  barcode: z.string().optional(),
   categoryId: z.string().min(1, "Danh mục là bắt buộc."),
   unitId: z.string().min(1, "Đơn vị tính là bắt buộc."),
   sellingPrice: z.coerce.number().optional(),
@@ -120,6 +122,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
   const defaultValues: Partial<ProductFormValues> = product
     ? { 
         name: product.name, 
+        barcode: product.barcode,
         categoryId: product.categoryId,
         unitId: product.unitId,
         sellingPrice: product.sellingPrice,
@@ -132,6 +135,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
       }
     : { 
         name: '', 
+        barcode: '',
         categoryId: '',
         unitId: '',
         sellingPrice: 0,
@@ -161,6 +165,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
             product
                 ? {
                     name: product.name,
+                    barcode: product.barcode || '',
                     categoryId: product.categoryId,
                     unitId: product.unitId,
                     sellingPrice: product.sellingPrice,
@@ -172,6 +177,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   }
                 : {
                     name: '',
+                    barcode: '',
                     categoryId: '',
                     unitId: '',
                     sellingPrice: 0,
@@ -220,19 +226,34 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-rows-[1fr_auto] gap-4 overflow-hidden">
             <div className='space-y-4 overflow-y-auto pr-6'>
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tên sản phẩm</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ví dụ: Laptop Pro" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tên sản phẩm</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ví dụ: Laptop Pro" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="barcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mã vạch (Barcode)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nhập hoặc quét mã vạch" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -381,7 +402,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                                     {isAdjustment && (
                                        <TooltipProvider>
                                           <Tooltip>
-                                            <TooltipTrigger>
+                                            <TooltipTrigger type="button">
                                               <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                                             </TooltipTrigger>
                                             <TooltipContent>
