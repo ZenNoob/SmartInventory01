@@ -30,7 +30,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
   
     const chartData = data.map(item => ({
         name: format(parseISO(item.month + '-01'), "MMM", { locale: vi }),
-        DoanhThu: item.revenue,
+        "Doanh Thu": item.revenue,
     }));
 
   return (
@@ -53,10 +53,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
                     }}
                     labelStyle={{ color: "hsl(var(--foreground))" }}
                     itemStyle={{ color: "hsl(var(--primary))" }}
-                    formatter={(value) => [formatCurrency(Number(value)), "Doanh thu"]}
+                    formatter={(value, name) => [formatCurrency(Number(value)), name]}
                 />
                 <Legend iconType="circle" />
-                <Bar dataKey="DoanhThu" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Doanh Thu" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
     </div>
