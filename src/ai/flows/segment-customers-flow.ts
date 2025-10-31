@@ -22,7 +22,7 @@ const CustomerSegmentSchema = z.object({
     customerName: z.string().describe('The name of the customer.'),
     segment: z.enum(['VIP', 'Trung thành', 'Tiềm năng', 'Nguy cơ rời bỏ', 'Mới', 'Không hoạt động']).describe('The segment the customer belongs to.'),
     reason: z.string().describe('A brief explanation for why the customer was placed in this segment.'),
-    suggestedAction: z.string().describe('A concrete, actionable suggestion for this customer.'),
+    suggestedAction: z.string().describe('A concrete, actionable suggestion for this customer (e.g., "Gửi voucher giảm giá độc quyền", "Chủ động gọi điện hỏi thăm và nhắc nợ nhẹ nhàng").'),
 });
 
 const SegmentCustomersOutputSchema = z.object({

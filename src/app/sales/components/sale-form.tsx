@@ -1,6 +1,3 @@
-
-
-
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -38,13 +35,15 @@ import { Input } from "@/components/ui/input"
 import { Customer, Product, Unit, SalesItem, Sale, Payment, ThemeSettings } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronsUpDown, PlusCircle, Trash2, Barcode } from 'lucide-react'
+import { Check, ChevronsUpDown, PlusCircle, Trash2, Barcode, Sparkles, AlertTriangle } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { upsertSaleTransaction } from '../actions'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getRelatedProductsSuggestion } from '@/app/actions'
+import type { SuggestRelatedProductsOutput } from '@/ai/flows/suggest-related-products-flow'
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Vui lòng chọn sản phẩm."),
@@ -110,6 +109,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const [saleItemsForEdit, setSaleItemsForEdit] = useState<SalesItem[]>([]);
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const [suggestions, setSuggestions] = useState<SuggestRelatedProductsOutput['suggestions']>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const unitsMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
   const productsMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
@@ -427,6 +428,53 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       }
     }
   };
+  
+  const handleGetSuggestions = async () => {
+    if (watchedItems.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Chưa có sản phẩm",
+        description: "Vui lòng thêm ít nhất một sản phẩm vào đơn hàng để nhận gợi ý.",
+      });
+      return;
+    }
+    setIsSuggesting(true);
+    setSuggestions([]);
+    
+    const transactionsWithProductIds = sales.map(sale => {
+      const itemsForSale = allSalesItems
+        .filter(item => item.salesTransactionId === sale.id)
+        .map(item => item.productId);
+      return {
+        transactionId: sale.id,
+        products: itemsForSale,
+      };
+    }).filter(t => t.products.length > 1);
+
+    const result = await getRelatedProductsSuggestion({
+      salesHistory: JSON.stringify(transactionsWithProductIds),
+      currentCartProductIds: watchedItems.map(item => item.productId),
+      allProducts: JSON.stringify(Array.from(productsMap.entries()).map(([id, product]) => ({ id, name: product.name }))),
+    });
+
+    if (result.success && result.data) {
+      if (result.data.suggestions.length === 0) {
+        toast({
+          title: "Không tìm thấy gợi ý",
+          description: "AI không tìm thấy sản phẩm nào thường được mua kèm.",
+        });
+      }
+      setSuggestions(result.data.suggestions);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: result.error || "Không thể lấy gợi ý từ AI.",
+      });
+    }
+    setIsSuggesting(false);
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { onOpenChange(open); if(!open) form.reset(); }}>
@@ -575,7 +623,28 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                         </Command>
                     </PopoverContent>
                  </Popover>
+                 <Button type="button" variant="outline" size="sm" onClick={handleGetSuggestions} disabled={isSuggesting}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {isSuggesting ? 'Đang tìm...' : 'Gợi ý sản phẩm'}
+                  </Button>
               </div>
+
+              {suggestions.length > 0 && (
+                <div className="p-3 border rounded-md bg-muted/50">
+                  <h4 className="text-sm font-semibold mb-2">Gợi ý từ AI</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map(s => (
+                      <Button key={s.productId} variant="outline" size="sm" className="h-auto py-1" onClick={() => addProductToSale(s.productId)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        <div>
+                          <p>{s.productName}</p>
+                          <p className="text-xs text-muted-foreground font-normal">{s.reason}</p>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <Separator />
 

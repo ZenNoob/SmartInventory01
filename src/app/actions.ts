@@ -5,6 +5,7 @@ import { predictInventoryShortage, PredictInventoryShortageInput } from '@/ai/fl
 import { forecastSales, ForecastSalesInput } from '@/ai/flows/forecast-sales';
 import { segmentCustomers, SegmentCustomersInput } from '@/ai/flows/segment-customers-flow';
 import { analyzeMarketBasket, MarketBasketAnalysisInput } from '@/ai/flows/analyze-market-basket';
+import { suggestRelatedProducts, SuggestRelatedProductsInput } from '@/ai/flows/suggest-related-products-flow';
 
 export async function getDebtRiskPrediction(input: PredictDebtRiskInput) {
   try {
@@ -53,5 +54,16 @@ export async function getMarketBasketAnalysis(input: MarketBasketAnalysisInput) 
     } catch (error) {
         console.error("Error analyzing market basket:", error);
         return { success: false, error: 'Không thể phân tích rổ hàng hóa.' };
+    }
+}
+
+
+export async function getRelatedProductsSuggestion(input: SuggestRelatedProductsInput) {
+    try {
+        const result = await suggestRelatedProducts(input);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Error suggesting related products:", error);
+        return { success: false, error: 'Không thể gợi ý sản phẩm.' };
     }
 }
