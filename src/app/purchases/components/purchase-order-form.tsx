@@ -1,6 +1,7 @@
+
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -33,7 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Product, Unit, PurchaseOrderItem, PurchaseOrder, SalesItem } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronsUpDown, PlusCircle, Trash2, ChevronLeft } from 'lucide-react'
+import { Check, ChevronsUpDown, PlusCircle, Trash2, ChevronLeft, Barcode } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { createPurchaseOrder, updatePurchaseOrder } from '../actions'
 import { Label } from '@/components/ui/label'
@@ -92,9 +93,20 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
   const router = useRouter();
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const isEditMode = !!purchaseOrder;
+  const [barcode, setBarcode] = useState('');
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   const unitsMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
   const productsMap = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const productsByBarcode = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => {
+      if (p.barcode) {
+        map.set(p.barcode, p);
+      }
+    });
+    return map;
+  }, [products]);
 
   const form = useForm<PurchaseOrderFormValues>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -233,6 +245,27 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
     }
   }
 
+  const handleBarcodeScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!barcode) return;
+
+      const product = productsByBarcode.get(barcode);
+      
+      if (product) {
+        addProductToOrder(product.id);
+        setBarcode(''); // Clear input after adding
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Không tìm thấy sản phẩm",
+          description: `Không có sản phẩm nào khớp với mã vạch "${barcode}".`,
+        });
+      }
+    }
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -268,6 +301,51 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                         <CardTitle>Chi tiết đơn nhập</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                         <div className="flex items-center gap-4">
+                            <div className="relative flex-grow">
+                                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                    ref={barcodeInputRef}
+                                    placeholder="Quét mã vạch sản phẩm..."
+                                    className="pl-10"
+                                    value={barcode}
+                                    onChange={(e) => setBarcode(e.target.value)}
+                                    onKeyDown={handleBarcodeScan}
+                                />
+                            </div>
+                            <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button type="button" variant="outline" size="sm" className="shrink-0">
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Thêm thủ công
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Tìm kiếm sản phẩm..." />
+                                        <CommandList>
+                                            <CommandEmpty>Không tìm thấy sản phẩm.</CommandEmpty>
+                                            <CommandGroup>
+                                                {products.map((product) => (
+                                                <CommandItem
+                                                    key={product.id}
+                                                    value={product.name}
+                                                    onSelect={() => {
+                                                        addProductToOrder(product.id);
+                                                        setProductSearchOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", watchedItems.some(i => i.productId === product.id) ? "opacity-100" : "opacity-0")} />
+                                                    {product.name}
+                                                </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <Separator />
                         {fields.map((field, index) => {
                             const product = productsMap.get(watchedItems[index]?.productId);
                             if (!product) return null;
@@ -326,37 +404,6 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                                 </div>
                             )
                         })}
-                        <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                            <PopoverTrigger asChild>
-                                <Button type="button" variant="outline" size="sm" className="mt-2">
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Thêm sản phẩm
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[400px] p-0" align="start">
-                                <Command>
-                                    <CommandInput placeholder="Tìm kiếm sản phẩm..." />
-                                    <CommandList>
-                                        <CommandEmpty>Không tìm thấy sản phẩm.</CommandEmpty>
-                                        <CommandGroup>
-                                            {products.map((product) => (
-                                            <CommandItem
-                                                key={product.id}
-                                                value={product.name}
-                                                onSelect={() => {
-                                                    addProductToOrder(product.id);
-                                                    setProductSearchOpen(false);
-                                                }}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", watchedItems.some(i => i.productId === product.id) ? "opacity-100" : "opacity-0")} />
-                                                {product.name}
-                                            </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
                          <FormMessage>{form.formState.errors.items?.message || form.formState.errors.items?.root?.message}</FormMessage>
                     </CardContent>
                 </Card>
