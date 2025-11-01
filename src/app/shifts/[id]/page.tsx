@@ -1,21 +1,21 @@
 
-'use client'
-
-import { notFound, useRouter } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
-  useCollection,
-  useDoc,
-  useFirestore,
-  useMemoFirebase,
-} from '@/firebase'
-import {
-  collection,
-  doc,
-  query,
-  where,
-} from 'firebase/firestore'
+  ChevronLeft,
+  Clock,
+  User,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Scale,
+  Hash,
+} from 'lucide-react'
+
 import type { Customer, Sale, Shift } from '@/lib/types'
+import { getAdminServices } from '@/lib/admin-actions'
+import { toPlainObject } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -33,56 +33,34 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
-import {
-  ChevronLeft,
-  Clock,
-  User,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Scale,
-  Hash,
-} from 'lucide-react'
-import { useMemo } from 'react'
 
-export default function ShiftDetailPage({ params }: { params: { id: string } }) {
-  const firestore = useFirestore()
-  const router = useRouter()
-  const shiftId = params.id;
 
-  const shiftRef = useMemoFirebase(
-    () => (firestore && shiftId ? doc(firestore, 'shifts', shiftId) : null),
-    [firestore, shiftId]
-  )
-  const { data: shift, isLoading: shiftLoading } = useDoc<Shift>(shiftRef)
+async function getShiftDetails(shiftId: string) {
+    const { firestore } = await getAdminServices();
 
-  const salesQuery = useMemoFirebase(
-    () =>
-      firestore && shiftId
-        ? query(
-            collection(firestore, 'sales_transactions'),
-            where('shiftId', '==', shiftId)
-          )
-        : null,
-    [firestore, shiftId]
-  )
-  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery)
+    const shiftDoc = await firestore.collection('shifts').doc(shiftId).get();
+    if (!shiftDoc.exists) {
+        return { shift: null, sales: [], customersMap: new Map() };
+    }
+    const shift = toPlainObject(shiftDoc.data()) as Shift;
 
-  const customersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'customers')) : null),
-    [firestore]
-  )
-  const { data: customers, isLoading: customersLoading } =
-    useCollection<Customer>(customersQuery)
+    const salesSnapshot = await firestore.collection('sales_transactions').where('shiftId', '==', shiftId).get();
+    const sales = salesSnapshot.docs.map(doc => toPlainObject(doc.data()) as Sale);
 
-  const customersMap = useMemo(() => {
-    if (!customers) return new Map()
-    return new Map(customers.map((c) => [c.id, c.name]))
-  }, [customers])
+    const customersSnapshot = await firestore.collection('customers').get();
+    const customersMap = new Map<string, string>();
+    customersSnapshot.forEach(doc => {
+        customersMap.set(doc.id, doc.data().name);
+    });
 
-  const isLoading = shiftLoading || salesLoading || customersLoading
+    return { shift, sales, customersMap };
+}
 
-  if (!shift && !isLoading) {
+
+export default async function ShiftDetailPage({ params }: { params: { id: string } }) {
+  const { shift, sales, customersMap } = await getShiftDetails(params.id);
+
+  if (!shift) {
     notFound()
   }
 
@@ -99,17 +77,12 @@ export default function ShiftDetailPage({ params }: { params: { id: string } }) 
           <h1 className="text-2xl font-semibold">
             Chi tiết Ca làm việc
           </h1>
-          {shift && (
-             <p className="text-sm text-muted-foreground">
-                Ca của {shift.userName} - Ngày {new Date(shift.startTime).toLocaleDateString('vi-VN')}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+              Ca của {shift.userName} - Ngày {new Date(shift.startTime).toLocaleDateString('vi-VN')}
+          </p>
         </div>
       </div>
 
-      {isLoading && <p>Đang tải chi tiết ca...</p>}
-
-      {shift && (
         <>
            <Card>
              <CardHeader>
@@ -193,14 +166,7 @@ export default function ShiftDetailPage({ params }: { params: { id: string } }) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {salesLoading && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        Đang tải danh sách đơn hàng...
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {!salesLoading && sales?.length === 0 && (
+                  {sales?.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center">
                         Không có đơn hàng nào trong ca này.
@@ -231,7 +197,6 @@ export default function ShiftDetailPage({ params }: { params: { id: string } }) 
             </CardContent>
           </Card>
         </>
-      )}
     </div>
   )
 }
