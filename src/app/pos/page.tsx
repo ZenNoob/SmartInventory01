@@ -98,6 +98,7 @@ export default function POSPage() {
     WALK_IN_CUSTOMER_ID
   )
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false)
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [barcode, setBarcode] = useState('')
   const [customerPayment, setCustomerPayment] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -357,11 +358,11 @@ export default function POSPage() {
     <div className="flex flex-col h-[calc(100vh-5rem)]">
       <header className="p-4 border-b">
         <div className="flex items-center gap-4">
-          <div className="relative flex-grow max-w-xl">
+          <div className="relative flex-grow max-w-sm">
             <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               ref={barcodeInputRef}
-              placeholder="Quét mã vạch hoặc nhập để tìm sản phẩm..."
+              placeholder="Quét mã vạch..."
               className="pl-10 h-12 text-lg"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
@@ -369,6 +370,42 @@ export default function POSPage() {
               disabled={isSubmitting}
             />
           </div>
+           <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+            <PopoverTrigger asChild>
+                <Button type="button" variant="outline" className="h-12">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm thủ công
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0" align="start">
+                 <Command>
+                    <CommandInput placeholder="Tìm kiếm sản phẩm..." />
+                    <CommandList>
+                        <CommandEmpty>Không tìm thấy sản phẩm.</CommandEmpty>
+                        <CommandGroup>
+                            {products?.map((product) => (
+                            <CommandItem
+                                key={product.id}
+                                value={product.name}
+                                onSelect={() => {
+                                    addProductToCart(product);
+                                    setProductSearchOpen(false);
+                                }}
+                            >
+                                <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        cart.some(i => i.productId === product.id) ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {product.name}
+                            </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+         </Popover>
           <Popover
             open={customerSearchOpen}
             onOpenChange={setCustomerSearchOpen}
