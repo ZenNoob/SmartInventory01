@@ -58,7 +58,8 @@ export function MainNav() {
 
   const isActive = (path: string) => {
     if (path === '/dashboard') return pathname === path;
-    return pathname.startsWith(path)
+    if (path.endsWith('/')) path = path.slice(0, -1);
+    return pathname.startsWith(path);
   }
   
   const hasPermission = (module: string, permission: string) => {
@@ -85,6 +86,8 @@ export function MainNav() {
       </Sidebar>
      )
   }
+
+  const showCatalogMenu = hasPermission('categories', 'view') || hasPermission('units', 'view') || hasPermission('customers', 'view') || hasPermission('suppliers', 'view');
 
 
   return (
@@ -118,42 +121,61 @@ export function MainNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
-          {hasPermission('categories', 'view') && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/categories')} tooltip="Danh mục">
-                <Link href="/categories">
-                  <Folder />
-                  {state === 'expanded' && <span>Danh mục</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+
+          {showCatalogMenu && (
+             <Collapsible asChild>
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="w-full justify-start" isActive={isActive('/categories') || isActive('/units') || isActive('/customers') || isActive('/suppliers')} tooltip="Danh mục">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Folder />
+                        {state === 'expanded' && <span>Danh mục</span>}
+                      </div>
+                      {state === 'expanded' && <ChevronDown className="h-4 w-4 ml-auto shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />}
+                    </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                  <SidebarMenuSub>
+                      {hasPermission('categories', 'view') && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/categories')}>
+                            <Link href="/categories" className='flex items-center gap-2'><Folder className="h-4 w-4" />Danh mục sản phẩm</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('units', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/units')}>
+                              <Link href="/units" className='flex items-center gap-2'><Scale className="h-4 w-4" />Đơn vị tính</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('customers', 'view') && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/customers')}>
+                            <Link href="/customers" className='flex items-center gap-2'><BookUser className="h-4 w-4" />Khách hàng</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('suppliers', 'view') && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/suppliers')}>
+                            <Link href="/suppliers" className='flex items-center gap-2'><Building className="h-4 w-4" />Nhà cung cấp</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
           )}
-          {hasPermission('units', 'view') && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/units')} tooltip="Đơn vị tính">
-                <Link href="/units">
-                  <Scale />
-                  {state === 'expanded' && <span>Đơn vị tính</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+
           {hasPermission('products', 'view') && (
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/products')} tooltip="Sản phẩm">
                 <Link href="/products">
                   <Package />
                   {state === 'expanded' && <span>Sản phẩm</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-           {hasPermission('suppliers', 'view') && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/suppliers')} tooltip="Nhà cung cấp">
-                <Link href="/suppliers">
-                  <Building />
-                  {state === 'expanded' && <span>Nhà cung cấp</span>}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -174,16 +196,6 @@ export function MainNav() {
                 <Link href="/sales">
                   <ShoppingCart />
                   {state === 'expanded' && <span>Bán hàng</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-          {hasPermission('customers', 'view') && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/customers')} tooltip="Khách hàng">
-                <Link href="/customers">
-                  <BookUser />
-                  {state === 'expanded' && <span>Khách hàng</span>}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
