@@ -36,11 +36,12 @@ import {
   SalesItem,
   ThemeSettings,
   Unit,
-  Shift
+  Shift,
 } from '@/lib/types'
 import { upsertSaleTransaction } from '@/app/sales/actions'
 import { useToast } from '@/hooks/use-toast'
 import { cn, formatCurrency } from '@/lib/utils'
+import { useUserRole } from '@/hooks/use-user-role'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -129,6 +130,7 @@ export default function POSPage() {
   const firestore = useFirestore()
   const { toast } = useToast()
   const { toggleSidebar } = useSidebar();
+  const { permissions, isLoading: isRoleLoading } = useUserRole();
 
 
   const [cart, setCart] = useState<CartItem[]>([])
@@ -520,7 +522,7 @@ export default function POSPage() {
   }
 
 
-  const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading || shiftsLoading || isUserLoading;
+  const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading || shiftsLoading || isUserLoading || isRoleLoading;
   
   if (isLoading || (!user && !isUserLoading)) {
     return (
@@ -535,6 +537,9 @@ export default function POSPage() {
   }
 
   const isLocked = !activeShift;
+
+  const canViewCustomers = permissions?.customers?.includes('view');
+  const canAddCustomers = permissions?.customers?.includes('add');
 
   return (
     <>
@@ -603,7 +608,7 @@ export default function POSPage() {
               <Button
                 variant="outline"
                 role="combobox"
-                disabled={isLocked}
+                disabled={isLocked || !canViewCustomers}
                 className={cn(
                   'w-[250px] justify-between h-12',
                   !selectedCustomerId && 'text-muted-foreground'
@@ -653,16 +658,20 @@ export default function POSPage() {
                       )
                     })}
                   </CommandGroup>
-                  <CommandSeparator />
-                   <CommandItem
-                      onSelect={() => {
-                        setCustomerSearchOpen(false);
-                        setIsCustomerFormOpen(true);
-                      }}
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Thêm khách hàng mới
-                    </CommandItem>
+                  {canAddCustomers && (
+                    <>
+                      <CommandSeparator />
+                      <CommandItem
+                          onSelect={() => {
+                            setCustomerSearchOpen(false);
+                            setIsCustomerFormOpen(true);
+                          }}
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Thêm khách hàng mới
+                        </CommandItem>
+                    </>
+                  )}
                 </CommandList>
               </Command>
             </PopoverContent>

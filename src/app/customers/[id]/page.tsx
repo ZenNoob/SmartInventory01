@@ -24,10 +24,10 @@ import {
 
 import { formatCurrency, toPlainObject } from "@/lib/utils"
 import { PredictRiskForm } from "./components/predict-risk-form"
-import { useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { Customer, Payment, Sale } from "@/lib/types"
-import { doc, collection, query, where, getDocs } from "firebase/firestore"
 import { getAdminServices } from "@/lib/admin-actions"
+import { cookies } from "next/headers"
+import { getAuth } from "firebase-admin/auth"
 
 async function getCustomerData(customerId: string) {
     const { firestore } = await getAdminServices();
@@ -52,6 +52,25 @@ async function getCustomerData(customerId: string) {
     return { customer, sales, payments };
 }
 
+const defaultPermissions = {
+    admin: ['view', 'add', 'edit', 'delete'],
+    accountant: ['view', 'add', 'edit'],
+    salesperson: ['view', 'add'],
+};
+
+
+async function getUserPermissions(uid: string) {
+    const { firestore } = await getAdminServices();
+    const userDoc = await firestore.collection('users').doc(uid).get();
+    if (!userDoc.exists) return null;
+    const userData = userDoc.data() as any;
+    if (userData.role !== 'custom') {
+        // @ts-ignore
+        return defaultPermissions[userData.role] || [];
+    }
+    return userData.permissions?.customers || [];
+}
+
 const getTierIcon = (tier: string | undefined) => {
   switch (tier) {
     case 'diamond': return <Gem className="h-4 w-4 text-blue-500" />;
@@ -72,6 +91,16 @@ const getTierName = (tier: string | undefined) => {
 }
 
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
+  const session = cookies().get('__session')?.value;
+  if (!session) notFound();
+
+  const { uid } = await getAuth().verifySessionCookie(session, true);
+  const permissions = await getUserPermissions(uid);
+
+  if (!permissions?.includes('view')) {
+    notFound();
+  }
+
   const { customer, sales, payments } = await getCustomerData(params.id);
 
   if (!customer) {
