@@ -462,16 +462,16 @@ export default function POSPage() {
             </PopoverContent>
           </Popover>
           <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12"
+            variant="destructive"
+            className="h-12"
             onClick={() => {
               setCart([])
               setCustomerPayment(0)
             }}
             disabled={isSubmitting}
           >
-            <XCircle className="h-6 w-6" />
+            <XCircle className="mr-2 h-5 w-5" />
+            Hủy
           </Button>
         </div>
       </header>
@@ -550,18 +550,18 @@ export default function POSPage() {
         {/* Payment and Summary */}
         <div className="lg:col-span-1 bg-card border rounded-lg p-6 flex flex-col">
            <h2 className="text-xl font-semibold mb-6">Thanh toán</h2>
-          <div className="flex-1 space-y-4 overflow-y-auto">
+          <div className="flex-1 space-y-4 overflow-y-auto text-sm">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Tổng tiền hàng</p>
-                <p className="font-semibold text-lg">{formatCurrency(totalAmount)}</p>
+                <p className="text-muted-foreground">Tổng tiền hàng</p>
+                <p className="font-semibold text-base">{formatCurrency(totalAmount)}</p>
               </div>
               <Separator />
               <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground font-bold">Khách cần trả</p>
+                  <p className="font-bold">Khách cần trả</p>
                   <p className="font-bold text-2xl text-primary">{formatCurrency(totalAmount)}</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="customerPayment" className="text-sm">
+                <Label htmlFor="customerPayment">
                   Tiền khách đưa
                 </Label>
                 <Input
@@ -576,7 +576,7 @@ export default function POSPage() {
                 />
               </div>
               <div className="space-y-1">
-                  <p className={`text-sm font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  <p className={`font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
                   </p>
                   <p className={`font-bold text-xl ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
