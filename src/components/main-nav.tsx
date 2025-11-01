@@ -22,6 +22,7 @@ import {
   Warehouse,
   FileBox,
   Wallet,
+  DollarSign,
 } from 'lucide-react'
 
 import {
@@ -199,6 +200,11 @@ export function MainNav() {
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/income-statement')}>
                               <Link href="/reports/income-statement">Báo cáo Thu chi</Link>
+                          </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/reports/profit')}>
+                              <Link href="/reports/profit" className='flex items-center gap-2'><DollarSign className="h-4 w-4 text-green-500" />Báo cáo Lợi nhuận</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
