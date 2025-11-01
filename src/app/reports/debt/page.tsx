@@ -97,20 +97,19 @@ export default function DebtReportPage() {
     return customers.map(customer => {
       const customerSales = sales.filter(s => s.customerId === customer.id);
       
-      const totalRevenue = customerSales.filter(s => s.finalAmount >= 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-      const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
       
       const totalPayments = payments
         .filter(p => p.customerId === customer.id)
         .reduce((sum, p) => sum + p.amount, 0);
 
-      const finalDebt = totalRevenue + totalReturns - totalPayments;
+      const finalDebt = totalRevenue - totalPayments;
       
       return {
         customerId: customer.id,
         customerName: customer.name,
         customerPhone: customer.phone,
-        totalSales: totalRevenue + totalReturns,
+        totalSales: totalRevenue,
         totalPayments: totalPayments,
         finalDebt: finalDebt,
       };

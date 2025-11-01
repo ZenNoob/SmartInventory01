@@ -193,20 +193,21 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     if (!customers || !sales || !payments) return new Map<string, number>();
 
     const debtMap = new Map<string, number>();
-    
-    customers.forEach(customer => {
-        const customerSales = sales.filter(s => s.customerId === customer.id);
-        const customerPayments = payments.filter(p => p.customerId === customer.id);
 
-        const totalRevenue = customerSales.filter(s => s.finalAmount >= 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-        const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+    const salesForDebtCalc = sale ? sales.filter(s => s.id !== sale.id) : sales;
+    const paymentsForDebtCalc = sale ? payments.filter(p => !p.notes?.includes(sale.invoiceNumber)) : payments;
+
+    customers.forEach(customer => {
+        const customerSales = salesForDebtCalc.filter(s => s.customerId === customer.id);
+        const customerPayments = paymentsForDebtCalc.filter(p => p.customerId === customer.id);
         
+        const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
         const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
         
-        debtMap.set(customer.id, totalRevenue + totalReturns - totalPaid);
+        debtMap.set(customer.id, totalRevenue - totalPaid);
     });
     return debtMap;
-  }, [customers, sales, payments]);
+  }, [customers, sales, payments, sale]);
 
 
   const refinedSaleFormSchema = useMemo(() => saleFormSchema.superRefine((data, ctx) => {
@@ -343,7 +344,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const previousDebt = useMemo(() => {
     if (!selectedCustomerId) return 0;
     return customerDebts.get(selectedCustomerId) || 0;
-  }, [selectedCustomerId, customerDebts, sale]); // Removed sale from deps to always get current debt
+  }, [selectedCustomerId, customerDebts]);
 
 
   const totalPayable = finalAmount + previousDebt;
