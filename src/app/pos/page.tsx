@@ -24,7 +24,7 @@ import {
   useUser,
   useDoc
 } from '@/firebase'
-import { collection, getDocs, query, doc } from 'firebase/firestore'
+import { getDocs, query, doc, collection } from 'firebase/firestore'
 import {
   Customer,
   Payment,
@@ -89,6 +89,29 @@ type CartItem = {
 }
 
 const WALK_IN_CUSTOMER_ID = 'walk-in-customer'
+
+const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; onChange: (value: number) => void; [key: string]: any }) => {
+  const [displayValue, setDisplayValue] = useState(value?.toLocaleString('en-US') || '');
+
+  useEffect(() => {
+    setDisplayValue(value?.toLocaleString('en-US') || '0');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/,/g, '');
+    const numberValue = parseInt(rawValue, 10);
+
+    if (!isNaN(numberValue)) {
+      setDisplayValue(numberValue.toLocaleString('en-US'));
+      onChange(numberValue);
+    } else if (rawValue === '') {
+      setDisplayValue('');
+      onChange(0);
+    }
+  };
+
+  return <Input type="text" value={displayValue} onChange={handleChange} {...props} />;
+};
 
 export default function POSPage() {
   const { user } = useUser()
@@ -679,7 +702,7 @@ export default function POSPage() {
             onClick={handleCreateSale}
             disabled={isSubmitting || cart.length === 0}
           >
-            {isSubmitting ? 'Đang xử lý...' : 'Thanh toán'}
+            Thanh toán
           </Button>
         </div>
       </main>
