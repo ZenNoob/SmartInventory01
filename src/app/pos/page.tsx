@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
@@ -24,8 +22,8 @@ import {
   useMemoFirebase,
   useUser,
   useDoc,
-  useSidebar,
 } from '@/firebase'
+import { useSidebar } from '@/components/ui/sidebar'
 import { getDocs, query, doc, collection } from 'firebase/firestore'
 import {
   Customer,
@@ -687,7 +685,7 @@ export default function POSPage() {
                        const len = numString.length;
                        let textSize = 'text-sm';
                        if (len > 11) textSize = 'text-[10px]'; // For trillions
-                       else if (len > 8) textSize = 'text-xs'; // For billions
+                       else if (len > 7) textSize = 'text-xs'; // For millions/billions
                       
                       return (
                         <Button
@@ -695,7 +693,7 @@ export default function POSPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleCustomerPaymentChange(s)}
-                          className={cn('h-auto py-1 px-2', textSize)}
+                          className={cn('h-auto py-1 px-2 flex-grow', textSize)}
                         >
                           {numString}
                         </Button>
