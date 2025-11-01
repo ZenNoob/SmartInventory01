@@ -3,22 +3,23 @@
 import { AppUser, Permissions } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 
-export async function upsertUser(user: Omit<AppUser, 'id'> & { id?: string; password?: string }): Promise<{ success: boolean; error?: string }> {
+export async function upsertUser(user: Partial<Omit<AppUser, 'id'>> & { id?: string; password?: string }): Promise<{ success: boolean; error?: string }> {
   try {
     const { auth, firestore } = await getAdminServices();
 
-    const userDataForDb: AppUser = {
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-        permissions: user.permissions || {},
+    const userDataForDb: Partial<AppUser> = {
+        ...(user.email && { email: user.email }),
+        ...(user.displayName && { displayName: user.displayName }),
+        ...(user.role && { role: user.role }),
+        ...(user.permissions && { permissions: user.permissions }),
     };
 
     if (user.id) {
       // Update existing user
       await auth.updateUser(user.id, {
-        email: user.email,
-        displayName: user.displayName,
+        ...(user.email && { email: user.email }),
+        ...(user.displayName && { displayName: user.displayName }),
+        ...(user.password && { password: user.password }),
       });
       await firestore.collection('users').doc(user.id).set(userDataForDb, { merge: true });
 
@@ -26,6 +27,9 @@ export async function upsertUser(user: Omit<AppUser, 'id'> & { id?: string; pass
       // Create new user
       if (!user.password) {
         return { success: false, error: "Mật khẩu là bắt buộc cho người dùng mới." };
+      }
+      if (!user.email) {
+        return { success: false, error: "Email là bắt buộc cho người dùng mới." };
       }
       const userRecord = await auth.createUser({
         email: user.email,

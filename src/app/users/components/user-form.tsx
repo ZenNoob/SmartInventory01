@@ -39,28 +39,39 @@ import { upsertUser } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Separator } from '@/components/ui/separator'
-import { Check, ChevronsUpDown, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Check, ChevronsUpDown, AlertTriangle, RefreshCw, UserPlus, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+
 
 const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delete'])))
 
-const userFormSchemaBase = z.object({
+const userInfoSchemaBase = z.object({
   email: z.string().email({ message: "Email không hợp lệ." }),
   displayName: z.string().optional(),
   role: z.enum(['admin', 'accountant', 'inventory_manager', 'salesperson', 'custom']),
-  permissions: permissionsSchema.optional(),
 });
 
-const newUserFormSchema = userFormSchemaBase.extend({
+const newUserInfoSchema = userInfoSchemaBase.extend({
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự.'),
 });
 
-const updateUserFormSchema = userFormSchemaBase.extend({
+const updateUserInfoSchema = userInfoSchemaBase.extend({
     password: z.string().optional().refine(val => !val || val.length >= 6, {
         message: 'Mật khẩu mới phải có ít nhất 6 ký tự.',
     }),
 });
+
+const permissionsFormSchema = z.object({
+    permissions: permissionsSchema,
+})
 
 
 const modules: { id: Module; name: string; description: string; }[] = [
@@ -159,22 +170,29 @@ interface UserFormProps {
 export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [copyUserPopoverOpen, setCopyUserPopoverOpen] = useState(false);
 
   const isEditMode = !!user;
 
-  const form = useForm<z.infer<typeof userFormSchemaBase> & { password?: string }>({
-    resolver: zodResolver(isEditMode ? updateUserFormSchema : newUserFormSchema),
+  const infoForm = useForm<z.infer<typeof userInfoSchemaBase> & { password?: string }>({
+    resolver: zodResolver(isEditMode ? updateUserInfoSchema : newUserInfoSchema),
     defaultValues: {
         email: '',
         displayName: '',
         role: 'custom',
-        permissions: {},
         password: '',
     }
   });
+
+  const permissionsForm = useForm<z.infer<typeof permissionsFormSchema>>({
+      resolver: zodResolver(permissionsFormSchema),
+      defaultValues: {
+          permissions: {}
+      }
+  });
   
-  const role = form.watch('role');
-  const currentPermissions = form.watch('permissions');
+  const role = infoForm.watch('role');
+  const currentPermissions = permissionsForm.watch('permissions');
 
   const isSyncedWithRole = useMemo(() => {
     if (role === 'custom' || !currentPermissions) return false;
@@ -186,28 +204,32 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
   useEffect(() => {
     if(isOpen) {
       if (user) {
-        form.reset({
+        infoForm.reset({
           email: user.email,
           displayName: user.displayName || '',
           role: user.role,
-          permissions: user.permissions || defaultPermissions[user.role] || {},
           password: '',
         });
+        permissionsForm.reset({
+            permissions: user.permissions || defaultPermissions[user.role] || {}
+        });
       } else {
-        form.reset({
+        infoForm.reset({
           email: '',
           displayName: '',
           role: 'custom',
           password: '',
-          permissions: {},
+        });
+        permissionsForm.reset({
+            permissions: {}
         });
       }
     }
-  }, [user, isOpen, form]);
+  }, [user, isOpen, infoForm, permissionsForm]);
 
   const handleApplyDefaultPermissions = () => {
     if (role && role !== 'custom') {
-      form.setValue('permissions', defaultPermissions[role], { shouldValidate: true });
+      permissionsForm.setValue('permissions', defaultPermissions[role], { shouldValidate: true });
        toast({
         title: "Đã áp dụng",
         description: `Đã áp dụng bộ quyền mặc định cho vai trò "${getRoleVietnamese(role)}".`,
@@ -216,15 +238,17 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
   };
 
 
-  const onSubmit = async (data: z.infer<typeof userFormSchemaBase> & { password?: string }) => {
+  const onInfoSubmit = async (data: z.infer<typeof userInfoSchemaBase> & { password?: string }) => {
     const result = await upsertUser({ ...data, id: user?.id });
     if (result.success) {
       toast({
         title: "Thành công!",
-        description: `Đã ${user ? 'cập nhật' : 'tạo'} người dùng thành công.`,
+        description: `Đã ${user ? 'cập nhật' : 'tạo'} thông tin người dùng.`,
       });
-      onOpenChange(false);
-      form.reset();
+      if (!user) { // If creating new user, close dialog
+          onOpenChange(false);
+          infoForm.reset();
+      }
       router.refresh();
     } else {
       toast({
@@ -234,6 +258,35 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
       });
     }
   };
+  
+  const onPermissionsSubmit = async (data: z.infer<typeof permissionsFormSchema>) => {
+    const result = await upsertUser({ id: user?.id, permissions: data.permissions });
+    if (result.success) {
+      toast({
+        title: "Thành công!",
+        description: `Đã cập nhật phân quyền.`,
+      });
+      router.refresh();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Ôi! Đã có lỗi xảy ra.",
+        description: result.error,
+      });
+    }
+  }
+  
+  const handleCopyPermissions = (sourceUserId: string) => {
+    const sourceUser = allUsers?.find(u => u.id === sourceUserId);
+    if (sourceUser?.permissions) {
+        permissionsForm.setValue('permissions', sourceUser.permissions, { shouldValidate: true });
+        toast({
+            title: "Đã sao chép",
+            description: `Đã sao chép quyền từ người dùng ${sourceUser.displayName || sourceUser.email}.`
+        });
+    }
+    setCopyUserPopoverOpen(false);
+  }
   
   const getRoleVietnamese = (role: string) => {
     switch (role) {
@@ -255,154 +308,197 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
             {user ? 'Cập nhật chi tiết cho người dùng này.' : 'Tạo tài khoản mới, gán vai trò và phân quyền chi tiết.'}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-6 max-h-[calc(80vh-150px)]">
-                <div className="space-y-4">
-                     <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input placeholder="example@email.com" {...field} disabled={!!user} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Mật khẩu</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder={user ? "Để trống nếu không muốn đổi" : "••••••••"} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    <FormField
-                      control={form.control}
-                      name="displayName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tên hiển thị</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John Doe" {...field} value={field.value || ''} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Vai trò</FormLabel>
-                            <div className="flex items-center gap-2">
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Chọn một vai trò" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    <SelectItem value="admin">Quản trị viên</SelectItem>
-                                    <SelectItem value="accountant">Kế toán</SelectItem>
-                                    <SelectItem value="inventory_manager">Quản lý kho</SelectItem>
-                                    <SelectItem value="salesperson">Nhân viên bán hàng</SelectItem>
-                                    <SelectItem value="custom">Tùy chỉnh</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {role !== 'custom' && (
-                                     <Button type="button" variant="outline" size="sm" onClick={handleApplyDefaultPermissions} className="shrink-0">
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        Áp dụng quyền
-                                    </Button>
-                                )}
-                            </div>
-                           {role !== 'custom' && !isSyncedWithRole && (
-                            <Alert variant="destructive" className="mt-2 text-xs">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Các quyền hiện tại không khớp với vai trò <span className="font-bold">{getRoleVietnamese(role)}</span>. Nhấn "Áp dụng quyền" để đồng bộ.
-                                </AlertDescription>
-                            </Alert>
-                           )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                </div>
-                <div className="space-y-4">
-                    <h3 className="font-medium">Phân quyền chi tiết</h3>
-                    <div className="space-y-2">
-                        {modules.map((module) => (
-                           <FormField
-                            key={module.id}
-                            control={form.control}
-                            name={`permissions.${module.id}`}
-                            render={() => (
-                                <FormItem className="flex flex-col items-start justify-between rounded-lg border p-3 shadow-sm">
-                                    <div className="space-y-0.5 mb-2">
-                                        <FormLabel>{module.name}</FormLabel>
-                                        <FormDescription>{module.description}</FormDescription>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        {permissions.map((permission) => (
-                                             <FormField
-                                                key={permission.id}
-                                                control={form.control}
-                                                name={`permissions.${module.id}`}
-                                                render={({ field }) => {
-                                                    return (
-                                                    <FormItem
-                                                        key={permission.id}
-                                                        className="flex flex-row items-center space-x-2 space-y-0"
-                                                    >
-                                                        <FormControl>
-                                                        <Checkbox
-                                                            checked={field.value?.includes(permission.id)}
-                                                            onCheckedChange={(checked) => {
-                                                            return checked
-                                                                ? field.onChange([...(field.value || []), permission.id])
-                                                                : field.onChange(
-                                                                    field.value?.filter(
-                                                                    (value) => value !== permission.id
-                                                                    )
-                                                                )
-                                                            }}
-                                                        />
-                                                        </FormControl>
-                                                        <FormLabel className="text-sm font-normal">
-                                                           {permission.name}
-                                                        </FormLabel>
-                                                    </FormItem>
-                                                    )
-                                                }}
-                                             />
-                                        ))}
-                                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-6 max-h-[calc(80vh-100px)]">
+            <Form {...infoForm}>
+                <form onSubmit={infoForm.handleSubmit(onInfoSubmit)} className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Thông tin tài khoản</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                            control={infoForm.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="example@email.com" {...field} disabled={!!user} />
+                                </FormControl>
+                                <FormMessage />
                                 </FormItem>
                             )}
-                           />
-                        ))}
-                    </div>
-                </div>
-            </div>
-            <DialogFooter className='pt-4'>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Đang lưu...' : 'Lưu'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                            />
+                            <FormField
+                                control={infoForm.control}
+                                name="password"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Mật khẩu</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" placeholder={user ? "Để trống nếu không muốn đổi" : "••••••••"} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                            control={infoForm.control}
+                            name="displayName"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Tên hiển thị</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="John Doe" {...field} value={field.value || ''} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                            control={infoForm.control}
+                            name="role"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Vai trò</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Chọn một vai trò" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        <SelectItem value="admin">Quản trị viên</SelectItem>
+                                        <SelectItem value="accountant">Kế toán</SelectItem>
+                                        <SelectItem value="inventory_manager">Quản lý kho</SelectItem>
+                                        <SelectItem value="salesperson">Nhân viên bán hàng</SelectItem>
+                                        <SelectItem value="custom">Tùy chỉnh</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                        </CardContent>
+                        <div className="p-6 pt-0">
+                            <Button type="submit" className="w-full" disabled={infoForm.formState.isSubmitting}>
+                                {infoForm.formState.isSubmitting ? 'Đang lưu...' : (isEditMode ? 'Lưu thay đổi thông tin' : 'Tạo người dùng')}
+                            </Button>
+                        </div>
+                    </Card>
+                </form>
+            </Form>
+            
+            {isEditMode && (
+                 <Form {...permissionsForm}>
+                    <form onSubmit={permissionsForm.handleSubmit(onPermissionsSubmit)} className="space-y-4">
+                        <Card>
+                             <CardHeader>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle>Phân quyền chi tiết</CardTitle>
+                                    <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="outline" size="sm"><Copy className="h-4 w-4 mr-2" />Sao chép</Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[300px] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Tìm người dùng để sao chép..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {allUsers?.filter(u => u.id !== user.id).map((sourceUser) => (
+                                                            <CommandItem
+                                                                key={sourceUser.id}
+                                                                value={`${sourceUser.displayName} ${sourceUser.email}`}
+                                                                onSelect={() => handleCopyPermissions(sourceUser.id!)}
+                                                            >
+                                                                {sourceUser.displayName || sourceUser.email}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                 <CardDescription>
+                                    {role !== 'custom' && !isSyncedWithRole && (
+                                        <Alert variant="destructive" className="mt-2 text-xs">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Quyền đã bị thay đổi so với vai trò <span className="font-bold">{getRoleVietnamese(role)}</span>.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    {role !== 'custom' && (
+                                        <Button size="sm" variant="link" type="button" onClick={handleApplyDefaultPermissions} className="p-0 h-auto mt-2 text-xs">
+                                            <RefreshCw className="h-3 w-3 mr-1" />
+                                            Áp dụng lại quyền mặc định cho vai trò "{getRoleVietnamese(role)}"
+                                        </Button>
+                                    )}
+                                 </CardDescription>
+                             </CardHeader>
+                             <CardContent className="space-y-2">
+                                {modules.map((module) => (
+                                <FormField
+                                    key={module.id}
+                                    control={permissionsForm.control}
+                                    name={`permissions.${module.id}`}
+                                    render={() => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                            <div className="space-y-0.5">
+                                                <FormLabel>{module.name}</FormLabel>
+                                            </div>
+                                            <div className="flex items-center space-x-4">
+                                                {permissions.map((permission) => (
+                                                    <FormField
+                                                        key={permission.id}
+                                                        control={permissionsForm.control}
+                                                        name={`permissions.${module.id}`}
+                                                        render={({ field }) => {
+                                                            return (
+                                                            <FormItem
+                                                                key={permission.id}
+                                                                className="flex flex-row items-center space-x-2 space-y-0"
+                                                            >
+                                                                <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value?.includes(permission.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                        ? field.onChange([...(field.value || []), permission.id])
+                                                                        : field.onChange(
+                                                                            field.value?.filter(
+                                                                            (value) => value !== permission.id
+                                                                            )
+                                                                        )
+                                                                    }}
+                                                                />
+                                                                </FormControl>
+                                                                <FormLabel className="text-sm font-normal">
+                                                                {permission.name}
+                                                                </FormLabel>
+                                                            </FormItem>
+                                                            )
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                                ))}
+                             </CardContent>
+                             <div className="p-6 pt-0">
+                                <Button type="submit" className="w-full" disabled={permissionsForm.formState.isSubmitting}>
+                                    {permissionsForm.formState.isSubmitting ? 'Đang lưu...' : 'Lưu phân quyền'}
+                                </Button>
+                             </div>
+                        </Card>
+                    </form>
+                 </Form>
+            )}
+        </div>
       </DialogContent>
     </Dialog>
   )
