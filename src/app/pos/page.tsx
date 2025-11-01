@@ -150,7 +150,7 @@ export default function POSPage() {
 
   // #region Data Fetching
   const activeShiftQuery = useMemoFirebase(() => 
-    (firestore && user) ? query(collection(firestore, 'shifts'), where('userId', '==', user.uid), where('status', '==', 'active'), where('__name__', '!=', '')) : null,
+    (firestore && user && user.uid) ? query(collection(firestore, 'shifts'), where('userId', '==', user.uid), where('status', '==', 'active')) : null,
   [firestore, user]);
 
   const { data: activeShifts, isLoading: shiftsLoading } = useCollection<Shift>(activeShiftQuery);
