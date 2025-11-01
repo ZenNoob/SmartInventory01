@@ -230,6 +230,12 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
                             <TableCell className="text-right font-semibold">-{formatCurrency(sale.discount)}</TableCell>
                         </TableRow>
                     ) : null}
+                     {sale.pointsDiscount && sale.pointsDiscount > 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-right font-medium">Giảm giá điểm thưởng ({sale.pointsUsed} điểm)</TableCell>
+                            <TableCell className="text-right font-semibold">-{formatCurrency(sale.pointsDiscount)}</TableCell>
+                        </TableRow>
+                    ) : null}
                      {sale.vatAmount && sale.vatAmount > 0 && settings?.vatRate ? (
                         <TableRow>
                             <TableCell colSpan={6} className="text-right font-medium">Thuế VAT ({settings.vatRate}%)</TableCell>
