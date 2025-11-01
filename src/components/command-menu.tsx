@@ -17,17 +17,19 @@ import {
   Folder,
   Scale,
   Truck,
-  Store,
-  Wallet,
-  DollarSign,
-  History,
-  BookUser,
-  FileBox,
-  Warehouse,
-  FileText,
   Sparkles,
   PackagePlus,
+  Store,
+  History,
+  BookUser,
+  FileText,
+  Warehouse,
+  FileBox,
+  Wallet,
+  DollarSign,
+  ChevronDown,
   Building,
+  Briefcase,
 } from "lucide-react"
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
@@ -175,7 +177,7 @@ export function CommandMenu() {
             </CommandItem>
              <CommandItem onSelect={() => runCommand(() => router.push('/reports/supplier-debt-tracking'))}>
               <History className="mr-2 h-4 w-4" />
-              <span>Theo dõi Công nợ NCC</span>
+              <span>Đối soát Công nợ NCC</span>
             </CommandItem>
              <CommandItem onSelect={() => runCommand(() => router.push('/reports/revenue'))}>
               <FileText className="mr-2 h-4 w-4" />

@@ -227,8 +227,8 @@ export default function SupplierDebtTrackingPage() {
     });
 
     const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, "TheoDoiCongNoNCC");
-    xlsx.writeFile(workbook, "bao_cao_theo_doi_cong_no_ncc.xlsx");
+    xlsx.utils.book_append_sheet(workbook, worksheet, "DoiSoatCongNoNCC");
+    xlsx.writeFile(workbook, "bao_cao_doi_soat_cong_no_ncc.xlsx");
   };
 
   const isLoading = suppliersLoading || purchasesLoading || paymentsLoading;
@@ -236,7 +236,7 @@ export default function SupplierDebtTrackingPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Báo cáo Theo dõi Công nợ Nhà cung cấp</CardTitle>
+        <CardTitle>Báo cáo Đối soát Công nợ Nhà cung cấp</CardTitle>
         <CardDescription>
           Phân tích chi tiết công nợ phải trả cho nhà cung cấp trong một khoảng thời gian.
         </CardDescription>

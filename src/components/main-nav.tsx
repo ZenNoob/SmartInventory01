@@ -272,7 +272,7 @@ export function MainNav() {
                       {hasPermission('reports_supplier_debt_tracking', 'view') && (
                         <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt-tracking')}>
-                                <Link href="/reports/supplier-debt-tracking" className='flex items-center gap-2'><History className="h-4 w-4" />Theo dõi Công nợ NCC</Link>
+                                <Link href="/reports/supplier-debt-tracking" className='flex items-center gap-2'><History className="h-4 w-4" />Đối soát Công nợ NCC</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
