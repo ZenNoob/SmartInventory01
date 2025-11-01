@@ -373,7 +373,9 @@ export default function POSPage() {
   const pointsToVndRate = settings?.loyalty?.pointsToVndRate || 0;
   const pointsDiscount = pointsUsed * pointsToVndRate;
 
-  const amountAfterDiscount = totalAmount - tierDiscountAmount - calculatedDiscount - pointsDiscount;
+  const totalDiscount = tierDiscountAmount + calculatedDiscount + pointsDiscount;
+  const amountAfterDiscount = totalAmount - totalDiscount;
+
   const vatRate = settings?.vatRate || 0;
   const vatAmount = (amountAfterDiscount * vatRate) / 100;
   const finalAmount = amountAfterDiscount + vatAmount;
@@ -786,6 +788,13 @@ export default function POSPage() {
                             <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
                         </div>
                     )}
+                </div>
+              )}
+
+              {totalDiscount > 0 && (
+                <div className="flex justify-between items-center font-semibold text-primary mt-2">
+                  <Label>Tổng giảm giá</Label>
+                  <p>-{formatCurrency(totalDiscount)}</p>
                 </div>
               )}
               

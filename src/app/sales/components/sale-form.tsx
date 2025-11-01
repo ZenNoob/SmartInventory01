@@ -360,7 +360,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     ? (totalAmount * (sale.discountValue || 0)) / 100
     : (discountValue || 0);
     
-  const amountAfterDiscount = totalAmount - tierDiscountAmount - calculatedDiscount - pointsDiscount;
+  const totalDiscount = tierDiscountAmount + calculatedDiscount + pointsDiscount;
+  const amountAfterDiscount = totalAmount - totalDiscount;
+
   const vatRate = settings?.vatRate || 0;
   const vatAmount = (amountAfterDiscount * vatRate) / 100;
   const finalAmount = amountAfterDiscount + vatAmount;
@@ -853,6 +855,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                   <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
                               </div>
                           )}
+
+                          {totalDiscount > 0 && (
+                            <div className="flex justify-between items-center font-semibold text-primary mt-2">
+                                <Label>Tổng giảm giá</Label>
+                                <p>-{formatCurrency(totalDiscount)}</p>
+                            </div>
+                          )}
+
                           {vatRate > 0 && (
                           <div className="flex justify-between items-center">
                               <span>Thuế VAT ({vatRate}%):</span>
