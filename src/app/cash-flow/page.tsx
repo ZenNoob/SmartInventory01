@@ -83,6 +83,18 @@ export default function CashFlowPage() {
 
   const { data: transactions, isLoading } = useCollection<CashTransaction>(transactionsQuery);
 
+  const categories = useMemo(() => {
+    if (!transactions) return [];
+    const uniqueCategories = new Set<string>();
+    transactions.forEach(t => {
+        if (t.category) {
+            uniqueCategories.add(t.category);
+        }
+    });
+    return Array.from(uniqueCategories);
+  }, [transactions]);
+
+
   const filteredTransactions = useMemo(() => {
     return transactions?.filter(transaction => {
         const typeMatch = typeFilter === 'all' || transaction.type === typeFilter;
@@ -203,6 +215,7 @@ export default function CashFlowPage() {
         isOpen={isFormOpen}
         onOpenChange={setIsFormOpen}
         transaction={selectedTransaction}
+        categories={categories}
       />
       <AlertDialog open={!!transactionToDelete} onOpenChange={(open) => !open && setTransactionToDelete(null)}>
         <AlertDialogContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -21,13 +21,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { CashTransaction } from '@/lib/types'
@@ -35,6 +28,35 @@ import { upsertCashTransaction } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ChevronsUpDown, Check } from 'lucide-react'
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList, CommandGroup } from '@/components/ui/command'
+import { cn } from '@/lib/utils'
+
+
+const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; onChange: (value: number) => void; [key: string]: any }) => {
+  const [displayValue, setDisplayValue] = useState(value?.toLocaleString('en-US') || '');
+
+  useEffect(() => {
+    setDisplayValue(value?.toLocaleString('en-US') || '0');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/,/g, '');
+    const numberValue = parseInt(rawValue, 10);
+
+    if (!isNaN(numberValue)) {
+      setDisplayValue(numberValue.toLocaleString('en-US'));
+      onChange(numberValue);
+    } else if (rawValue === '') {
+      setDisplayValue('');
+      onChange(0);
+    }
+  };
+
+  return <Input type="text" value={displayValue} onChange={handleChange} {...props} />;
+};
+
 
 const transactionFormSchema = z.object({
   type: z.enum(['thu', 'chi']),
@@ -50,11 +72,14 @@ interface CashTransactionFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   transaction?: CashTransaction;
+  categories: string[];
 }
 
-export function CashTransactionForm({ isOpen, onOpenChange, transaction }: CashTransactionFormProps) {
+export function CashTransactionForm({ isOpen, onOpenChange, transaction, categories }: CashTransactionFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [openCategoryPopover, setOpenCategoryPopover] = useState(false);
+  const [search, setSearch] = useState('');
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -165,7 +190,7 @@ export function CashTransactionForm({ isOpen, onOpenChange, transaction }: CashT
                 <FormItem>
                   <FormLabel>Số tiền</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <FormattedNumberInput {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -188,11 +213,70 @@ export function CashTransactionForm({ isOpen, onOpenChange, transaction }: CashT
               control={form.control}
               name="category"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Danh mục (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Vd: Chi phí vận hành" {...field} />
-                  </FormControl>
+                    <Popover open={openCategoryPopover} onOpenChange={setOpenCategoryPopover}>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                >
+                                {field.value ? field.value : "Chọn hoặc tạo danh mục"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput 
+                                  placeholder="Tìm hoặc tạo danh mục..."
+                                  value={search}
+                                  onValueChange={setSearch}
+                                />
+                                <CommandList>
+                                <CommandEmpty>
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full"
+                                        onClick={() => {
+                                            field.onChange(search);
+                                            setOpenCategoryPopover(false);
+                                        }}
+                                    >
+                                        Tạo danh mục mới: "{search}"
+                                    </Button>
+                                </CommandEmpty>
+                                <CommandGroup>
+                                    {categories.map((category) => (
+                                    <CommandItem
+                                        value={category}
+                                        key={category}
+                                        onSelect={() => {
+                                        field.onChange(category)
+                                        setOpenCategoryPopover(false)
+                                        }}
+                                    >
+                                        <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            category === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                        />
+                                        {category}
+                                    </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                   <FormMessage />
                 </FormItem>
               )}
