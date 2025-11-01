@@ -549,43 +549,43 @@ export default function POSPage() {
 
         {/* Payment and Summary */}
         <div className="lg:col-span-1 bg-card border rounded-lg p-6 flex flex-col">
-          <h2 className="text-xl font-semibold mb-6">Thanh toán</h2>
-          <div className="space-y-6 text-base flex-1">
-            <div className="space-y-1">
-              <p className="text-muted-foreground">Tổng tiền hàng</p>
-              <p className="font-bold text-xl">{formatCurrency(totalAmount)}</p>
-            </div>
-             <Separator />
-            <div className="space-y-1">
-                <p className="text-muted-foreground font-bold text-lg">Khách cần trả</p>
-                <p className="font-bold text-3xl text-primary">{formatCurrency(totalAmount)}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerPayment" className="text-base">
-                Tiền khách đưa
-              </Label>
-              <Input
-                id="customerPayment"
-                type="text"
-                className="h-14 text-2xl font-bold text-right"
-                value={customerPayment.toLocaleString('en-US')}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value.replace(/,/g, ''), 10);
-                  setCustomerPayment(isNaN(val) ? 0 : val);
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-                <p className={`text-muted-foreground font-bold text-lg ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                    {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
-                </p>
-                <p className={`font-bold text-2xl ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                    {formatCurrency(Math.abs(changeAmount))}
-                </p>
-            </div>
+           <h2 className="text-xl font-semibold mb-6">Thanh toán</h2>
+          <div className="flex-1 space-y-4 overflow-y-auto">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Tổng tiền hàng</p>
+                <p className="font-semibold text-lg">{formatCurrency(totalAmount)}</p>
+              </div>
+              <Separator />
+              <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground font-bold">Khách cần trả</p>
+                  <p className="font-bold text-2xl text-primary">{formatCurrency(totalAmount)}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerPayment" className="text-sm">
+                  Tiền khách đưa
+                </Label>
+                <Input
+                  id="customerPayment"
+                  type="text"
+                  className="h-12 text-xl font-bold text-right"
+                  value={customerPayment.toLocaleString('en-US')}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value.replace(/,/g, ''), 10);
+                    setCustomerPayment(isNaN(val) ? 0 : val);
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                  <p className={`text-sm font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                      {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
+                  </p>
+                  <p className={`font-bold text-xl ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                      {formatCurrency(Math.abs(changeAmount))}
+                  </p>
+              </div>
           </div>
           <Button
-            className="w-full h-16 text-xl mt-8"
+            className="w-full h-16 text-xl mt-4"
             onClick={handleCreateSale}
             disabled={isSubmitting || cart.length === 0}
           >
