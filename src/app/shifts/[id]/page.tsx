@@ -10,6 +10,7 @@ import {
   TrendingDown,
   Scale,
   Hash,
+  Pencil,
 } from 'lucide-react'
 
 import type { Customer, Sale, Shift } from '@/lib/types'
@@ -81,6 +82,14 @@ export default async function ShiftDetailPage({ params }: { params: { id: string
               Ca của {shift.userName} - Ngày {new Date(shift.startTime).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
           </p>
         </div>
+         <div className="ml-auto">
+          <Button asChild>
+            <Link href={`/shifts/${shift.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Sửa ca
+            </Link>
+          </Button>
+        </div>
       </div>
 
         <>
@@ -100,7 +109,7 @@ export default async function ShiftDetailPage({ params }: { params: { id: string
                     <Clock className="h-6 w-6 text-muted-foreground" />
                     <div>
                         <p className="text-muted-foreground">Thời gian</p>
-                        <p className="font-semibold">{new Date(shift.startTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} - {shift.endTime ? new Date(shift.endTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Đang hoạt động'}</p>
+                        <p className="font-semibold">{new Date(shift.startTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} - {shift.endTime ? new Date(shift.endTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Đang hoạt động'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-lg border p-3">

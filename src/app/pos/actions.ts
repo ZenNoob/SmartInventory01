@@ -91,3 +91,36 @@ export async function closeShift(
     return { success: false, error: error.message || 'Không thể đóng ca làm việc.' };
   }
 }
+
+
+export async function updateShift(
+  shiftId: string,
+  updateData: { startingCash: number; endingCash: number }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { firestore } = await getAdminServices();
+    const shiftRef = firestore.collection('shifts').doc(shiftId);
+
+    const shiftDoc = await shiftRef.get();
+    if (!shiftDoc.exists) {
+      return { success: false, error: 'Không tìm thấy ca làm việc.' };
+    }
+    const shiftData = shiftDoc.data() as Shift;
+
+    // Recalculate cash difference based on new values
+    const totalCashInDrawer = (updateData.startingCash || 0) + (shiftData.cashSales || 0);
+    const cashDifference = (updateData.endingCash || 0) - totalCashInDrawer;
+
+    await shiftRef.update({
+      startingCash: updateData.startingCash,
+      endingCash: updateData.endingCash,
+      totalCashInDrawer: totalCashInDrawer,
+      cashDifference: cashDifference,
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating shift:", error);
+    return { success: false, error: error.message || 'Không thể cập nhật ca làm việc.' };
+  }
+}
