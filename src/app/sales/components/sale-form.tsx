@@ -4,6 +4,7 @@
 
 
 
+
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -52,6 +53,7 @@ import { getRelatedProductsSuggestion } from '@/app/actions'
 import type { SuggestRelatedProductsOutput } from '@/ai/flows/suggest-related-products-flow'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CustomerForm } from '@/app/customers/components/customer-form'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 
 const saleItemSchema = z.object({
@@ -64,6 +66,7 @@ const saleFormSchema = z.object({
   customerId: z.string().min(1, "Vui lòng chọn khách hàng."),
   transactionDate: z.string().min(1, "Ngày giao dịch là bắt buộc."),
   items: z.array(saleItemSchema).min(1, "Đơn hàng phải có ít nhất một sản phẩm."),
+  discountType: z.enum(['percentage', 'amount']).default('amount'),
   discountValue: z.coerce.number().optional(),
   customerPayment: z.coerce.number().optional(),
   pointsUsed: z.coerce.number().optional(),
@@ -249,6 +252,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       customerId: '',
       transactionDate: new Date().toISOString().split('T')[0],
       items: [],
+      discountType: 'amount',
       discountValue: 0,
       customerPayment: 0,
       pointsUsed: 0,
@@ -286,6 +290,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: sale.customerId,
         transactionDate: new Date(sale.transactionDate).toISOString().split('T')[0],
         items: formItems,
+        discountType: sale.discountType || 'amount',
         discountValue: sale.discountValue || 0,
         customerPayment: sale.customerPayment || 0,
         pointsUsed: sale.pointsUsed || 0,
@@ -298,6 +303,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: '',
         transactionDate: new Date().toISOString().split('T')[0],
         items: [],
+        discountType: 'amount',
         discountValue: 0,
         customerPayment: 0,
         pointsUsed: 0,
@@ -310,6 +316,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
 
   const watchedItems = form.watch("items");
+  const discountType = form.watch('discountType');
   const discountValue = form.watch('discountValue') || 0;
   const customerPayment = form.watch('customerPayment') || 0;
   const selectedCustomerId = form.watch('customerId');
@@ -356,9 +363,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const pointsToVndRate = settings?.loyalty?.pointsToVndRate || 0;
   const pointsDiscount = pointsUsed * pointsToVndRate;
 
-  const calculatedDiscount = sale?.discountType === 'percentage'
-    ? (totalAmount * (sale.discountValue || 0)) / 100
-    : (discountValue || 0);
+  const calculatedDiscount = discountType === 'percentage'
+    ? (totalAmount * discountValue) / 100
+    : discountValue;
     
   const totalDiscount = tierDiscountAmount + calculatedDiscount + pointsDiscount;
   const amountAfterDiscount = totalAmount - totalDiscount;
@@ -404,7 +411,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         vatAmount: vatAmount,
         finalAmount: finalAmount,
         discount: calculatedDiscount,
-        discountType: sale?.discountType,
+        discountType: data.discountType,
         discountValue: data.discountValue,
         tierDiscountPercentage,
         tierDiscountAmount,
@@ -805,7 +812,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
               {/* Right Column */}
               <div className='md:col-span-1 flex flex-col justify-between border-l pl-8'>
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto pr-2 -mr-2">
                     <h3 className="text-md font-medium">Tóm tắt thanh toán</h3>
                       <div className="space-y-4 text-sm">
                           <div className="flex justify-between items-center">
@@ -818,20 +825,47 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                 <p className="font-semibold">-{formatCurrency(tierDiscountAmount)}</p>
                             </div>
                            )}
-                          <FormField
+                           <FormField
                               control={form.control}
                               name="discountValue"
                               render={({ field }) => (
-                                  <FormItem>
-                                      <div className="flex justify-between items-center">
-                                          <FormLabel>Giảm giá (VNĐ)</FormLabel>
-                                          <FormattedNumberInput {...field} id="discountValue" className="w-32"/>
-                                      </div>
-                                      <FormMessage />
-                                  </FormItem>
+                                <FormItem>
+                                  <FormLabel>Giảm giá</FormLabel>
+                                  <div className="flex gap-2">
+                                    <FormField
+                                      control={form.control}
+                                      name="discountType"
+                                      render={({ field: typeField }) => (
+                                        <FormControl>
+                                          <RadioGroup
+                                            value={typeField.value}
+                                            onValueChange={typeField.onChange}
+                                            className="flex items-center"
+                                          >
+                                            <FormItem className="flex items-center space-x-1 space-y-0">
+                                              <FormControl>
+                                                <RadioGroupItem value="amount" id="d_amount" />
+                                              </FormControl>
+                                              <FormLabel className="font-normal">VNĐ</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-1 space-y-0">
+                                              <FormControl>
+                                                <RadioGroupItem value="percentage" id="d_percent" />
+                                              </FormControl>
+                                              <FormLabel className="font-normal">%</FormLabel>
+                                            </FormItem>
+                                          </RadioGroup>
+                                        </FormControl>
+                                      )}
+                                    />
+                                    <FormattedNumberInput {...field} id="discountValue" />
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
                               )}
-                          />
-                          {selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && settings?.loyalty?.enabled && (
+                            />
+
+                          {settings?.loyalty?.enabled && selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && (
                               <FormField
                                   control={form.control}
                                   name="pointsUsed"
@@ -855,13 +889,13 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                   <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
                               </div>
                           )}
-
-                          {totalDiscount > 0 && (
+                          
+                           {totalDiscount > 0 && (
                             <div className="flex justify-between items-center font-semibold text-primary mt-2">
                                 <Label>Tổng giảm giá</Label>
                                 <p>-{formatCurrency(totalDiscount)}</p>
                             </div>
-                          )}
+                           )}
 
                           {vatRate > 0 && (
                           <div className="flex justify-between items-center">

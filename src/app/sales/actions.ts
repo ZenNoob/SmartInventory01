@@ -1,5 +1,6 @@
 
 
+
 'use server'
 
 import { Sale, SalesItem, LoyaltySettings, Customer } from "@/lib/types";
@@ -107,7 +108,11 @@ export async function upsertSaleTransaction(
             }
         }
         
-        const amountAfterDiscount = (sale.totalAmount || 0) - tierDiscountAmount - (sale.discount || 0) - (sale.pointsDiscount || 0);
+        const calculatedDiscount = sale.discountType === 'percentage' 
+          ? ((sale.totalAmount || 0) * (sale.discountValue || 0)) / 100 
+          : (sale.discountValue || 0);
+
+        const amountAfterDiscount = (sale.totalAmount || 0) - tierDiscountAmount - calculatedDiscount - (sale.pointsDiscount || 0);
         const vatAmount = (amountAfterDiscount * (settingsDoc.data()?.vatRate || 0)) / 100;
         const finalAmount = amountAfterDiscount + vatAmount;
 
@@ -124,6 +129,7 @@ export async function upsertSaleTransaction(
             ...sale, 
             tierDiscountPercentage,
             tierDiscountAmount,
+            discount: calculatedDiscount, // Save the calculated amount
             finalAmount,
             vatAmount,
             remainingDebt: finalRemainingDebt,
