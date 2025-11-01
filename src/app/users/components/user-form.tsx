@@ -85,14 +85,22 @@ const modules: { id: Module; name: string; description: string; }[] = [
     { id: 'sales', name: 'Bán hàng', description: 'Tạo và quản lý các đơn hàng bán cho khách.' },
     { id: 'customers', name: 'Khách hàng', description: 'Quản lý thông tin và công nợ của khách hàng.' },
     { id: 'cash-flow', name: 'Sổ quỹ', description: 'Quản lý các giao dịch thu, chi tiền mặt.' },
-    { id: 'shifts', name: 'Quản lý Ca', description: 'Xem lại và quản lý các ca làm việc của nhân viên.' },
-    { id: 'reports', name: 'Báo cáo', description: 'Xem các báo cáo chi tiết về doanh thu, công nợ, tồn kho.' },
+    { id: 'reports_shifts', name: 'BC - Quản lý Ca', description: 'Xem lại và quản lý các ca làm việc của nhân viên.' },
+    { id: 'reports_income_statement', name: 'BC - Thu-Chi', description: 'Báo cáo kết quả kinh doanh (lãi/lỗ).' },
+    { id: 'reports_profit', name: 'BC - Lợi nhuận', description: 'Phân tích lợi nhuận theo sản phẩm.' },
+    { id: 'reports_debt', name: 'BC - Công nợ KH', description: 'Báo cáo tổng hợp công nợ khách hàng.' },
+    { id: 'reports_supplier_debt', name: 'BC - Công nợ NCC', description: 'Báo cáo tổng hợp công nợ nhà cung cấp.' },
+    { id: 'reports_transactions', name: 'BC - Lịch sử Giao dịch', description: 'Xem lại nhật ký giao dịch của khách hàng.' },
+    { id: 'reports_supplier_debt_tracking', name: 'BC - Theo dõi Công nợ NCC', description: 'Xem biến động công nợ của nhà cung cấp.' },
+    { id: 'reports_revenue', name: 'BC - Doanh thu', description: 'Báo cáo doanh thu chi tiết theo đơn hàng.' },
+    { id: 'reports_sold_products', name: 'BC - SP đã bán', description: 'Thống kê các sản phẩm đã được bán ra.' },
+    { id: 'reports_inventory', name: 'BC - Tồn kho', description: 'Báo cáo nhập, xuất, tồn kho của sản phẩm.' },
+    { id: 'reports_ai_segmentation', name: 'BC - Phân khúc KH (AI)', description: 'Sử dụng AI để phân nhóm khách hàng.' },
+    { id: 'reports_ai_basket_analysis', name: 'BC - Phân tích rổ hàng (AI)', description: 'Sử dụng AI để tìm sản phẩm mua kèm.' },
     { id: 'ai_forecast', name: 'AI - Dự báo & Đề xuất', description: 'Sử dụng AI để dự báo doanh số và đề xuất nhập hàng.' },
-    { id: 'ai_segmentation', name: 'AI - Phân khúc khách hàng', description: 'Sử dụng AI để phân nhóm khách hàng.' },
-    { id: 'ai_basket_analysis', name: 'AI - Phân tích rổ hàng', description: 'Sử dụng AI để tìm các sản phẩm hay được mua cùng nhau.' },
     { id: 'users', name: 'Người dùng', description: 'Quản lý tài khoản và phân quyền người dùng hệ thống.' },
     { id: 'settings', name: 'Cài đặt', description: 'Tùy chỉnh thông tin chung và giao diện của ứng dụng.' },
-]
+];
 
 const permissions: { id: Permission; name: string }[] = [
     { id: 'view', name: 'Xem' },
@@ -101,47 +109,62 @@ const permissions: { id: Permission; name: string }[] = [
     { id: 'delete', name: 'Xóa' },
 ]
 
-const defaultPermissions: Record<AppUser['role'], Permissions> = {
-  admin: {
-    dashboard: ['view'],
-    pos: ['view', 'add', 'edit', 'delete'],
-    categories: ['view', 'add', 'edit', 'delete'],
-    units: ['view', 'add', 'edit', 'delete'],
-    suppliers: ['view', 'add', 'edit', 'delete'],
-    products: ['view', 'add', 'edit', 'delete'],
-    purchases: ['view', 'add', 'edit', 'delete'],
-    sales: ['view', 'add', 'edit', 'delete'],
-    customers: ['view', 'add', 'edit', 'delete'],
-    'cash-flow': ['view', 'add', 'edit', 'delete'],
-    shifts: ['view'],
-    reports: ['view'],
-    ai_forecast: ['view'],
-    ai_segmentation: ['view'],
-    ai_basket_analysis: ['view'],
-    users: ['view', 'add', 'edit', 'delete'],
-    settings: ['view', 'edit'],
-  },
-  accountant: {
-    dashboard: ['view'],
-    sales: ['view', 'add', 'edit'],
-    customers: ['view', 'add', 'edit'],
-    'cash-flow': ['view', 'add', 'edit', 'delete'],
-    reports: ['view'],
-  },
-  inventory_manager: {
-    dashboard: ['view'],
-    categories: ['view', 'add', 'edit'],
-    units: ['view', 'add', 'edit'],
-    suppliers: ['view', 'add', 'edit', 'delete'],
-    products: ['view', 'add', 'edit'],
-    purchases: ['view', 'add', 'edit'],
-  },
-  salesperson: {
-    pos: ['view', 'add'],
-    customers: ['view', 'add'],
-  },
-  custom: {},
+const defaultPermissions: Record<string, Permissions> = {
+    admin: {
+        dashboard: ['view'],
+        pos: ['view', 'add', 'edit', 'delete'],
+        categories: ['view', 'add', 'edit', 'delete'],
+        units: ['view', 'add', 'edit', 'delete'],
+        suppliers: ['view', 'add', 'edit', 'delete'],
+        products: ['view', 'add', 'edit', 'delete'],
+        purchases: ['view', 'add', 'edit', 'delete'],
+        sales: ['view', 'add', 'edit', 'delete'],
+        customers: ['view', 'add', 'edit', 'delete'],
+        'cash-flow': ['view', 'add', 'edit', 'delete'],
+        reports_shifts: ['view'],
+        reports_income_statement: ['view'],
+        reports_profit: ['view'],
+        reports_debt: ['view'],
+        reports_supplier_debt: ['view'],
+        reports_transactions: ['view'],
+        reports_supplier_debt_tracking: ['view'],
+        reports_revenue: ['view'],
+        reports_sold_products: ['view'],
+        reports_inventory: ['view'],
+        reports_ai_segmentation: ['view'],
+        reports_ai_basket_analysis: ['view'],
+        ai_forecast: ['view'],
+        users: ['view', 'add', 'edit', 'delete'],
+        settings: ['view', 'edit'],
+    },
+    accountant: {
+        dashboard: ['view'],
+        sales: ['view', 'add', 'edit'],
+        customers: ['view', 'add', 'edit'],
+        'cash-flow': ['view', 'add', 'edit', 'delete'],
+        reports_income_statement: ['view'],
+        reports_profit: ['view'],
+        reports_debt: ['view'],
+        reports_transactions: ['view'],
+        reports_revenue: ['view'],
+        reports_sold_products: ['view'],
+    },
+    inventory_manager: {
+        dashboard: ['view'],
+        categories: ['view', 'add', 'edit'],
+        units: ['view', 'add', 'edit'],
+        suppliers: ['view', 'add', 'edit', 'delete'],
+        products: ['view', 'add', 'edit'],
+        purchases: ['view', 'add', 'edit'],
+        reports_inventory: ['view'],
+    },
+    salesperson: {
+        pos: ['view', 'add'],
+        customers: ['view', 'add'],
+    },
+    custom: {},
 };
+
 
 
 interface UserFormProps {
@@ -472,5 +495,3 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
     </Dialog>
   )
 }
-
-    

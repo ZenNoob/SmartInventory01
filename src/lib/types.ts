@@ -12,14 +12,22 @@ export type Module =
   | 'sales'
   | 'customers'
   | 'cash-flow'
-  | 'reports'
+  | 'reports_shifts'
+  | 'reports_income_statement'
+  | 'reports_profit'
+  | 'reports_debt'
+  | 'reports_supplier_debt'
+  | 'reports_transactions'
+  | 'reports_supplier_debt_tracking'
+  | 'reports_revenue'
+  | 'reports_sold_products'
+  | 'reports_inventory'
+  | 'reports_ai_segmentation'
+  | 'reports_ai_basket_analysis'
   | 'users'
   | 'settings'
   | 'pos'
-  | 'shifts'
-  | 'ai_forecast'
-  | 'ai_segmentation'
-  | 'ai_basket_analysis';
+  | 'ai_forecast';
 
 export type Permissions = {
   [key in Module]?: Permission[];

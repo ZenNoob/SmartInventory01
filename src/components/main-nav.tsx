@@ -89,6 +89,7 @@ export function MainNav() {
   }
 
   const showCatalogMenu = hasPermission('categories', 'view') || hasPermission('units', 'view') || hasPermission('customers', 'view') || hasPermission('suppliers', 'view');
+  const showReportsMenu = hasPermission('reports_shifts', 'view') || hasPermission('reports_income_statement', 'view') || hasPermission('reports_profit', 'view') || hasPermission('reports_debt', 'view') || hasPermission('reports_supplier_debt', 'view') || hasPermission('reports_transactions', 'view') || hasPermission('reports_supplier_debt_tracking', 'view') || hasPermission('reports_revenue', 'view') || hasPermission('reports_sold_products', 'view') || hasPermission('reports_inventory', 'view') || hasPermission('reports_ai_segmentation', 'view') || hasPermission('reports_ai_basket_analysis', 'view');
 
 
   return (
@@ -212,7 +213,7 @@ export function MainNav() {
             </SidebarMenuItem>
           )}
           
-          {hasPermission('reports', 'view') && (
+          {showReportsMenu && (
             <Collapsible asChild>
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
@@ -226,73 +227,90 @@ export function MainNav() {
                 </CollapsibleTrigger>
                 <CollapsibleContent asChild>
                   <SidebarMenuSub>
-                      {hasPermission('shifts', 'view') && (
+                      {hasPermission('reports_shifts', 'view') && (
                         <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={isActive('/shifts')}>
                                 <Link href="/shifts" className='flex items-center gap-2'><Briefcase className="h-4 w-4" />Quản lý Ca</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
-                      <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/income-statement')}>
-                              <Link href="/reports/income-statement" className='flex items-center gap-2'><LineChart className="h-4 w-4" />Báo cáo Thu chi</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                       <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/profit')}>
-                              <Link href="/reports/profit" className='flex items-center gap-2'><DollarSign className="h-4 w-4 text-green-500" />Báo cáo Lợi nhuận</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/debt')}>
-                              <Link href="/reports/debt" className='flex items-center gap-2'><BookUser className="h-4 w-4" />Công nợ KH</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                       <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt')}>
-                              <Link href="/reports/supplier-debt" className='flex items-center gap-2'><Truck className="h-4 w-4" />Công nợ NCC</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/transactions')}>
-                              <Link href="/reports/transactions" className='flex items-center gap-2'><History className="h-4 w-4" />Lịch sử Giao dịch</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt-tracking')}>
-                              <Link href="/reports/supplier-debt-tracking" className='flex items-center gap-2'><History className="h-4 w-4" />Theo dõi Công nợ NCC</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+                      {hasPermission('reports_income_statement', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/income-statement')}>
+                                <Link href="/reports/income-statement" className='flex items-center gap-2'><LineChart className="h-4 w-4" />Báo cáo Thu chi</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                       {hasPermission('reports_profit', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/profit')}>
+                                <Link href="/reports/profit" className='flex items-center gap-2'><DollarSign className="h-4 w-4 text-green-500" />Báo cáo Lợi nhuận</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                       )}
+                      {hasPermission('reports_debt', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/debt')}>
+                                <Link href="/reports/debt" className='flex items-center gap-2'><BookUser className="h-4 w-4" />Công nợ KH</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                       {hasPermission('reports_supplier_debt', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt')}>
+                                <Link href="/reports/supplier-debt" className='flex items-center gap-2'><Truck className="h-4 w-4" />Công nợ NCC</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                       )}
+                      {hasPermission('reports_transactions', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/transactions')}>
+                                <Link href="/reports/transactions" className='flex items-center gap-2'><History className="h-4 w-4" />Lịch sử Giao dịch</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_supplier_debt_tracking', 'view') && (
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt-tracking')}>
+                                <Link href="/reports/supplier-debt-tracking" className='flex items-center gap-2'><History className="h-4 w-4" />Theo dõi Công nợ NCC</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_revenue', 'view') && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/revenue')}>
                               <Link href="/reports/revenue" className='flex items-center gap-2'><FileText className="h-4 w-4" />Doanh thu</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_sold_products', 'view') && (
+                        <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/sold-products')}>
                               <Link href="/reports/sold-products" className='flex items-center gap-2'><FileBox className="h-4 w-4" />Sản phẩm đã bán</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_inventory', 'view') && (
                         <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={isActive('/reports/purchases')}>
-                                <Link href="/reports/purchases" className='flex items-center gap-2'><Truck className="h-4 w-4" />Chi tiết nhập hàng</Link>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/inventory')}>
+                                <Link href="/reports/inventory" className='flex items-center gap-2'><Warehouse className="h-4 w-4" />Tồn kho</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={isActive('/reports/inventory')}>
-                              <Link href="/reports/inventory" className='flex items-center gap-2'><Warehouse className="h-4 w-4" />Tồn kho</Link>
-                          </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_ai_segmentation', 'view') && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/customer-segments')}>
                               <Link href="/reports/customer-segments" className='flex items-center gap-2'><Sparkles className="h-4 w-4 text-yellow-500" />Phân khúc KH</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      )}
+                      {hasPermission('reports_ai_basket_analysis', 'view') && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/market-basket-analysis')}>
                               <Link href="/reports/market-basket-analysis" className='flex items-center gap-2'><PackagePlus className="h-4 w-4 text-yellow-500" />Phân tích rổ hàng</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      )}
                   </SidebarMenuSub>
                 </CollapsibleContent>
               </SidebarMenuItem>
