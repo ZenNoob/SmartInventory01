@@ -13,6 +13,7 @@ import {
   Trash2,
   Undo2,
   XCircle,
+  PanelLeft,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -22,7 +23,8 @@ import {
   useFirestore,
   useMemoFirebase,
   useUser,
-  useDoc
+  useDoc,
+  useSidebar,
 } from '@/firebase'
 import { getDocs, query, doc, collection } from 'firebase/firestore'
 import {
@@ -118,6 +120,8 @@ export default function POSPage() {
   const router = useRouter()
   const firestore = useFirestore()
   const { toast } = useToast()
+  const { toggleSidebar } = useSidebar();
+
 
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
@@ -411,6 +415,7 @@ export default function POSPage() {
 
 
   const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -420,9 +425,11 @@ export default function POSPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)]">
-      <header className="p-4 border-b">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col h-[calc(100vh-5rem)] -m-6 bg-muted/30">
+      <header className="p-4 border-b bg-background flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className='shrink-0'>
+              <PanelLeft />
+          </Button>
           <div className="relative flex-grow max-w-sm">
             <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -539,7 +546,6 @@ export default function POSPage() {
             <XCircle className="mr-2 h-5 w-5" />
             Hủy
           </Button>
-        </div>
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 overflow-hidden">
@@ -676,16 +682,25 @@ export default function POSPage() {
               </div>
                {paymentSuggestions.length > 0 && (
                   <div className="flex gap-2 flex-wrap mt-2">
-                    {paymentSuggestions.map((s) => (
-                      <Button
-                        key={s}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCustomerPaymentChange(s)}
-                      >
-                        {s.toLocaleString('en-US')}
-                      </Button>
-                    ))}
+                    {paymentSuggestions.map((s) => {
+                       const numString = s.toLocaleString('en-US');
+                       const len = numString.length;
+                       let textSize = 'text-sm';
+                       if (len > 11) textSize = 'text-[10px]'; // For trillions
+                       else if (len > 8) textSize = 'text-xs'; // For billions
+                      
+                      return (
+                        <Button
+                          key={s}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCustomerPaymentChange(s)}
+                          className={cn('h-auto py-1 px-2', textSize)}
+                        >
+                          {numString}
+                        </Button>
+                      )
+                    })}
                   </div>
                 )}
               <div className="space-y-1">
