@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
@@ -402,11 +403,24 @@ export default function POSPage() {
     setCustomerPayment(value);
     if (value > 0) {
       const s = value.toString();
-      setPaymentSuggestions([
-        parseInt(s + '000'),
-        parseInt(s + '0000'),
-        parseInt(s + '00000'),
-      ]);
+      const suggestions = [
+          parseInt(s + '000'),
+          parseInt(s.slice(0, -1) + '0000'),
+          parseInt(s.slice(0, -2) + '00000'),
+      ].filter(n => n > value && n.toString().length <= 9); // Filter out smaller or too large numbers
+      
+      // Add denominations
+      const finalAmountStr = Math.ceil(finalAmount).toString();
+      const len = finalAmountStr.length;
+      const powerOf10 = Math.pow(10, len-1);
+      const firstDigit = parseInt(finalAmountStr[0]);
+      
+      const nextRoundUp = (firstDigit + 1) * powerOf10;
+      if (nextRoundUp > value) suggestions.push(nextRoundUp);
+
+      // Unique and sorted suggestions
+      setPaymentSuggestions([...new Set(suggestions)].sort((a,b) => a-b));
+
     } else {
       setPaymentSuggestions([]);
     }
@@ -664,7 +678,7 @@ export default function POSPage() {
               
               <Separator className="my-2" />
 
-              <div className="space-y-1">
+              <div className="flex justify-between items-center">
                   <Label className="font-bold">Khách cần trả</Label>
                   <p className="font-bold text-2xl text-primary">{formatCurrency(finalAmount)}</p>
               </div>
@@ -702,7 +716,7 @@ export default function POSPage() {
                     })}
                   </div>
                 )}
-              <div className="space-y-1">
+              <div className="flex justify-between items-center">
                   <Label className={`font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
                   </Label>
