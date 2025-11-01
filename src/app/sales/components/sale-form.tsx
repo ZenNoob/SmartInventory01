@@ -1,6 +1,7 @@
 
 
 
+
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -32,6 +33,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from "@/components/ui/input"
@@ -199,8 +201,13 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     const debtMap = new Map<string, number>();
     
     customers.forEach(customer => {
-        const customerSales = sales.filter(s => s.customerId === customer.id);
-        const customerPayments = payments.filter(p => p.customerId === customer.id);
+        const customerSales = sales.filter(s => s.customerId === customer.id && (!sale || s.id !== sale.id));
+        const customerPayments = payments.filter(p => {
+          if (p.customerId !== customer.id) return false;
+          // If editing, exclude payment associated with this sale
+          if (sale && p.notes?.includes(sale.invoiceNumber)) return false;
+          return true;
+        });
         
         const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
         const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -208,7 +215,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         debtMap.set(customer.id, totalRevenue - totalPaid);
     });
     return debtMap;
-  }, [customers, sales, payments]);
+  }, [customers, sales, payments, sale]);
 
 
   const refinedSaleFormSchema = useMemo(() => saleFormSchema.superRefine((data, ctx) => {
@@ -344,8 +351,15 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   
   const previousDebt = useMemo(() => {
     if (!selectedCustomerId) return 0;
+    // For new sales, get the total current debt
+    if (!sale) {
+        const totalSales = sales.filter(s => s.customerId === selectedCustomerId).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const totalPayments = payments.filter(p => p.customerId === selectedCustomerId).reduce((sum, p) => sum + p.amount, 0);
+        return totalSales - totalPayments;
+    }
+    // For editing sales, calculate debt *before* this sale
     return customerDebts.get(selectedCustomerId) || 0;
-  }, [selectedCustomerId, customerDebts]);
+  }, [selectedCustomerId, customerDebts, sale, sales, payments]);
 
 
   const totalPayable = finalAmount + previousDebt;
@@ -420,7 +434,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         append({ 
           productId: product.id, 
           quantity: 1, 
-          price: product.sellingPrice || 0 
+          price: product.sellingPrice || 0,
+          unitId: product.unitId
         });
       }
     }
@@ -802,7 +817,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                               <FormattedNumberInput {...field} id="pointsUsed" className="w-32"/>
                                           </div>
                                           <FormDescription>
-                                              Có thể dùng: {selectedCustomer.loyaltyPoints || 0} điểm (giảm {formatCurrency(pointsDiscount)})
+                                              Có thể dùng: {selectedCustomer.loyaltyPoints || 0} điểm
                                           </FormDescription>
                                           <FormMessage />
                                       </FormItem>
