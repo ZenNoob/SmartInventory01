@@ -1,5 +1,6 @@
 
 
+
 'use client'
 
 import { useEffect, useTransition } from 'react'
@@ -16,6 +17,16 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Form,
   FormControl,
   FormDescription,
@@ -29,11 +40,11 @@ import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase'
 import { doc } from 'firebase/firestore'
-import { upsertThemeSettings, recalculateAllLoyaltyPoints } from './actions'
+import { upsertThemeSettings, recalculateAllLoyaltyPoints, deleteAllTransactionalData } from './actions'
 import type { ThemeSettings, LoyaltySettings } from '@/lib/types'
 import { hexToHsl, hslToHex } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const loyaltyTierSchema = z.object({
@@ -72,6 +83,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const [isRecalculating, startRecalculatingTransition] = useTransition();
+  const [isDeletingData, startDataDeletionTransition] = useTransition();
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+
 
   const settingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -189,6 +203,30 @@ export default function SettingsPage() {
     });
   }
 
+  const handleDeleteData = () => {
+    startDataDeletionTransition(async () => {
+      toast({
+        title: "Đang tiến hành xóa...",
+        description: "Quá trình này có thể mất một vài phút. Vui lòng không đóng trang.",
+      });
+      const result = await deleteAllTransactionalData();
+      if (result.success) {
+        toast({
+          title: "Xóa thành công!",
+          description: "Tất cả dữ liệu giao dịch đã được dọn dẹp.",
+        });
+        router.refresh(); // Refresh page to reflect changes
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Lỗi khi xóa dữ liệu",
+          description: result.error,
+        });
+      }
+      setShowDeleteConfirm(false);
+    });
+  };
+
   const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold' | 'vatRate' |'companyName' | 'companyBusinessLine' | 'companyAddress' | 'companyPhone' | 'loyalty'>, label: string }) => (
     <FormField
       control={form.control}
@@ -210,221 +248,263 @@ export default function SettingsPage() {
 
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <Card>
+    <div className="space-y-6">
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có hoàn toàn chắc chắn?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này <span className="font-bold text-destructive">không thể</span> hoàn tác. Thao tác này sẽ xóa vĩnh viễn:
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Tất cả đơn hàng bán và chi tiết đơn hàng.</li>
+                <li>Tất cả phiếu nhập hàng và chi tiết phiếu nhập.</li>
+                <li>Toàn bộ lịch sử thanh toán của khách hàng.</li>
+                <li>Reset toàn bộ điểm thưởng và lịch sử nhập kho.</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingData}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteData} disabled={isDeletingData} className="bg-destructive hover:bg-destructive/90">
+              {isDeletingData ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Tôi hiểu, hãy xóa'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Cài đặt chung</CardTitle>
+              <CardDescription>
+                Tùy chỉnh giao diện và các cài đặt chung cho ứng dụng của bạn.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {isLoading && <p>Đang tải cài đặt...</p>}
+              {!isLoading && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-medium">Thông tin doanh nghiệp</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Thông tin này sẽ được hiển thị trên hóa đơn.</p>
+                    <div className='space-y-4'>
+                      <FormField
+                          control={form.control}
+                          name="companyBusinessLine"
+                          render={({ field }) => (
+                              <FormItem>
+                              <FormLabel>Ngành nghề kinh doanh</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="Vd: CƠ SỞ SẢN XUẤT VÀ KINH DOANH GIỐNG CÂY TRỒNG" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="companyName"
+                          render={({ field }) => (
+                              <FormItem>
+                              <FormLabel>Tên doanh nghiệp</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="Vd: MINH PHÁT" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="companyAddress"
+                          render={({ field }) => (
+                              <FormItem>
+                              <FormLabel>Địa chỉ</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="Vd: 70 Ấp 1, X. Mỹ Thạnh, H. Thủ Thừa, T. Long an" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="companyPhone"
+                          render={({ field }) => (
+                              <FormItem>
+                              <FormLabel>Số điện thoại</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="Vd: 0915 582 447" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                      <h3 className="text-lg font-medium">Giao diện</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Tùy chỉnh màu sắc của ứng dụng.</p>
+                      <div className='space-y-8'>
+                          <div className='grid md:grid-cols-2 gap-8'>
+                              <ColorField name="background" label="Màu nền (Background)" />
+                              <ColorField name="foreground" label="Màu chữ (Foreground)" />
+                          </div>
+                          <Separator />
+                          <div className='grid md:grid-cols-2 gap-8'>
+                              <ColorField name="primary" label="Màu chủ đạo (Primary)" />
+                              <ColorField name="primaryForeground" label="Chữ trên màu chủ đạo" />
+                          </div>
+                          <Separator />
+                          <div className='grid md:grid-cols-2 gap-8'>
+                              <ColorField name="accent" label="Màu nhấn (Accent/Hover)" />
+                              <ColorField name="accentForeground" label="Chữ trên màu nhấn" />
+                          </div>
+                      </div>
+                  </div>
+                  <Separator />
+                  <div>
+                      <h3 className="text-lg font-medium">Hàng tồn kho</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Cài đặt liên quan đến quản lý hàng tồn kho.</p>
+                      <FormField
+                          control={form.control}
+                          name="lowStockThreshold"
+                          render={({ field }) => (
+                              <FormItem className="max-w-xs">
+                              <FormLabel>Ngưỡng cảnh báo tồn kho</FormLabel>
+                              <FormControl>
+                                  <Input type="number" placeholder="Ví dụ: 10" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                          />
+                  </div>
+                  <Separator />
+                  <div>
+                      <h3 className="text-lg font-medium">Thuế</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Cài đặt liên quan đến thuế giá trị gia tăng (VAT).</p>
+                      <FormField
+                          control={form.control}
+                          name="vatRate"
+                          render={({ field }) => (
+                              <FormItem className="max-w-xs">
+                              <FormLabel>Tỷ lệ thuế VAT (%)</FormLabel>
+                              <FormControl>
+                                  <Input type="number" placeholder="Ví dụ: 10" {...field} value={field.value ?? ''} />
+                              </FormControl>
+                              <FormMessage />
+                              </FormItem>
+                          )}
+                          />
+                  </div>
+                  <Separator />
+                  <div>
+                      <h3 className="text-lg font-medium">Chương trình khách hàng thân thiết</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Cấu hình cách tích điểm và phân hạng thành viên.</p>
+                      <div className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <FormField
+                              control={form.control}
+                              name="loyalty.pointsPerAmount"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Tỷ lệ tích điểm</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Số tiền (VNĐ) cần chi tiêu để nhận được 1 điểm.
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="loyalty.pointsToVndRate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Tỷ lệ quy đổi điểm</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Giá trị của 1 điểm khi khách hàng sử dụng (VNĐ).
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-2">Ngưỡng lên hạng (dựa trên tổng điểm đã tích lũy)</h4>
+                          <div className="space-y-4">
+                              {tierFields.map((field, index) => (
+                                <FormField
+                                  key={field.id}
+                                  control={form.control}
+                                  name={`loyalty.tiers.${index}.threshold`}
+                                  render={({ field }) => (
+                                      <FormItem className="max-w-xs">
+                                          <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
+                                          <FormControl>
+                                              <Input type="number" {...field} />
+                                          </FormControl>
+                                          <FormDescription>
+                                              Tổng điểm tích lũy tối thiểu để đạt hạng này.
+                                          </FormDescription>
+                                          <FormMessage />
+                                      </FormItem>
+                                  )}
+                                />
+                              ))}
+                          </div>
+                        </div>
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Lưu cài đặt trước khi tính lại điểm. Việc tính toán lại có thể mất vài phút.
+                          </AlertDescription>
+                        </Alert>
+                        <Button type="button" variant="outline" onClick={handleRecalculate} disabled={isRecalculating || form.formState.isSubmitting}>
+                            {isRecalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Tính lại điểm & phân hạng cho toàn bộ khách hàng
+                          </Button>
+                      </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+              <Button type="submit" disabled={form.formState.isSubmitting || isLoading}>
+                {form.formState.isSubmitting ? 'Đang lưu...' : 'Lưu cài đặt'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+      </Form>
+
+      <Card className="border-destructive">
           <CardHeader>
-            <CardTitle>Cài đặt chung</CardTitle>
+            <CardTitle>Khu vực nguy hiểm</CardTitle>
             <CardDescription>
-              Tùy chỉnh giao diện và các cài đặt chung cho ứng dụng của bạn.
+              Các hành động này không thể hoàn tác. Hãy chắc chắn rằng bạn biết mình đang làm gì.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-             {isLoading && <p>Đang tải cài đặt...</p>}
-            {!isLoading && (
-              <>
-                <div>
-                  <h3 className="text-lg font-medium">Thông tin doanh nghiệp</h3>
-                  <p className="text-sm text-muted-foreground mb-6">Thông tin này sẽ được hiển thị trên hóa đơn.</p>
-                  <div className='space-y-4'>
-                     <FormField
-                        control={form.control}
-                        name="companyBusinessLine"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Ngành nghề kinh doanh</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Vd: CƠ SỞ SẢN XUẤT VÀ KINH DOANH GIỐNG CÂY TRỒNG" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="companyName"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Tên doanh nghiệp</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Vd: MINH PHÁT" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="companyAddress"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Địa chỉ</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Vd: 70 Ấp 1, X. Mỹ Thạnh, H. Thủ Thừa, T. Long an" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="companyPhone"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Số điện thoại</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Vd: 0915 582 447" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                      />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                    <h3 className="text-lg font-medium">Giao diện</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Tùy chỉnh màu sắc của ứng dụng.</p>
-                    <div className='space-y-8'>
-                        <div className='grid md:grid-cols-2 gap-8'>
-                            <ColorField name="background" label="Màu nền (Background)" />
-                            <ColorField name="foreground" label="Màu chữ (Foreground)" />
-                        </div>
-                        <Separator />
-                        <div className='grid md:grid-cols-2 gap-8'>
-                            <ColorField name="primary" label="Màu chủ đạo (Primary)" />
-                            <ColorField name="primaryForeground" label="Chữ trên màu chủ đạo" />
-                        </div>
-                        <Separator />
-                        <div className='grid md:grid-cols-2 gap-8'>
-                            <ColorField name="accent" label="Màu nhấn (Accent/Hover)" />
-                            <ColorField name="accentForeground" label="Chữ trên màu nhấn" />
-                        </div>
-                    </div>
-                </div>
-                <Separator />
-                <div>
-                     <h3 className="text-lg font-medium">Hàng tồn kho</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Cài đặt liên quan đến quản lý hàng tồn kho.</p>
-                     <FormField
-                        control={form.control}
-                        name="lowStockThreshold"
-                        render={({ field }) => (
-                            <FormItem className="max-w-xs">
-                            <FormLabel>Ngưỡng cảnh báo tồn kho</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="Ví dụ: 10" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                </div>
-                <Separator />
-                <div>
-                     <h3 className="text-lg font-medium">Thuế</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Cài đặt liên quan đến thuế giá trị gia tăng (VAT).</p>
-                     <FormField
-                        control={form.control}
-                        name="vatRate"
-                        render={({ field }) => (
-                            <FormItem className="max-w-xs">
-                            <FormLabel>Tỷ lệ thuế VAT (%)</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="Ví dụ: 10" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                </div>
-                <Separator />
-                 <div>
-                    <h3 className="text-lg font-medium">Chương trình khách hàng thân thiết</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Cấu hình cách tích điểm và phân hạng thành viên.</p>
-                    <div className="space-y-6">
-                       <div className="grid md:grid-cols-2 gap-6">
-                          <FormField
-                            control={form.control}
-                            name="loyalty.pointsPerAmount"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Tỷ lệ tích điểm</FormLabel>
-                                <FormControl>
-                                  <Input type="number" {...field} />
-                                </FormControl>
-                                <FormDescription>
-                                  Số tiền (VNĐ) cần chi tiêu để nhận được 1 điểm.
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="loyalty.pointsToVndRate"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Tỷ lệ quy đổi điểm</FormLabel>
-                                <FormControl>
-                                  <Input type="number" {...field} />
-                                </FormControl>
-                                <FormDescription>
-                                  Giá trị của 1 điểm khi khách hàng sử dụng (VNĐ).
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                       </div>
-                      <div>
-                        <h4 className="font-medium mb-2">Ngưỡng lên hạng (dựa trên tổng điểm đã tích lũy)</h4>
-                        <div className="space-y-4">
-                            {tierFields.map((field, index) => (
-                               <FormField
-                                key={field.id}
-                                control={form.control}
-                                name={`loyalty.tiers.${index}.threshold`}
-                                render={({ field }) => (
-                                    <FormItem className="max-w-xs">
-                                        <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
-                                        <FormDescription>
-                                            Tổng điểm tích lũy tối thiểu để đạt hạng này.
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                               />
-                            ))}
-                        </div>
-                      </div>
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Lưu cài đặt trước khi tính lại điểm. Việc tính toán lại có thể mất vài phút.
-                        </AlertDescription>
-                      </Alert>
-                       <Button type="button" variant="outline" onClick={handleRecalculate} disabled={isRecalculating || form.formState.isSubmitting}>
-                          {isRecalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Tính lại điểm & phân hạng cho toàn bộ khách hàng
-                        </Button>
-                    </div>
-                 </div>
-              </>
-            )}
-          </CardContent>
-          <CardFooter className="border-t px-6 py-4">
-            <Button type="submit" disabled={form.formState.isSubmitting || isLoading}>
-              {form.formState.isSubmitting ? 'Đang lưu...' : 'Lưu cài đặt'}
+          <CardContent>
+            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa tất cả dữ liệu giao dịch
             </Button>
-          </CardFooter>
+            <p className="text-sm text-muted-foreground mt-2">
+              Thao tác này sẽ xóa toàn bộ lịch sử bán hàng, nhập hàng, thanh toán và reset điểm khách hàng. Chỉ sử dụng khi bạn muốn bắt đầu lại từ đầu.
+            </p>
+          </CardContent>
         </Card>
-      </form>
-    </Form>
+    </div>
   )
 }
