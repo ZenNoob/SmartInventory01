@@ -16,6 +16,16 @@ import {
   Folder,
   Scale,
   Truck,
+  Store,
+  Wallet,
+  DollarSign,
+  History,
+  BookUser,
+  FileBox,
+  Warehouse,
+  FileText,
+  Sparkles,
+  PackagePlus,
 } from "lucide-react"
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
@@ -100,6 +110,14 @@ export function CommandMenu() {
               <Home className="mr-2 h-4 w-4" />
               <span>Bảng điều khiển</span>
             </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/pos'))}>
+              <Store className="mr-2 h-4 w-4" />
+              <span>POS - Bán tại quầy</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/cash-flow'))}>
+              <Wallet className="mr-2 h-4 w-4" />
+              <span>Sổ quỹ</span>
+            </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push('/products'))}>
               <Package className="mr-2 h-4 w-4" />
               <span>Sản phẩm</span>
@@ -116,9 +134,52 @@ export function CommandMenu() {
               <ShoppingCart className="mr-2 h-4 w-4" />
               <span>Bán hàng</span>
             </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/users'))}>
+              <Users2 className="mr-2 h-4 w-4" />
+              <span>Người dùng</span>
+            </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push('/settings'))}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Cài đặt</span>
+            </CommandItem>
+          </CommandGroup>
+           <CommandSeparator />
+           <CommandGroup heading="Báo cáo & Phân tích">
+            <CommandItem onSelect={() => runCommand(() => router.push('/reports/income-statement'))}>
+              <LineChart className="mr-2 h-4 w-4" />
+              <span>Báo cáo Thu-Chi</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/profit'))}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              <span>Báo cáo Lợi nhuận</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/debt'))}>
+              <BookUser className="mr-2 h-4 w-4" />
+              <span>Báo cáo Công nợ</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/transactions'))}>
+              <History className="mr-2 h-4 w-4" />
+              <span>Lịch sử Giao dịch</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/revenue'))}>
+              <FileText className="mr-2 h-4 w-4" />
+              <span>Báo cáo Doanh thu</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/sold-products'))}>
+              <FileBox className="mr-2 h-4 w-4" />
+              <span>Báo cáo Sản phẩm đã bán</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/inventory'))}>
+              <Warehouse className="mr-2 h-4 w-4" />
+              <span>Báo cáo Tồn kho</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/customer-segments'))}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              <span>Phân khúc Khách hàng (AI)</span>
+            </CommandItem>
+             <CommandItem onSelect={() => runCommand(() => router.push('/reports/market-basket-analysis'))}>
+              <PackagePlus className="mr-2 h-4 w-4" />
+              <span>Phân tích Rổ hàng (AI)</span>
             </CommandItem>
           </CommandGroup>
           {products && products.length > 0 && (
