@@ -22,8 +22,9 @@ import {
   useFirestore,
   useMemoFirebase,
   useUser,
+  useDoc
 } from '@/firebase'
-import { collection, getDocs, query } from 'firebase/firestore'
+import { collection, getDocs, query, doc } from 'firebase/firestore'
 import {
   Customer,
   Payment,
@@ -71,6 +72,8 @@ import {
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+
 
 type CartItem = {
   productId: string
@@ -103,6 +106,9 @@ export default function POSPage() {
   const [customerPayment, setCustomerPayment] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('amount');
+  const [discountValue, setDiscountValue] = useState(0);
+  const [paymentSuggestions, setPaymentSuggestions] = useState<number[]>([]);
 
   // #region Data Fetching
   const customersQuery = useMemoFirebase(
@@ -125,12 +131,19 @@ export default function POSPage() {
     () => (firestore ? query(collection(firestore, 'payments')) : null),
     [firestore]
   )
+  const settingsRef = useMemoFirebase(() => {
+    if(!firestore) return null;
+    return doc(firestore, 'settings', 'theme');
+  }, [firestore]);
+
 
   const { data: customersData, isLoading: customersLoading } = useCollection<Customer>(customersQuery)
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery)
   const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery)
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery)
   const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery)
+  const { data: settings, isLoading: settingsLoading } = useDoc<ThemeSettings>(settingsRef);
+
 
   const [allSalesItems, setAllSalesItems] = useState<SalesItem[]>([])
   const [salesItemsLoading, setSalesItemsLoading] = useState(true)
@@ -285,7 +298,16 @@ export default function POSPage() {
     [cart]
   )
 
-  const changeAmount = customerPayment - totalAmount;
+  const calculatedDiscount = useMemo(() => 
+    discountType === 'percentage' ? (totalAmount * discountValue) / 100 : discountValue,
+    [totalAmount, discountType, discountValue]
+  );
+  const amountAfterDiscount = totalAmount - calculatedDiscount;
+  const vatRate = settings?.vatRate || 0;
+  const vatAmount = (amountAfterDiscount * vatRate) / 100;
+  const finalAmount = amountAfterDiscount + vatAmount;
+
+  const changeAmount = customerPayment - finalAmount;
   // #endregion
 
   // #region Form Submission
@@ -310,10 +332,14 @@ export default function POSPage() {
       customerId: selectedCustomerId,
       transactionDate: new Date().toISOString(),
       totalAmount: totalAmount,
-      finalAmount: totalAmount, // Assuming no discount/VAT for POS for now
+      discount: calculatedDiscount,
+      discountType,
+      discountValue,
+      vatAmount: vatAmount,
+      finalAmount: finalAmount,
       customerPayment: customerPayment,
       previousDebt: 0, // Not tracking debt for POS for simplicity
-      remainingDebt: totalAmount - customerPayment,
+      remainingDebt: finalAmount - customerPayment,
       status: 'printed',
     }
 
@@ -329,6 +355,8 @@ export default function POSPage() {
       setCart([])
       setCustomerPayment(0)
       setSelectedCustomerId(WALK_IN_CUSTOMER_ID)
+      setDiscountValue(0)
+      setDiscountType('amount')
       router.push(`/sales/${result.saleId}?print=true`)
     } else {
       toast({
@@ -344,8 +372,22 @@ export default function POSPage() {
     barcodeInputRef.current?.focus();
   }, [cart]);
 
+  const handleCustomerPaymentChange = (value: number) => {
+    setCustomerPayment(value);
+    if (value > 0) {
+      const s = value.toString();
+      setPaymentSuggestions([
+        parseInt(s + '000'),
+        parseInt(s + '0000'),
+        parseInt(s + '00000'),
+      ]);
+    } else {
+      setPaymentSuggestions([]);
+    }
+  };
 
-  const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading
+
+  const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -467,6 +509,7 @@ export default function POSPage() {
             onClick={() => {
               setCart([])
               setCustomerPayment(0)
+              setDiscountValue(0)
             }}
             disabled={isSubmitting}
           >
@@ -480,7 +523,7 @@ export default function POSPage() {
         {/* Cart Items */}
         <div className="lg:col-span-2 flex flex-col h-full">
           <h2 className="text-xl font-semibold mb-4">Đơn hàng hiện tại ({cart.length})</h2>
-          <ScrollArea className="flex-1 -mr-4 pr-4">
+          <div className="flex-1 overflow-y-auto -mr-4 pr-4 border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -508,7 +551,7 @@ export default function POSPage() {
                     const showConversion = item.saleUnitName !== item.stockInfo.baseUnitName;
                     return (
                       <TableRow key={item.productId}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell className="font-medium text-center">{index + 1}</TableCell>
                         <TableCell className="font-medium">
                           {item.productName}
                         </TableCell>
@@ -544,48 +587,95 @@ export default function POSPage() {
                 )}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Payment and Summary */}
         <div className="lg:col-span-1 bg-card border rounded-lg p-6 flex flex-col">
            <h2 className="text-xl font-semibold mb-6">Thanh toán</h2>
-          <div className="flex-1 space-y-4 overflow-y-auto text-sm">
+          <div className="flex-1 space-y-2 overflow-y-auto text-sm pr-2 -mr-4">
               <div className="space-y-1">
-                <p className="text-muted-foreground">Tổng tiền hàng</p>
+                <Label>Tổng tiền hàng</Label>
                 <p className="font-semibold text-base">{formatCurrency(totalAmount)}</p>
               </div>
-              <Separator />
+
+              <div className="space-y-2 pt-2">
+                 <Label>Giảm giá</Label>
+                  <div className="flex gap-4">
+                     <RadioGroup value={discountType} onValueChange={(value) => setDiscountType(value as 'percentage' | 'amount')} className="flex items-center">
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="amount" id="d_amount" />
+                        <Label htmlFor="d_amount">VNĐ</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="percentage" id="d_percent" />
+                        <Label htmlFor="d_percent">%</Label>
+                      </div>
+                    </RadioGroup>
+                    <FormattedNumberInput
+                      value={discountValue}
+                      onChange={setDiscountValue}
+                      className="h-9 text-right"
+                    />
+                  </div>
+              </div>
+              
+              {calculatedDiscount > 0 && (
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>Số tiền giảm:</span>
+                    <span className="font-semibold">-{formatCurrency(calculatedDiscount)}</span>
+                </div>
+              )}
+              
+              {vatRate > 0 && (
+                <div className="flex justify-between items-center">
+                    <Label>Thuế VAT ({vatRate}%):</Label>
+                    <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+                </div>
+              )}
+              
+              <Separator className="my-2" />
+
               <div className="space-y-1">
-                  <p className="font-bold">Khách cần trả</p>
-                  <p className="font-bold text-2xl text-primary">{formatCurrency(totalAmount)}</p>
+                  <Label className="font-bold">Khách cần trả</Label>
+                  <p className="font-bold text-2xl text-primary">{formatCurrency(finalAmount)}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerPayment">
                   Tiền khách đưa
                 </Label>
-                <Input
+                 <FormattedNumberInput
                   id="customerPayment"
-                  type="text"
+                  value={customerPayment}
+                  onChange={handleCustomerPaymentChange}
                   className="h-12 text-xl font-bold text-right"
-                  value={customerPayment.toLocaleString('en-US')}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value.replace(/,/g, ''), 10);
-                    setCustomerPayment(isNaN(val) ? 0 : val);
-                  }}
                 />
               </div>
+               {paymentSuggestions.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {paymentSuggestions.map((s) => (
+                      <Button
+                        key={s}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCustomerPaymentChange(s)}
+                      >
+                        {s.toLocaleString('en-US')}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               <div className="space-y-1">
-                  <p className={`font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  <Label className={`font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
-                  </p>
+                  </Label>
                   <p className={`font-bold text-xl ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {formatCurrency(Math.abs(changeAmount))}
                   </p>
               </div>
           </div>
           <Button
-            className="w-full h-16 text-xl mt-4"
+            className="w-full h-14 text-lg mt-4"
             onClick={handleCreateSale}
             disabled={isSubmitting || cart.length === 0}
           >
