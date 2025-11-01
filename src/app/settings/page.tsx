@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import * as React from 'react'
@@ -52,6 +51,7 @@ const loyaltyTierSchema = z.object({
   name: z.enum(['bronze', 'silver', 'gold', 'diamond']),
   vietnameseName: z.string(),
   threshold: z.coerce.number().min(0, "Ngưỡng điểm phải là số không âm."),
+  discountPercentage: z.coerce.number().min(0, "Tỷ lệ giảm giá phải là số không âm.").default(0),
 });
 
 const loyaltySettingsSchema = z.object({
@@ -102,10 +102,10 @@ export default function SettingsPage() {
     pointsPerAmount: 100000, // 100,000 VND for 1 point
     pointsToVndRate: 1000, // 1 point = 1,000 VND
     tiers: [
-      { name: 'bronze', vietnameseName: 'Đồng', threshold: 0 },
-      { name: 'silver', vietnameseName: 'Bạc', threshold: 50 },
-      { name: 'gold', vietnameseName: 'Vàng', threshold: 200 },
-      { name: 'diamond', vietnameseName: 'Kim Cương', threshold: 500 },
+      { name: 'bronze', vietnameseName: 'Đồng', threshold: 0, discountPercentage: 0 },
+      { name: 'silver', vietnameseName: 'Bạc', threshold: 50, discountPercentage: 2 },
+      { name: 'gold', vietnameseName: 'Vàng', threshold: 200, discountPercentage: 5 },
+      { name: 'diamond', vietnameseName: 'Kim Cương', threshold: 500, discountPercentage: 10 },
     ],
   };
 
@@ -148,7 +148,7 @@ export default function SettingsPage() {
         companyBusinessLine: themeSettings.companyBusinessLine || '',
         companyAddress: themeSettings.companyAddress || '',
         companyPhone: themeSettings.companyPhone || '',
-        loyalty: themeSettings.loyalty || defaultLoyaltySettings,
+        loyalty: themeSettings.loyalty ? { ...defaultLoyaltySettings, ...themeSettings.loyalty } : defaultLoyaltySettings,
       });
     }
   }, [themeSettings, form]);
@@ -493,26 +493,43 @@ export default function SettingsPage() {
                               />
                           </div>
                           <div>
-                            <h4 className="font-medium mb-2">Ngưỡng lên hạng (dựa trên tổng điểm đã tích lũy)</h4>
+                            <h4 className="font-medium mb-2">Cấu hình Hạng thành viên</h4>
                             <div className="space-y-4">
                                 {tierFields.map((field, index) => (
-                                  <FormField
-                                    key={field.id}
-                                    control={form.control}
-                                    name={`loyalty.tiers.${index}.threshold`}
-                                    render={({ field }) => (
-                                        <FormItem className="max-w-xs">
-                                            <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" {...field} />
-                                            </FormControl>
-                                            <FormDescription>
-                                                Tổng điểm tích lũy tối thiểu để đạt hạng này.
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                  />
+                                  <div key={field.id} className="p-4 border rounded-lg grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name={`loyalty.tiers.${index}.threshold`}
+                                      render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
+                                              <FormControl>
+                                                  <Input type="number" {...field} />
+                                              </FormControl>
+                                              <FormDescription>
+                                                  Tổng điểm tích lũy tối thiểu để đạt hạng này.
+                                              </FormDescription>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )}
+                                    />
+                                     <FormField
+                                      control={form.control}
+                                      name={`loyalty.tiers.${index}.discountPercentage`}
+                                      render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>Ưu đãi giảm giá (%)</FormLabel>
+                                              <FormControl>
+                                                  <Input type="number" {...field} />
+                                              </FormControl>
+                                              <FormDescription>
+                                                  Giảm giá tự động cho hạng này.
+                                              </FormDescription>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )}
+                                    />
+                                  </div>
                                 ))}
                             </div>
                           </div>

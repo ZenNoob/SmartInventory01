@@ -1,5 +1,4 @@
 
-
 'use server'
 
 import { Sale, SalesItem, LoyaltySettings, Customer } from "@/lib/types";
@@ -47,6 +46,7 @@ async function updateLoyalty(
 
   const customerData = customerDoc.data() as Customer;
   
+  // Sale amount used for earning points should be after all discounts
   const earnedPoints = (loyaltySettings.pointsPerAmount > 0) ? Math.floor(saleAmount / loyaltySettings.pointsPerAmount) : 0;
   
   const currentSpendablePoints = customerData.loyaltyPoints || 0;
@@ -89,7 +89,7 @@ export async function upsertSaleTransaction(
   let finalCustomerPayment = sale.customerPayment;
 
   if (sale.isChangeReturned && sale.finalAmount && finalRemainingDebt && finalRemainingDebt < 0) {
-    finalCustomerPayment = sale.finalAmount + (sale.pointsDiscount || 0); 
+    finalCustomerPayment = sale.finalAmount + (sale.pointsDiscount || 0) + (sale.tierDiscountAmount || 0); 
     finalRemainingDebt = 0;
   }
 

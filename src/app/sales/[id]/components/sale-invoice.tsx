@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useRef, useEffect } from 'react'
@@ -123,6 +124,8 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
   const remainingDebt = sale.remainingDebt || 0;
   const isChange = remainingDebt < 0;
 
+  const loyaltyTier = settings?.loyalty?.tiers.find(t => t.name === customer?.loyaltyTier);
+
   return (
     <div ref={invoiceRef}>
       <div className="flex items-center gap-4 mb-4">
@@ -224,6 +227,12 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
                         <TableCell colSpan={6} className="text-right font-medium">Tổng tiền hàng</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(sale.totalAmount)}</TableCell>
                     </TableRow>
+                    {sale.tierDiscountAmount && sale.tierDiscountAmount > 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-right font-medium">Ưu đãi hạng {loyaltyTier?.vietnameseName} ({sale.tierDiscountPercentage}%)</TableCell>
+                            <TableCell className="text-right font-semibold">-{formatCurrency(sale.tierDiscountAmount)}</TableCell>
+                        </TableRow>
+                    ) : null}
                     {sale.discount && sale.discount > 0 ? (
                         <TableRow>
                             <TableCell colSpan={6} className="text-right font-medium">Giảm giá</TableCell>

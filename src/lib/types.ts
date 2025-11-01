@@ -1,5 +1,4 @@
 
-
 export type Permission = 'view' | 'add' | 'edit' | 'delete';
 
 export type Module = 
@@ -96,8 +95,10 @@ export type Sale = {
   discount?: number;
   discountType?: 'percentage' | 'amount';
   discountValue?: number;
-  pointsUsed?: number; // New field
-  pointsDiscount?: number; // New field
+  tierDiscountPercentage?: number; // New field
+  tierDiscountAmount?: number; // New field
+  pointsUsed?: number;
+  pointsDiscount?: number;
   customerPayment?: number;
   previousDebt?: number;
   remainingDebt?: number;
@@ -123,6 +124,7 @@ export type LoyaltyTierConfig = {
   name: 'bronze' | 'silver' | 'gold' | 'diamond';
   vietnameseName: string;
   threshold: number;
+  discountPercentage: number; // New field for tier-based discount
 };
 
 export type LoyaltySettings = {
