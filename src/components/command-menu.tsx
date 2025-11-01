@@ -1,3 +1,4 @@
+
 'use client'
 
 import * as React from "react"
@@ -26,6 +27,7 @@ import {
   FileText,
   Sparkles,
   PackagePlus,
+  Building,
 } from "lucide-react"
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
@@ -41,7 +43,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
-import type { Customer, Product, PurchaseOrder, Sale } from "@/lib/types"
+import type { Customer, Product, PurchaseOrder, Sale, Supplier } from "@/lib/types"
 
 export function CommandMenu() {
   const router = useRouter()
@@ -73,11 +75,13 @@ export function CommandMenu() {
   const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "products")) : null, [firestore]);
   const salesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "sales_transactions")) : null, [firestore]);
   const purchasesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "purchase_orders")) : null, [firestore]);
+  const suppliersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "suppliers")) : null, [firestore]);
 
   const { data: customers } = useCollection<Customer>(customersQuery);
   const { data: products } = useCollection<Product>(productsQuery);
   const { data: sales } = useCollection<Sale>(salesQuery);
   const { data: purchases } = useCollection<PurchaseOrder>(purchasesQuery);
+  const { data: suppliers } = useCollection<Supplier>(suppliersQuery);
 
   const runCommand = React.useCallback((command: () => unknown) => {
     setOpen(false)
@@ -122,6 +126,10 @@ export function CommandMenu() {
               <Package className="mr-2 h-4 w-4" />
               <span>Sản phẩm</span>
             </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push('/suppliers'))}>
+              <Building className="mr-2 h-4 w-4" />
+              <span>Nhà cung cấp</span>
+            </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push('/purchases'))}>
               <Truck className="mr-2 h-4 w-4" />
               <span>Nhập hàng</span>
@@ -155,7 +163,11 @@ export function CommandMenu() {
             </CommandItem>
              <CommandItem onSelect={() => runCommand(() => router.push('/reports/debt'))}>
               <BookUser className="mr-2 h-4 w-4" />
-              <span>Báo cáo Công nợ</span>
+              <span>Báo cáo Công nợ KH</span>
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push('/reports/supplier-debt'))}>
+              <Truck className="mr-2 h-4 w-4" />
+              <span>Báo cáo Công nợ NCC</span>
             </CommandItem>
              <CommandItem onSelect={() => runCommand(() => router.push('/reports/transactions'))}>
               <History className="mr-2 h-4 w-4" />
@@ -194,6 +206,23 @@ export function CommandMenu() {
                     >
                     <Package className="mr-2 h-4 w-4" />
                     <span>{product.name}</span>
+                    </CommandItem>
+                ))}
+                </CommandGroup>
+            </>
+          )}
+          {suppliers && suppliers.length > 0 && (
+            <>
+                <CommandSeparator />
+                <CommandGroup heading="Nhà cung cấp">
+                {suppliers.map((supplier) => (
+                    <CommandItem
+                    key={supplier.id}
+                    value={`Nhà cung cấp ${supplier.name}`}
+                    onSelect={() => runCommand(() => router.push(`/suppliers?q=${supplier.name}`))}
+                    >
+                    <Building className="mr-2 h-4 w-4" />
+                    <span>{supplier.name}</span>
                     </CommandItem>
                 ))}
                 </CommandGroup>

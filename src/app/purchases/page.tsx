@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useTransition } from "react"
@@ -56,7 +57,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query, where, orderBy } from "firebase/firestore"
-import { PurchaseOrder } from "@/lib/types"
+import { PurchaseOrder, Supplier } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { formatCurrency, cn } from "@/lib/utils"
 import { deletePurchaseOrder, generatePurchaseOrdersExcel } from "./actions"
@@ -64,7 +65,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Calendar } from "@/components/ui/calendar"
 
-type SortKey = 'orderNumber' | 'importDate' | 'totalAmount' | 'itemCount' | 'notes';
+type SortKey = 'orderNumber' | 'importDate' | 'totalAmount' | 'itemCount' | 'notes' | 'supplier';
 
 export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -101,13 +102,18 @@ export default function PurchasesPage() {
 
 
   const { data: purchases, isLoading } = useCollection<PurchaseOrder>(purchasesQuery);
+  const { data: suppliers, isLoading: suppliersLoading } = useCollection<Supplier>(useMemoFirebase(() => firestore ? query(collection(firestore, 'suppliers')) : null, [firestore]));
+  
+  const suppliersMap = useMemo(() => new Map(suppliers?.map(s => [s.id, s.name])), [suppliers]);
 
   const filteredPurchases = purchases?.filter(order => {
     const term = searchTerm.toLowerCase();
+    const supplierName = suppliersMap.get(order.supplierId)?.toLowerCase() || '';
     if (!term) return true;
     return (
       order.orderNumber.toLowerCase().includes(term) ||
-      (order.notes && order.notes.toLowerCase().includes(term))
+      (order.notes && order.notes.toLowerCase().includes(term)) ||
+      supplierName.includes(term)
     );
   });
   
@@ -160,6 +166,10 @@ export default function PurchasesPage() {
                 valA = a.notes || '';
                 valB = b.notes || '';
                 break;
+            case 'supplier':
+                valA = suppliersMap.get(a.supplierId) || '';
+                valB = suppliersMap.get(b.supplierId) || '';
+                break;
             default:
                 valA = a[sortKey];
                 valB = b[sortKey];
@@ -176,7 +186,7 @@ export default function PurchasesPage() {
       });
     }
     return sortableItems;
-  }, [filteredPurchases, sortKey, sortDirection]);
+  }, [filteredPurchases, sortKey, sortDirection, suppliersMap]);
 
   const handleDelete = async () => {
     if (!orderToDelete) return;
@@ -209,7 +219,7 @@ export default function PurchasesPage() {
       return;
     }
     startExportingTransition(async () => {
-      const result = await generatePurchaseOrdersExcel(sortedPurchases);
+      const result = await generatePurchaseOrdersExcel(sortedPurchases, suppliers || []);
       if (result.success && result.data) {
         const link = document.createElement("a");
         link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.data}`;
@@ -286,7 +296,7 @@ export default function PurchasesPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder="Tìm theo mã đơn, ghi chú..."
+                    placeholder="Tìm theo mã đơn, nhà cung cấp..."
                     className="w-full rounded-lg bg-background pl-8 md:w-64"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -330,6 +340,7 @@ export default function PurchasesPage() {
                 <TableHead className="w-16 hidden md:table-cell">STT</TableHead>
                 <SortableHeader sortKey="orderNumber">Mã đơn</SortableHeader>
                 <SortableHeader sortKey="importDate">Ngày nhập</SortableHeader>
+                <SortableHeader sortKey="supplier">Nhà cung cấp</SortableHeader>
                 <SortableHeader sortKey="itemCount" className="text-right">Số SP</SortableHeader>
                 <SortableHeader sortKey="totalAmount" className="text-right">Tổng tiền</SortableHeader>
                 <SortableHeader sortKey="notes">Ghi chú</SortableHeader>
@@ -339,8 +350,8 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Đang tải...</TableCell></TableRow>}
-              {!isLoading && sortedPurchases?.map((order, index) => (
+              {isLoading || suppliersLoading && <TableRow><TableCell colSpan={8} className="text-center">Đang tải...</TableCell></TableRow>}
+              {!isLoading && !suppliersLoading && sortedPurchases?.map((order, index) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium hidden md:table-cell">{index + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -350,6 +361,9 @@ export default function PurchasesPage() {
                     </TableCell>
                     <TableCell>
                       {new Date(order.importDate).toLocaleDateString()}
+                    </TableCell>
+                     <TableCell>
+                      {suppliersMap.get(order.supplierId) || 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       {order.items.length}
@@ -387,9 +401,9 @@ export default function PurchasesPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!isLoading && sortedPurchases?.length === 0 && (
+                {!isLoading && !suppliersLoading && sortedPurchases?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">
+                        <TableCell colSpan={8} className="text-center h-24">
                            Chưa có đơn nhập hàng nào.
                         </TableCell>
                     </TableRow>

@@ -1,4 +1,5 @@
 
+
 export type Permission = 'view' | 'add' | 'edit' | 'delete';
 
 export type Module = 
@@ -7,6 +8,7 @@ export type Module =
   | 'units'
   | 'products'
   | 'purchases'
+  | 'suppliers' // new
   | 'sales'
   | 'customers'
   | 'cash-flow'
@@ -54,6 +56,19 @@ export type Product = {
   purchaseLots: PurchaseLot[]
   status: 'active' | 'draft' | 'archived'
   lowStockThreshold?: number;
+}
+
+export type Supplier = {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  taxCode?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type Customer = {
@@ -116,6 +131,16 @@ export type Payment = {
   notes?: string
 }
 
+export type SupplierPayment = {
+  id: string;
+  supplierId: string;
+  paymentDate: string; // ISO 8601 date string
+  amount: number;
+  notes?: string;
+  createdAt: any;
+}
+
+
 export type AppUser = {
   id?: string;
   email: string;
@@ -167,6 +192,7 @@ export type PurchaseOrderItem = {
 export type PurchaseOrder = {
   id: string;
   orderNumber: string;
+  supplierId: string;
   importDate: string; // ISO date string
   items: PurchaseOrderItem[];
   totalAmount: number;

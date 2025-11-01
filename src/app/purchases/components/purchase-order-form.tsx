@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from "@/components/ui/input"
-import { Product, Unit, PurchaseOrderItem, PurchaseOrder, SalesItem } from '@/lib/types'
+import { Product, Unit, PurchaseOrderItem, PurchaseOrder, SalesItem, Supplier } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown, PlusCircle, Trash2, ChevronLeft, Barcode } from 'lucide-react'
@@ -51,6 +51,7 @@ const purchaseOrderItemSchema = z.object({
 });
 
 const purchaseOrderSchema = z.object({
+  supplierId: z.string().min(1, "Nhà cung cấp là bắt buộc."),
   importDate: z.string().min(1, "Ngày nhập là bắt buộc."),
   items: z.array(purchaseOrderItemSchema).min(1, "Đơn nhập phải có ít nhất một sản phẩm."),
   notes: z.string().optional(),
@@ -60,6 +61,7 @@ type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
 
 interface PurchaseOrderFormProps {
   products: Product[];
+  suppliers: Supplier[];
   units: Unit[];
   allSalesItems: SalesItem[];
   purchaseOrder?: PurchaseOrder;
@@ -90,10 +92,11 @@ const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; on
 };
 
 
-export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrder, draftItems }: PurchaseOrderFormProps) {
+export function PurchaseOrderForm({ products, suppliers, units, allSalesItems, purchaseOrder, draftItems }: PurchaseOrderFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [supplierSearchOpen, setSupplierSearchOpen] = useState(false);
   const isEditMode = !!purchaseOrder;
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -113,10 +116,12 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
   const form = useForm<PurchaseOrderFormValues>({
     resolver: zodResolver(purchaseOrderSchema),
     defaultValues: isEditMode ? {
+        supplierId: purchaseOrder.supplierId,
         importDate: new Date(purchaseOrder.importDate).toISOString().split('T')[0],
         notes: purchaseOrder.notes || '',
         items: purchaseOrder.items || []
     } : {
+      supplierId: '',
       importDate: new Date().toISOString().split('T')[0],
       items: draftItems || [],
       notes: '',
@@ -131,12 +136,14 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
   useEffect(() => {
     if (isEditMode && purchaseOrder) {
       form.reset({
+        supplierId: purchaseOrder.supplierId,
         importDate: new Date(purchaseOrder.importDate).toISOString().split('T')[0],
         notes: purchaseOrder.notes || '',
         items: purchaseOrder.items || [],
       });
     } else if (draftItems && draftItems.length > 0) {
       form.reset({
+        supplierId: '',
         importDate: new Date().toISOString().split('T')[0],
         notes: 'Đơn hàng nháp tạo từ đề xuất của AI',
         items: draftItems,
@@ -206,6 +213,7 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
     }));
     
     const orderData = {
+        supplierId: data.supplierId,
         importDate: data.importDate,
         notes: data.notes,
         totalAmount: totalAmount,
@@ -422,6 +430,53 @@ export function PurchaseOrderForm({ products, units, allSalesItems, purchaseOrde
                         <CardTitle>Thông tin chung</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Nhà cung cấp</FormLabel>
+                                    <Popover open={supplierSearchOpen} onOpenChange={setSupplierSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                            >
+                                                {field.value ? suppliers.find((s) => s.id === field.value)?.name : "Chọn nhà cung cấp"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Tìm nhà cung cấp..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                                                    <CommandGroup>
+                                                    {suppliers.map((supplier) => (
+                                                        <CommandItem
+                                                            value={supplier.name}
+                                                            key={supplier.id}
+                                                            onSelect={() => {
+                                                                form.setValue("supplierId", supplier.id)
+                                                                setSupplierSearchOpen(false)
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", supplier.id === field.value ? "opacity-100" : "opacity-0")}/>
+                                                            {supplier.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                          <FormField
                             control={form.control}
                             name="importDate"

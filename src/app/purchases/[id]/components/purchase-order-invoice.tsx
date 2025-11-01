@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useRef } from 'react'
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/table"
 import { Logo } from "@/components/icons"
 import { formatCurrency } from "@/lib/utils"
-import type { PurchaseOrder, PurchaseOrderItem, Product, Unit, ThemeSettings } from "@/lib/types"
+import type { PurchaseOrder, PurchaseOrderItem, Product, Unit, ThemeSettings, Supplier } from "@/lib/types"
 
 interface PurchaseOrderInvoiceProps {
     purchaseOrder: PurchaseOrder;
@@ -27,9 +28,10 @@ interface PurchaseOrderInvoiceProps {
     productsMap: Map<string, Product>;
     unitsMap: Map<string, Unit>;
     settings: ThemeSettings | null;
+    supplier: Supplier | null;
 }
 
-export function PurchaseOrderInvoice({ purchaseOrder, items, productsMap, unitsMap, settings }: PurchaseOrderInvoiceProps) {
+export function PurchaseOrderInvoice({ purchaseOrder, items, productsMap, unitsMap, settings, supplier }: PurchaseOrderInvoiceProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -155,8 +157,11 @@ export function PurchaseOrderInvoice({ purchaseOrder, items, productsMap, unitsM
                 </div>
             </div>
 
-            <div className="text-sm mb-6">
-                <p><span className="font-semibold">Ghi chú:</span> {purchaseOrder.notes || 'Không có'}</p>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-6">
+                <p><span className="font-semibold">Nhà cung cấp:</span> {supplier?.name || 'N/A'}</p>
+                <p><span className="font-semibold">Điện thoại:</span> {supplier?.phone || 'N/A'}</p>
+                <p className="col-span-2"><span className="font-semibold">Địa chỉ:</span> {supplier?.address || 'N/A'}</p>
+                <p className="col-span-2"><span className="font-semibold">Ghi chú:</span> {purchaseOrder.notes || 'Không có'}</p>
             </div>
             
             <Table>

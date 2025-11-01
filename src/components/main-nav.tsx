@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from 'next/link'
@@ -24,6 +25,7 @@ import {
   Wallet,
   DollarSign,
   ChevronDown,
+  Building,
 } from 'lucide-react'
 
 import {
@@ -146,6 +148,16 @@ export function MainNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
+           {hasPermission('suppliers', 'view') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isActive('/suppliers')} tooltip="Nhà cung cấp">
+                <Link href="/suppliers">
+                  <Building />
+                  {state === 'expanded' && <span>Nhà cung cấp</span>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           {hasPermission('purchases', 'view') && (
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/purchases')} tooltip="Nhập hàng">
@@ -213,7 +225,12 @@ export function MainNav() {
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={isActive('/reports/debt')}>
-                              <Link href="/reports/debt" className='flex items-center gap-2'><BookUser className="h-4 w-4" />Công nợ</Link>
+                              <Link href="/reports/debt" className='flex items-center gap-2'><BookUser className="h-4 w-4" />Công nợ KH</Link>
+                          </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={isActive('/reports/supplier-debt')}>
+                              <Link href="/reports/supplier-debt" className='flex items-center gap-2'><Truck className="h-4 w-4" />Công nợ NCC</Link>
                           </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>

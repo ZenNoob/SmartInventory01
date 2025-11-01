@@ -1,8 +1,9 @@
+
 'use client'
 
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, getDocs } from "firebase/firestore";
-import { Customer, Product, Unit, SalesItem, PurchaseOrderItem } from "@/lib/types";
+import { Customer, Product, Unit, SalesItem, PurchaseOrderItem, Supplier } from "@/lib/types";
 import { PurchaseOrderForm } from "../components/purchase-order-form";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -19,6 +20,11 @@ export default function NewPurchasePage() {
         if (!firestore) return null;
         return query(collection(firestore, "products"));
     }, [firestore]);
+    
+    const suppliersQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, "suppliers"));
+    }, [firestore]);
 
     const unitsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -31,6 +37,7 @@ export default function NewPurchasePage() {
     }, [firestore]);
 
     const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
+    const { data: suppliers, isLoading: suppliersLoading } = useCollection<Supplier>(suppliersQuery);
     const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
     const { data: sales, isLoading: salesLoading } = useCollection<any>(salesQuery);
 
@@ -78,7 +85,7 @@ export default function NewPurchasePage() {
     }, [searchParams]);
 
 
-    const isLoading = productsLoading || unitsLoading || salesItemsLoading;
+    const isLoading = productsLoading || unitsLoading || salesItemsLoading || suppliersLoading;
 
     if (isLoading) {
         return (
@@ -93,6 +100,7 @@ export default function NewPurchasePage() {
             products={products || []}
             units={units || []}
             allSalesItems={allSalesItems || []}
+            suppliers={suppliers || []}
             draftItems={draftItems}
         />
     )
