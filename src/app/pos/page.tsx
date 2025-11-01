@@ -613,15 +613,23 @@ export default function POSPage() {
                           {item.stockInfo.baseUnitName}
                         </TableCell>
                         <TableCell className="text-center">
-                           <div className="flex items-center justify-center gap-2">
-                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.productId, item.quantity - 1)}>
+                           <div className="flex items-center justify-center gap-1">
+                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => updateCartItem(item.productId, item.quantity - 1)}>
                                <MinusCircle className="h-5 w-5" />
                              </Button>
-                             <div>
-                                <span className="font-bold text-lg w-10 text-center">{item.quantity}</span>
-                                <span className="text-sm text-muted-foreground ml-1">{item.saleUnitName}</span>
+                             <div className='relative w-full'>
+                               <Input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                      const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                      updateCartItem(item.productId, isNaN(val) ? 0 : val);
+                                  }}
+                                  className="w-full text-center font-bold text-lg h-10 px-1"
+                               />
+                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{item.saleUnitName}</span>
                              </div>
-                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.productId, item.quantity + 1)}>
+                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => updateCartItem(item.productId, item.quantity + 1)}>
                                <PlusCircle className="h-5 w-5" />
                              </Button>
                            </div>
