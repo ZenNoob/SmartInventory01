@@ -34,11 +34,21 @@ async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, tran
 
 
 export async function upsertSaleTransaction(
-  sale: Partial<Omit<Sale, 'id' | 'invoiceNumber'>> & { id?: string }, 
+  sale: Partial<Omit<Sale, 'id' | 'invoiceNumber'>> & { id?: string; isChangeReturned?: boolean }, 
   items: Omit<SalesItem, 'id' | 'salesTransactionId'>[]
 ): Promise<{ success: boolean; error?: string; saleId?: string }> {
   const { firestore } = await getAdminServices();
   const isUpdate = !!sale.id;
+  
+  let finalRemainingDebt = sale.remainingDebt;
+  // If change is returned, remaining debt should be 0, not negative.
+  if (sale.isChangeReturned && finalRemainingDebt && finalRemainingDebt < 0) {
+    finalRemainingDebt = 0;
+  }
+
+  const saleDataForDb = { ...sale, remainingDebt: finalRemainingDebt };
+  delete saleDataForDb.isChangeReturned; // Don't save this flag to the database
+
 
   if (isUpdate) {
     // --- UPDATE LOGIC ---
@@ -75,7 +85,7 @@ export async function upsertSaleTransaction(
           transaction.delete(oldPaymentDoc.ref);
         }
         
-        const saleDataToUpdate = { ...sale, invoiceNumber: oldSaleData.invoiceNumber };
+        const saleDataToUpdate = { ...saleDataForDb, invoiceNumber: oldSaleData.invoiceNumber };
         transaction.set(saleRef, saleDataToUpdate, { merge: true });
 
         const saleItemsCollection = saleRef.collection('sales_items');
@@ -109,7 +119,7 @@ export async function upsertSaleTransaction(
       await firestore.runTransaction(async (transaction) => {
         // --- ALL WRITES ---
         const saleDataToCreate = { 
-            ...sale, 
+            ...saleDataForDb, 
             id: saleRef.id, 
             invoiceNumber,
             status: sale.status || 'unprinted',

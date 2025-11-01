@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -39,11 +40,11 @@ import { Check, ChevronsUpDown, PlusCircle, Trash2, Barcode, Sparkles, AlertTria
 import { cn, formatCurrency } from '@/lib/utils'
 import { upsertSaleTransaction } from '../actions'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getRelatedProductsSuggestion } from '@/app/actions'
 import type { SuggestRelatedProductsOutput } from '@/ai/flows/suggest-related-products-flow'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Vui lòng chọn sản phẩm."),
@@ -55,10 +56,10 @@ const saleFormSchema = z.object({
   customerId: z.string().min(1, "Vui lòng chọn khách hàng."),
   transactionDate: z.string().min(1, "Ngày giao dịch là bắt buộc."),
   items: z.array(saleItemSchema).min(1, "Đơn hàng phải có ít nhất một sản phẩm."),
-  discountType: z.enum(['percentage', 'amount']).default('amount'),
   discountValue: z.coerce.number().optional(),
   customerPayment: z.coerce.number().optional(),
   status: z.enum(['pending', 'unprinted', 'printed']),
+  isChangeReturned: z.boolean().default(true),
 });
 
 type SaleFormValues = z.infer<typeof saleFormSchema>;
@@ -240,10 +241,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       customerId: '',
       transactionDate: new Date().toISOString().split('T')[0],
       items: [],
-      discountType: 'amount',
       discountValue: 0,
       customerPayment: 0,
       status: 'unprinted',
+      isChangeReturned: true,
     },
     mode: "onChange"
   });
@@ -276,10 +277,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: sale.customerId,
         transactionDate: new Date(sale.transactionDate).toISOString().split('T')[0],
         items: formItems,
-        discountType: sale.discountType || 'amount',
         discountValue: sale.discountValue || 0,
         customerPayment: sale.customerPayment || 0,
         status: sale.status || 'unprinted',
+        isChangeReturned: true, // Default to true on open
       });
 
     } else if (isOpen && !sale) {
@@ -287,10 +288,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         customerId: '',
         transactionDate: new Date().toISOString().split('T')[0],
         items: [],
-        discountType: 'amount',
         discountValue: 0,
         customerPayment: 0,
         status: 'unprinted',
+        isChangeReturned: true,
       })
       replace([]);
     }
@@ -298,7 +299,6 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
 
   const watchedItems = form.watch("items");
-  const discountType = form.watch('discountType');
   const discountValue = form.watch('discountValue') || 0;
   const customerPayment = form.watch('customerPayment') || 0;
   const selectedCustomerId = form.watch('customerId');
@@ -325,9 +325,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     return acc + quantityInBaseUnit * (item.price || 0);
   }, 0);
   
-  const calculatedDiscount = discountType === 'percentage'
-    ? (totalAmount * discountValue) / 100
-    : discountValue;
+  const calculatedDiscount = sale?.discountType === 'percentage'
+    ? (totalAmount * (sale.discountValue || 0)) / 100
+    : (sale?.discountValue || 0);
     
   const amountAfterDiscount = totalAmount - calculatedDiscount;
   const vatRate = settings?.vatRate || 0;
@@ -337,6 +337,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const previousDebt = customerDebts.get(selectedCustomerId) || 0;
   const totalPayable = finalAmount + previousDebt;
   const remainingDebt = totalPayable - (customerPayment || 0);
+  const isChange = remainingDebt < 0;
 
   const onSubmit = async (data: SaleFormValues) => {
     const itemsData = data.items.map(item => {
@@ -350,7 +351,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         };
     });
 
-    const saleData: Partial<Sale> = {
+    const saleData: Partial<Sale> & { isChangeReturned?: boolean } = {
         id: sale?.id, // Important for updates
         customerId: data.customerId,
         transactionDate: new Date(data.transactionDate).toISOString(),
@@ -358,12 +359,13 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         vatAmount: vatAmount,
         finalAmount: finalAmount,
         discount: calculatedDiscount,
-        discountType: data.discountType,
+        discountType: sale?.discountType,
         discountValue: data.discountValue,
         customerPayment: data.customerPayment,
         previousDebt: previousDebt,
         remainingDebt: remainingDebt,
         status: data.status,
+        isChangeReturned: data.isChangeReturned,
     };
 
     const result = await upsertSaleTransaction(saleData, itemsData);
@@ -735,9 +737,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
               <div className="space-y-4">
                   <h3 className="text-md font-medium">Tóm tắt thanh toán</h3>
                     <div className="space-y-4 text-sm">
-                        <div className="flex justify-between items-center">
-                            <span>Tổng tiền hàng:</span>
-                            <span className="font-semibold">{formatCurrency(totalAmount)}</span>
+                         <div className="flex justify-between items-center">
+                            <Label>Tổng tiền hàng</Label>
+                            <p className="font-semibold text-base">{formatCurrency(totalAmount)}</p>
                         </div>
                          <FormField
                             control={form.control}
@@ -745,7 +747,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                             render={({ field }) => (
                                 <FormItem>
                                     <div className="flex justify-between items-center">
-                                        <FormLabel>Giảm giá:</FormLabel>
+                                        <FormLabel>Giảm giá (VNĐ)</FormLabel>
                                         <FormattedNumberInput {...field} id="discountValue" className="w-32"/>
                                     </div>
                                     <FormMessage />
@@ -769,7 +771,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                           <Label>Nợ cũ:</Label>
                           <span className="font-semibold">{formatCurrency(previousDebt)}</span>
                       </div>
-                      <div className="flex justify-between items-center font-bold">
+                      <div className="flex justify-between items-center font-bold text-base">
                           <span>Tổng phải trả:</span>
                           <span>{formatCurrency(totalPayable)}</span>
                       </div>
@@ -787,10 +789,32 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                             )}
                         />
                       <Separator/>
-                       <div className={`flex justify-between items-center font-bold text-lg ${remainingDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                          <span>Còn nợ lại:</span>
-                          <span>{formatCurrency(remainingDebt)}</span>
+                       <div className={`flex justify-between items-center font-bold text-base ${isChange ? 'text-green-600' : 'text-destructive'}`}>
+                          <span>{isChange ? 'Tiền thối lại:' : 'Còn nợ lại:'}</span>
+                          <span>{formatCurrency(Math.abs(remainingDebt))}</span>
                       </div>
+                      {isChange && (
+                        <FormField
+                            control={form.control}
+                            name="isChangeReturned"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <FormLabel>Đã thối tiền</FormLabel>
+                                        <FormDescription>
+                                            Bỏ chọn nếu muốn ghi nợ âm.
+                                        </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                      )}
                   </div>
                   {sale && (
                     <>
