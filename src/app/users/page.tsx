@@ -66,6 +66,8 @@ function getRoleVietnamese(role: string) {
       return 'Kế toán';
     case 'inventory_manager':
       return 'Quản lý kho';
+    case 'salesperson':
+      return 'Nhân viên bán hàng';
     case 'custom':
         return 'Tùy chỉnh';
     default:
@@ -233,6 +235,7 @@ export default function UsersPage() {
                   <DropdownMenuRadioItem value="admin">Quản trị viên</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="accountant">Kế toán</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="inventory_manager">Quản lý kho</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="salesperson">Nhân viên bán hàng</DropdownMenuRadioItem>
                    <DropdownMenuRadioItem value="custom">Tùy chỉnh</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>

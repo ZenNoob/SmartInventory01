@@ -38,8 +38,9 @@ import { upsertUser } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Separator } from '@/components/ui/separator'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, AlertTriangle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delete'])))
 
@@ -130,6 +131,22 @@ const defaultPermissions: Record<AppUser['role'], Permissions> = {
   custom: {},
 };
 
+function arePermissionsEqual(p1: Permissions, p2: Permissions): boolean {
+    const keys1 = Object.keys(p1);
+    const keys2 = Object.keys(p2);
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+        if (!keys2.includes(key)) return false;
+        const arr1 = [...(p1[key as Module] || [])].sort();
+        const arr2 = [...(p2[key as Module] || [])].sort();
+        if (arr1.length !== arr2.length || arr1.some((val, i) => val !== arr2[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 interface UserFormProps {
   isOpen: boolean;
@@ -141,7 +158,6 @@ interface UserFormProps {
 export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [copyUserPopoverOpen, setCopyUserPopoverOpen] = useState(false);
 
   const isEditMode = !!user;
 
@@ -157,6 +173,14 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
   });
   
   const role = form.watch('role');
+  const currentPermissions = form.watch('permissions');
+
+  const isSyncedWithRole = useMemo(() => {
+    if (role === 'custom' || !currentPermissions) return false;
+    const defaultPerms = defaultPermissions[role];
+    return arePermissionsEqual(currentPermissions, defaultPerms);
+  }, [role, currentPermissions]);
+
 
   useEffect(() => {
     if(isOpen) {
@@ -180,11 +204,15 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
     }
   }, [user, isOpen, form]);
 
-  useEffect(() => {
+  const handleApplyDefaultPermissions = () => {
     if (role && role !== 'custom') {
-      form.setValue('permissions', defaultPermissions[role]);
+      form.setValue('permissions', defaultPermissions[role], { shouldValidate: true });
+       toast({
+        title: "Đã áp dụng",
+        description: `Đã áp dụng bộ quyền mặc định cho vai trò "${getRoleVietnamese(role)}".`,
+      });
     }
-  }, [role, form]);
+  };
 
 
   const onSubmit = async (data: z.infer<typeof userFormSchemaBase> & { password?: string }) => {
@@ -205,6 +233,17 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
       });
     }
   };
+  
+  const getRoleVietnamese = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Quản trị viên';
+      case 'accountant': return 'Kế toán';
+      case 'inventory_manager': return 'Quản lý kho';
+      case 'salesperson': return 'Nhân viên bán hàng';
+      case 'custom': return 'Tùy chỉnh';
+      default: return role;
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -264,95 +303,40 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Vai trò</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Chọn một vai trò" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="admin">
-                                <div>
-                                    <p>Quản trị viên</p>
-                                    <p className="text-xs text-muted-foreground">Toàn quyền truy cập hệ thống.</p>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="accountant">
-                                <div>
-                                    <p>Kế toán</p>
-                                    <p className="text-xs text-muted-foreground">Quản lý bán hàng, khách hàng, sổ quỹ, báo cáo.</p>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="inventory_manager">
-                                <div>
-                                    <p>Quản lý kho</p>
-                                    <p className="text-xs text-muted-foreground">Quản lý sản phẩm, danh mục, đơn vị, nhập hàng.</p>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="salesperson">
-                                <div>
-                                    <p>Nhân viên bán hàng</p>
-                                    <p className="text-xs text-muted-foreground">Sử dụng giao diện POS, quản lý khách hàng cơ bản.</p>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="custom">
-                                <div>
-                                    <p>Tùy chỉnh</p>
-                                    <p className="text-xs text-muted-foreground">Thiết lập quyền truy cập chi tiết từng chức năng.</p>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <div className="flex items-center gap-2">
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn một vai trò" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    <SelectItem value="admin">Quản trị viên</SelectItem>
+                                    <SelectItem value="accountant">Kế toán</SelectItem>
+                                    <SelectItem value="inventory_manager">Quản lý kho</SelectItem>
+                                    <SelectItem value="salesperson">Nhân viên bán hàng</SelectItem>
+                                    <SelectItem value="custom">Tùy chỉnh</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {role !== 'custom' && (
+                                     <Button type="button" variant="outline" size="sm" onClick={handleApplyDefaultPermissions} className="shrink-0">
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Áp dụng quyền
+                                    </Button>
+                                )}
+                            </div>
+                           {role !== 'custom' && !isSyncedWithRole && (
+                            <Alert variant="destructive" className="mt-2 text-xs">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                    Các quyền hiện tại không khớp với vai trò <span className="font-bold">{getRoleVietnamese(role)}</span>. Nhấn "Áp dụng quyền" để đồng bộ.
+                                </AlertDescription>
+                            </Alert>
+                           )}
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    {!isEditMode && allUsers && allUsers.length > 0 && (
-                      <FormItem>
-                        <FormLabel>Sao chép quyền từ người dùng</FormLabel>
-                        <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn("w-full justify-between", "text-muted-foreground")}
-                              >
-                                Chọn người dùng để sao chép
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                              <CommandInput placeholder="Tìm người dùng..." />
-                              <CommandList>
-                                <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                                <CommandGroup>
-                                  {allUsers.map((u) => (
-                                    <CommandItem
-                                      value={u.email}
-                                      key={u.id}
-                                      onSelect={() => {
-                                        form.setValue('permissions', u.permissions || {});
-                                        form.setValue('role', 'custom');
-                                        toast({
-                                            title: "Đã sao chép quyền",
-                                            description: `Đã áp dụng các quyền của ${u.displayName || u.email}.`,
-                                        });
-                                        setCopyUserPopoverOpen(false);
-                                      }}
-                                    >
-                                      {u.displayName || u.email}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </FormItem>
-                    )}
                 </div>
                 <div className="space-y-4">
                     <h3 className="font-medium">Phân quyền chi tiết</h3>
@@ -384,10 +368,6 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                                         <Checkbox
                                                             checked={field.value?.includes(permission.id)}
                                                             onCheckedChange={(checked) => {
-                                                            const isCustomRole = form.getValues('role') === 'custom';
-                                                            if (!isCustomRole) {
-                                                                form.setValue('role', 'custom');
-                                                            }
                                                             return checked
                                                                 ? field.onChange([...(field.value || []), permission.id])
                                                                 : field.onChange(
