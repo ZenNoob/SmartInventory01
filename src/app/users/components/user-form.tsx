@@ -367,10 +367,10 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
             </Form>
             
             {isEditMode && (
-                 <Form {...permissionsForm}>
-                    <form onSubmit={permissionsForm.handleSubmit(onPermissionsSubmit)} className="space-y-4">
-                        <Card>
-                             <CardHeader>
+                <Card>
+                    <Form {...permissionsForm}>
+                        <form onSubmit={permissionsForm.handleSubmit(onPermissionsSubmit)} className="flex flex-col h-full">
+                            <CardHeader>
                                 <div className="flex justify-between items-center">
                                     <CardTitle>Phân quyền chi tiết</CardTitle>
                                     <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
@@ -398,16 +398,16 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                 <CardDescription>
+                                <CardDescription>
                                     {role !== 'custom' && (
                                         <Button size="sm" variant="link" type="button" onClick={handleApplyDefaultPermissions} className="p-0 h-auto mt-2 text-xs">
                                             <RefreshCw className="h-3 w-3 mr-1" />
                                             Áp dụng lại quyền mặc định cho vai trò "{getRoleVietnamese(role)}"
                                         </Button>
                                     )}
-                                 </CardDescription>
-                             </CardHeader>
-                             <CardContent className="space-y-2">
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2 flex-grow">
                                 {modules.map((module) => (
                                 <FormField
                                     key={module.id}
@@ -457,15 +457,15 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                     )}
                                 />
                                 ))}
-                             </CardContent>
-                             <div className="p-6 pt-0">
+                            </CardContent>
+                            <div className="p-6 pt-4">
                                 <Button type="submit" className="w-full" disabled={permissionsForm.formState.isSubmitting}>
                                     {permissionsForm.formState.isSubmitting ? 'Đang lưu...' : 'Lưu phân quyền'}
                                 </Button>
-                             </div>
-                        </Card>
-                    </form>
-                 </Form>
+                            </div>
+                        </form>
+                    </Form>
+                </Card>
             )}
         </div>
       </DialogContent>
