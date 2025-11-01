@@ -4,13 +4,10 @@ import type { Metadata } from 'next'
 import { PT_Sans } from 'next/font/google'
 import './globals.css'
 import { cn } from '@/lib/utils'
-import { SidebarProvider } from '@/components/ui/sidebar'
-import { MainNav } from '@/components/main-nav'
-import { Header } from '@/components/header'
 import { Toaster } from '@/components/ui/toaster'
-import { FirebaseClientProvider } from '@/firebase'
 import GlobalError from './global-error'
 import { getThemeSettings } from './settings/actions'
+import { Providers } from './providers'
 
 
 const ptSans = PT_Sans({
@@ -50,19 +47,7 @@ export default async function RootLayout({
         style={themeStyle}
       >
         <GlobalError>
-          <FirebaseClientProvider>
-            <SidebarProvider>
-                <div className="flex min-h-screen">
-                  <MainNav />
-                  <div className="flex-1 flex flex-col p-6 gap-6 min-w-0">
-                    <Header />
-                    <main className="flex-1 overflow-y-auto">
-                      {children}
-                    </main>
-                  </div>
-                </div>
-            </SidebarProvider>
-          </FirebaseClientProvider>
+          <Providers>{children}</Providers>
         </GlobalError>
         <Toaster />
       </body>
