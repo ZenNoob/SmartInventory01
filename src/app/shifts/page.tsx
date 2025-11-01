@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo } from 'react'
@@ -160,7 +161,7 @@ export default function ShiftsPage() {
                   <TableRow key={shift.id}>
                     <TableCell className="font-medium hidden md:table-cell">{index + 1}</TableCell>
                     <TableCell>
-                      {new Date(shift.startTime).toLocaleString('vi-VN')}
+                      {new Date(shift.startTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                     </TableCell>
                     <TableCell>{shift.userName}</TableCell>
                     <TableCell>

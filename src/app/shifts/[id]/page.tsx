@@ -78,7 +78,7 @@ export default async function ShiftDetailPage({ params }: { params: { id: string
             Chi tiết Ca làm việc
           </h1>
           <p className="text-sm text-muted-foreground">
-              Ca của {shift.userName} - Ngày {new Date(shift.startTime).toLocaleDateString('vi-VN')}
+              Ca của {shift.userName} - Ngày {new Date(shift.startTime).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
           </p>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default async function ShiftDetailPage({ params }: { params: { id: string
                     <Clock className="h-6 w-6 text-muted-foreground" />
                     <div>
                         <p className="text-muted-foreground">Thời gian</p>
-                        <p className="font-semibold">{new Date(shift.startTime).toLocaleTimeString('vi-VN')} - {shift.endTime ? new Date(shift.endTime).toLocaleTimeString('vi-VN') : 'Đang hoạt động'}</p>
+                        <p className="font-semibold">{new Date(shift.startTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} - {shift.endTime ? new Date(shift.endTime).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Đang hoạt động'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-lg border p-3">
@@ -186,7 +186,7 @@ export default async function ShiftDetailPage({ params }: { params: { id: string
                       <TableCell>
                         {customersMap.get(sale.customerId) || 'Khách lẻ'}
                       </TableCell>
-                       <TableCell>{new Date(sale.transactionDate).toLocaleTimeString('vi-VN')}</TableCell>
+                       <TableCell>{new Date(sale.transactionDate).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</TableCell>
                       <TableCell className="text-right">
                         {formatCurrency(sale.finalAmount)}
                       </TableCell>
