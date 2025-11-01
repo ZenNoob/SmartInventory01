@@ -476,7 +476,7 @@
         "role": {
           "type": "string",
           "description": "The user's role.",
-          "enum": ["admin", "accountant", "inventory_manager", "custom"]
+          "enum": ["admin", "accountant", "inventory_manager", "salesperson", "custom"]
         },
         "permissions": {
             "type": "object",

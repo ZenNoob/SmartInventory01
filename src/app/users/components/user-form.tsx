@@ -48,7 +48,7 @@ const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delet
 const userFormSchemaBase = z.object({
   email: z.string().email({ message: "Email không hợp lệ." }),
   displayName: z.string().optional(),
-  role: z.enum(['admin', 'accountant', 'inventory_manager', 'custom']),
+  role: z.enum(['admin', 'accountant', 'inventory_manager', 'salesperson', 'custom']),
   permissions: permissionsSchema.optional(),
 });
 
@@ -57,9 +57,9 @@ const newUserFormSchema = userFormSchemaBase.extend({
 });
 
 const updateUserFormSchema = userFormSchemaBase.extend({
-  password: z.string().optional().refine(val => !val || val.length >= 6, {
-    message: 'Mật khẩu mới phải có ít nhất 6 ký tự.',
-  }),
+    password: z.string().optional().refine(val => !val || val.length >= 6, {
+        message: 'Mật khẩu mới phải có ít nhất 6 ký tự.',
+    }),
 });
 
 
@@ -122,6 +122,10 @@ const defaultPermissions: Record<AppUser['role'], Permissions> = {
     suppliers: ['view', 'add', 'edit', 'delete'],
     products: ['view', 'add', 'edit'],
     purchases: ['view', 'add', 'edit'],
+  },
+  salesperson: {
+    pos: ['view', 'add'],
+    customers: ['view', 'add'],
   },
   custom: {},
 };
@@ -283,6 +287,12 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                 <div>
                                     <p>Quản lý kho</p>
                                     <p className="text-xs text-muted-foreground">Quản lý sản phẩm, danh mục, đơn vị, nhập hàng.</p>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="salesperson">
+                                <div>
+                                    <p>Nhân viên bán hàng</p>
+                                    <p className="text-xs text-muted-foreground">Sử dụng giao diện POS, quản lý khách hàng cơ bản.</p>
                                 </div>
                               </SelectItem>
                               <SelectItem value="custom">

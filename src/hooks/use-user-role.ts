@@ -40,6 +40,10 @@ const defaultPermissions: Record<string, Permissions> = {
         products: ['view', 'add', 'edit'],
         purchases: ['view', 'add', 'edit'],
     },
+    salesperson: {
+        pos: ['view', 'add'],
+        customers: ['view', 'add'],
+    },
     custom: {},
 };
 

@@ -145,7 +145,7 @@ export type AppUser = {
   id?: string;
   email: string;
   displayName?: string;
-  role: 'admin' | 'accountant' | 'inventory_manager' | 'custom';
+  role: 'admin' | 'accountant' | 'inventory_manager' | 'salesperson' | 'custom';
   permissions?: Permissions;
 }
 
