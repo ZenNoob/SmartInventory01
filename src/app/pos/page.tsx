@@ -75,6 +75,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useSidebar } from '@/components/ui/sidebar'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Form, FormControl, FormField, FormItem, FormDescription } from '@/components/ui/form'
 
 
 type CartItem = {
@@ -136,6 +138,7 @@ export default function POSPage() {
   const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('amount');
   const [discountValue, setDiscountValue] = useState(0);
   const [paymentSuggestions, setPaymentSuggestions] = useState<number[]>([]);
+  const [isChangeReturned, setIsChangeReturned] = useState(true);
 
   // #region Data Fetching
   const customersQuery = useMemoFirebase(
@@ -355,7 +358,7 @@ export default function POSPage() {
       price: item.price,
     }))
 
-    const saleData: Partial<Sale> = {
+    const saleData: Partial<Sale> & { isChangeReturned?: boolean } = {
       customerId: selectedCustomerId,
       transactionDate: new Date().toISOString(),
       totalAmount: totalAmount,
@@ -368,6 +371,7 @@ export default function POSPage() {
       previousDebt: 0, // Not tracking debt for POS for simplicity
       remainingDebt: finalAmount - customerPayment,
       status: 'printed',
+      isChangeReturned: isChangeReturned,
     }
 
     const result = await upsertSaleTransaction(saleData, itemsData)
@@ -721,6 +725,18 @@ export default function POSPage() {
                       {formatCurrency(Math.abs(changeAmount))}
                   </p>
               </div>
+              {changeAmount > 0 && (
+                 <div className="flex items-center justify-end space-x-2 pt-2">
+                    <Checkbox
+                        id="isChangeReturned"
+                        checked={isChangeReturned}
+                        onCheckedChange={(checked) => setIsChangeReturned(Boolean(checked))}
+                    />
+                    <Label htmlFor="isChangeReturned" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Đã thối tiền
+                    </Label>
+                </div>
+              )}
           </div>
           <Button
             className="w-full h-14 text-lg mt-4"
