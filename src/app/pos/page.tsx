@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
@@ -446,7 +447,8 @@ export default function POSPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40%]">Sản phẩm</TableHead>
+                  <TableHead className="w-12">STT</TableHead>
+                  <TableHead className="w-[35%]">Sản phẩm</TableHead>
                   <TableHead className="text-right">Đơn giá</TableHead>
                   <TableHead className="text-center w-48">Số lượng</TableHead>
                   <TableHead className="text-right">Thành tiền</TableHead>
@@ -456,7 +458,7 @@ export default function POSPage() {
                 {cart.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="text-center h-48 text-muted-foreground"
                     >
                       Quét mã vạch hoặc tìm kiếm để thêm sản phẩm vào đơn
@@ -464,11 +466,12 @@ export default function POSPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  cart.map((item) => {
+                  cart.map((item, index) => {
                     const lineTotal = item.quantity * item.stockInfo.conversionFactor * item.price;
                     const showConversion = item.saleUnitName !== item.stockInfo.baseUnitName;
                     return (
                       <TableRow key={item.productId}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell className="font-medium">
                           {item.productName}
                         </TableCell>
