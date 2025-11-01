@@ -198,10 +198,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         const customerSales = sales.filter(s => s.customerId === customer.id);
         const customerPayments = payments.filter(p => p.customerId === customer.id);
 
-        const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const totalRevenue = customerSales.filter(s => s.finalAmount >= 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        
         const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
         
-        debtMap.set(customer.id, totalRevenue - totalPaid);
+        debtMap.set(customer.id, totalRevenue + totalReturns - totalPaid);
     });
     return debtMap;
   }, [customers, sales, payments]);
@@ -343,16 +345,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     
     // If we are editing a sale, calculate the debt *before* this sale
     if (sale) {
-      const salesToConsider = sales.filter(s => s.id !== sale.id);
-      const paymentsToConsider = payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.invoiceNumber}`);
+      const customerSales = sales.filter(s => s.customerId === selectedCustomerId && s.id !== sale.id);
+      const customerPayments = payments.filter(p => p.customerId === selectedCustomerId && p.notes !== `Thanh toán cho đơn hàng ${sale.invoiceNumber}`);
 
-      const customerSales = salesToConsider.filter(s => s.customerId === selectedCustomerId);
-      const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-      
-      const customerPayments = paymentsToConsider.filter(p => p.customerId === selectedCustomerId);
+      const totalRevenue = customerSales.filter(s => s.finalAmount >= 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
       const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
-
-      return totalRevenue - totalPaid;
+      
+      return totalRevenue + totalReturns - totalPaid;
     }
     
     // If creating a new sale, use the pre-calculated total current debt
@@ -903,3 +903,4 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     </Dialog>
   )
 }
+
