@@ -54,10 +54,10 @@ async function getCustomerData(customerId: string) {
 
 const getTierIcon = (tier: string | undefined) => {
   switch (tier) {
-    case 'diamond': return <Gem className="h-4 w-4" />;
-    case 'gold': return <Trophy className="h-4 w-4" />;
-    case 'silver': return <Star className="h-4 w-4" />;
-    case 'bronze': return <Shield className="h-4 w-4" />;
+    case 'diamond': return <Gem className="h-4 w-4 text-blue-500" />;
+    case 'gold': return <Trophy className="h-4 w-4 text-yellow-500" />;
+    case 'silver': return <Star className="h-4 w-4 text-slate-500" />;
+    case 'bronze': return <Shield className="h-4 w-4 text-orange-700" />;
     default: return null;
   }
 }

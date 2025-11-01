@@ -12,7 +12,10 @@ import {
   ChevronDown,
   ArrowUp,
   ArrowDown,
+  Gem,
   Trophy,
+  Star,
+  Shield,
 } from "lucide-react"
 
 import {
@@ -86,25 +89,35 @@ const tierOrder: Record<string, number> = {
   bronze: 1,
 };
 
-const getTierVariant = (tier: string | undefined): 'default' | 'secondary' | 'destructive' | 'outline' => {
+const getTierStyling = (tier: string | undefined): string => {
   switch (tier) {
-    case 'diamond': return 'default';
-    case 'gold': return 'default';
-    case 'silver': return 'secondary';
-    case 'bronze': return 'outline';
-    default: return 'outline';
+    case 'diamond': return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'gold': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'silver': return 'bg-slate-100 text-slate-800 border-slate-300';
+    case 'bronze': return 'bg-orange-100 text-orange-800 border-orange-300';
+    default: return 'bg-gray-100 text-gray-800 border-gray-300';
   }
 };
 
 const getTierName = (tier: string | undefined) => {
   switch (tier) {
-    case 'diamond': return 'Kim cương';
+    case 'diamond': return 'Kim Cương';
     case 'gold': return 'Vàng';
     case 'silver': return 'Bạc';
     case 'bronze': return 'Đồng';
     default: return 'Chưa có hạng';
   }
 };
+
+const getTierIcon = (tier: string | undefined) => {
+  switch (tier) {
+    case 'diamond': return <Gem className="h-3 w-3 text-blue-500" />;
+    case 'gold': return <Trophy className="h-3 w-3 text-yellow-500" />;
+    case 'silver': return <Star className="h-3 w-3 text-slate-500" />;
+    case 'bronze': return <Shield className="h-3 w-3 text-orange-700" />;
+    default: return null;
+  }
+}
 
 export default function CustomersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -529,9 +542,11 @@ export default function CustomersPage() {
                       </DropdownMenu>
                     </TableCell>
                      <TableCell>
-                      <Badge variant={getTierVariant(customer.loyaltyTier)} className="capitalize flex items-center gap-1">
-                        <Trophy className="h-3 w-3" />
-                        {getTierName(customer.loyaltyTier)}
+                      <Badge className={getTierStyling(customer.loyaltyTier)} variant={'outline'}>
+                        <div className="flex items-center gap-1">
+                          {getTierIcon(customer.loyaltyTier)}
+                          {getTierName(customer.loyaltyTier)}
+                        </div>
                       </Badge>
                     </TableCell>
                      <TableCell>
