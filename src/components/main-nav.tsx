@@ -16,6 +16,7 @@ import {
   Sparkles,
   PackagePlus,
   Store,
+  History,
 } from 'lucide-react'
 
 import {
@@ -203,6 +204,11 @@ export function MainNav() {
                         <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={isActive('/reports/debt-tracking')}>
                                 <Link href="/reports/debt-tracking">Theo dõi công nợ</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={isActive('/reports/transactions')}>
+                                <Link href="/reports/transactions" className='flex items-center gap-2'><History className="h-4 w-4" />Lịch sử giao dịch</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                          <SidebarMenuSubItem>
