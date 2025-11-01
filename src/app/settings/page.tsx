@@ -308,18 +308,22 @@ export default function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có hoàn toàn chắc chắn?</AlertDialogTitle>
             <AlertDialogDescription>
-              <div>
-                Hành động này <span className="font-bold text-destructive">không thể</span> hoàn tác. Thao tác này sẽ xóa vĩnh viễn:
-                <ul className="list-disc pl-5 mt-2 space-y-1">
-                  <li>Tất cả đơn hàng bán và chi tiết đơn hàng.</li>
-                  <li>Tất cả phiếu nhập hàng và chi tiết phiếu nhập.</li>
-                  <li>Toàn bộ lịch sử thanh toán của khách hàng.</li>
-                  <li>Reset toàn bộ điểm thưởng và lịch sử nhập kho.</li>
-                </ul>
-                <strong className="mt-2 block">Rất khuyến khích bạn tạo bản sao lưu trước khi xóa.</strong>
-              </div>
+              Hành động này <span className="font-bold text-destructive">không thể</span> hoàn tác và sẽ xóa vĩnh viễn dữ liệu giao dịch.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="text-sm">
+            <p>Thao tác này sẽ xóa vĩnh viễn:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground">
+              <li>Tất cả đơn hàng bán và chi tiết đơn hàng.</li>
+              <li>Tất cả phiếu nhập hàng và chi tiết phiếu nhập.</li>
+              <li>Toàn bộ lịch sử thanh toán của khách hàng.</li>
+              <li>Toàn bộ lịch sử thanh toán cho nhà cung cấp.</li>
+              <li>Toàn bộ lịch sử thu/chi trên sổ quỹ.</li>
+              <li>Toàn bộ lịch sử ca làm việc.</li>
+              <li>Reset toàn bộ điểm thưởng và lịch sử nhập kho.</li>
+            </ul>
+            <strong className="mt-4 block">Rất khuyến khích bạn tạo bản sao lưu trước khi xóa.</strong>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingData}>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteData} disabled={isDeletingData} className="bg-destructive hover:bg-destructive/90">
