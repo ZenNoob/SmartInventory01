@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -30,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from "@/components/ui/input"
 import { AppUser, Module, Permission, Permissions } from '@/lib/types'
@@ -37,6 +39,8 @@ import { upsertUser } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { Separator } from '@/components/ui/separator'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delete'])))
 
@@ -47,24 +51,14 @@ const userFormSchemaBase = z.object({
   permissions: permissionsSchema.optional(),
 });
 
-// Schema for creating a new user (password is required)
 const newUserFormSchema = userFormSchemaBase.extend({
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự.'),
 });
 
-// Schema for updating an existing user (password is optional, but if provided, must be valid)
 const updateUserFormSchema = userFormSchemaBase.extend({
-  password: z.string().optional(),
-}).refine(data => {
-    // If password field is present and not an empty string, it must be at least 6 characters long.
-    // If it's empty or undefined, this validation passes.
-    if (data.password && data.password.length > 0) {
-        return data.password.length >= 6;
-    }
-    return true;
-}, {
+  password: z.string().optional().refine(val => !val || val.length >= 6, {
     message: 'Mật khẩu mới phải có ít nhất 6 ký tự.',
-    path: ['password'], // Specify the path of the error
+  }),
 });
 
 
@@ -133,11 +127,13 @@ interface UserFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   user?: AppUser;
+  allUsers?: AppUser[];
 }
 
-export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
+export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [copyUserPopoverOpen, setCopyUserPopoverOpen] = useState(false);
 
   const isEditMode = !!user;
 
@@ -277,6 +273,52 @@ export function UserForm({ isOpen, onOpenChange, user }: UserFormProps) {
                         </FormItem>
                       )}
                     />
+                    {!isEditMode && allUsers && allUsers.length > 0 && (
+                      <FormItem>
+                        <FormLabel>Sao chép quyền từ người dùng</FormLabel>
+                        <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn("w-full justify-between", "text-muted-foreground")}
+                              >
+                                Chọn người dùng để sao chép
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                              <CommandInput placeholder="Tìm người dùng..." />
+                              <CommandList>
+                                <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                                <CommandGroup>
+                                  {allUsers.map((u) => (
+                                    <CommandItem
+                                      value={u.email}
+                                      key={u.id}
+                                      onSelect={() => {
+                                        form.setValue('permissions', u.permissions || {});
+                                        form.setValue('role', 'custom');
+                                        toast({
+                                            title: "Đã sao chép quyền",
+                                            description: `Đã áp dụng các quyền của ${u.displayName || u.email}.`,
+                                        });
+                                        setCopyUserPopoverOpen(false);
+                                      }}
+                                    >
+                                      {u.displayName || u.email}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </FormItem>
+                    )}
                 </div>
                 <div className="space-y-4">
                     <h3 className="font-medium">Phân quyền chi tiết</h3>

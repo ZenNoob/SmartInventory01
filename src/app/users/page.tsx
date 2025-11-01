@@ -179,6 +179,7 @@ export default function UsersPage() {
         isOpen={isFormOpen}
         onOpenChange={setIsFormOpen}
         user={selectedUser}
+        allUsers={users}
       />
        <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>
