@@ -21,7 +21,7 @@ import {
   useMemoFirebase,
   useUser,
 } from '@/firebase'
-import { collection, query } from 'firebase/firestore'
+import { collection, query, getDocs } from 'firebase/firestore'
 import {
   Customer,
   Payment,
