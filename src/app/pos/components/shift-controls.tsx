@@ -7,9 +7,6 @@ import {
   LogOut,
   CircleDollarSign,
   Briefcase,
-  Users,
-  Receipt,
-  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -154,7 +151,7 @@ export function ShiftControls({ activeShift }: ShiftControlsProps) {
             <Button
               variant="destructive"
               onClick={handleCloseShift}
-              disabled={isClosing}
+              disabled={isClosing || endingCash <= 0}
             >
               {isClosing ? 'Đang đóng...' : 'Xác nhận Đóng ca'}
             </Button>
