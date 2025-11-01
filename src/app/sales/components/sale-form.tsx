@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -58,6 +59,7 @@ const saleFormSchema = z.object({
   items: z.array(saleItemSchema).min(1, "Đơn hàng phải có ít nhất một sản phẩm."),
   discountValue: z.coerce.number().optional(),
   customerPayment: z.coerce.number().optional(),
+  pointsUsed: z.coerce.number().optional(),
   status: z.enum(['pending', 'unprinted', 'printed']),
   isChangeReturned: z.boolean().default(true),
 });
@@ -197,7 +199,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     // This logic is tricky. A simple approximation is to filter out payments
     // that match the amount and date, but that's not robust.
     // For now, we'll just use all payments and accept a slight inaccuracy in previousDebt during edit.
-    return payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.id}`);
+    return payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.invoiceNumber}`);
   }, [payments, sale]);
 
   const customerDebts = useMemo(() => {
@@ -205,9 +207,12 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
     const debtMap = new Map<string, number>();
     customers.forEach(customer => {
-        const customerSales = otherSales.filter(s => s.customerId === customer.id).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const customerSales = otherSales.filter(s => s.customerId === customer.id);
+        const totalRevenue = customerSales.filter(s => s.finalAmount > 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+
         const customerPayments = otherPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
-        debtMap.set(customer.id, customerSales - customerPayments);
+        debtMap.set(customer.id, totalRevenue + totalReturns - customerPayments);
     });
     return debtMap;
   }, [customers, otherSales, otherPayments]);
@@ -243,6 +248,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       items: [],
       discountValue: 0,
       customerPayment: 0,
+      pointsUsed: 0,
       status: 'unprinted',
       isChangeReturned: true,
     },
@@ -279,6 +285,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         items: formItems,
         discountValue: sale.discountValue || 0,
         customerPayment: sale.customerPayment || 0,
+        pointsUsed: sale.pointsUsed || 0,
         status: sale.status || 'unprinted',
         isChangeReturned: true, // Default to true on open
       });
@@ -290,6 +297,7 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         items: [],
         discountValue: 0,
         customerPayment: 0,
+        pointsUsed: 0,
         status: 'unprinted',
         isChangeReturned: true,
       })
@@ -302,6 +310,9 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const discountValue = form.watch('discountValue') || 0;
   const customerPayment = form.watch('customerPayment') || 0;
   const selectedCustomerId = form.watch('customerId');
+  const pointsUsed = form.watch('pointsUsed') || 0;
+  
+  const selectedCustomer = useMemo(() => customers.find(c => c.id === selectedCustomerId), [customers, selectedCustomerId]);
 
   const { trigger } = form;
   useEffect(() => {
@@ -325,11 +336,14 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
     return acc + quantityInBaseUnit * (item.price || 0);
   }, 0);
   
+  const pointsToVndRate = settings?.loyalty?.pointsToVndRate || 0;
+  const pointsDiscount = pointsUsed * pointsToVndRate;
+
   const calculatedDiscount = sale?.discountType === 'percentage'
     ? (totalAmount * (sale.discountValue || 0)) / 100
-    : (sale?.discountValue || 0);
+    : (discountValue || 0);
     
-  const amountAfterDiscount = totalAmount - calculatedDiscount;
+  const amountAfterDiscount = totalAmount - calculatedDiscount - pointsDiscount;
   const vatRate = settings?.vatRate || 0;
   const vatAmount = (amountAfterDiscount * vatRate) / 100;
   const finalAmount = amountAfterDiscount + vatAmount;
@@ -361,6 +375,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
         discount: calculatedDiscount,
         discountType: sale?.discountType,
         discountValue: data.discountValue,
+        pointsUsed: data.pointsUsed,
+        pointsDiscount: pointsDiscount,
         customerPayment: data.customerPayment,
         previousDebt: previousDebt,
         remainingDebt: remainingDebt,
@@ -754,6 +770,24 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
                                 </FormItem>
                             )}
                         />
+                         {selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && settings?.loyalty && (
+                          <FormField
+                            control={form.control}
+                            name="pointsUsed"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <div className="flex justify-between items-center">
+                                        <FormLabel>Sử dụng điểm</FormLabel>
+                                        <FormattedNumberInput {...field} id="pointsUsed" className="w-32"/>
+                                    </div>
+                                     <FormDescription>
+                                        Có thể dùng: {selectedCustomer.loyaltyPoints || 0} điểm (giảm {formatCurrency(pointsDiscount)})
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         )}
                         {vatRate > 0 && (
                         <div className="flex justify-between items-center">
                             <span>Thuế VAT ({vatRate}%):</span>

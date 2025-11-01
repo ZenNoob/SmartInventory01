@@ -95,22 +95,22 @@ export default function DebtReportPage() {
     if (!customers || !sales || !payments) return [];
 
     return customers.map(customer => {
-      const customerSales = sales
-        .filter(s => s.customerId === customer.id)
-        .reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      const customerSales = sales.filter(s => s.customerId === customer.id);
+      const totalRevenue = customerSales.filter(s => s.finalAmount > 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
       
-      const customerPayments = payments
+      const totalPayments = payments
         .filter(p => p.customerId === customer.id)
         .reduce((sum, p) => sum + p.amount, 0);
 
-      const finalDebt = customerSales - customerPayments;
-
+      const finalDebt = totalRevenue + totalReturns - totalPayments;
+      
       return {
         customerId: customer.id,
         customerName: customer.name,
         customerPhone: customer.phone,
-        totalSales: customerSales,
-        totalPayments: customerPayments,
+        totalSales: totalRevenue + totalReturns,
+        totalPayments: totalPayments,
         finalDebt: finalDebt,
       };
     }).filter(data => data.totalSales > 0 || data.totalPayments > 0 || data.finalDebt !== 0);
