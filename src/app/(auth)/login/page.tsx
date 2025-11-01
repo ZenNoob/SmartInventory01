@@ -10,23 +10,25 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useAuth, useUser } from "@/firebase"
+import { useAuth, useUser, useFirestore } from "@/firebase"
 import { initiateEmailSignIn } from "@/firebase/non-blocking-login"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
-import { doc, getDoc, getFirestore } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import type { AppUser } from "@/lib/types"
 
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore(); // Use the hook to get firestore instance
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleRedirect = useCallback(async (uid: string) => {
+    if (!firestore) return; // Wait until firestore is available
+
     setIsRedirecting(true);
-    const db = getFirestore();
-    const userDocRef = doc(db, 'users', uid);
+    const userDocRef = doc(firestore, 'users', uid);
     try {
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
@@ -44,7 +46,7 @@ export default function LoginPage() {
       console.error("Error fetching user role, redirecting to dashboard:", error);
       router.push('/dashboard');
     }
-  }, [router]);
+  }, [router, firestore]); // Add firestore to dependency array
 
   useEffect(() => {
     if (user && !isRedirecting) {
