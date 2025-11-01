@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
@@ -75,6 +76,7 @@ type CartItem = {
   productName: string
   quantity: number // This is in the MAIN sale unit of the product
   price: number // This is the price per BASE unit
+  saleUnitName: string
   stockInfo: {
     stockInBaseUnit: number
     baseUnitName: string
@@ -218,7 +220,7 @@ export default function POSPage() {
   // #region Cart Management
   const addProductToCart = useCallback((product: Product) => {
       const existingItemIndex = cart.findIndex((item) => item.productId === product.id)
-      const { baseUnit, conversionFactor } = getUnitInfo(product.unitId)
+      const { name: saleUnitName, baseUnit, conversionFactor } = getUnitInfo(product.unitId)
 
       if (existingItemIndex > -1) {
         const newCart = [...cart]
@@ -233,6 +235,7 @@ export default function POSPage() {
             productName: product.name,
             quantity: 1,
             price: product.sellingPrice || 0,
+            saleUnitName: saleUnitName,
             stockInfo: {
               stockInBaseUnit: stockInBaseUnit,
               baseUnitName: baseUnit?.name || 'N/A',
@@ -445,7 +448,7 @@ export default function POSPage() {
                 <TableRow>
                   <TableHead className="w-[40%]">Sản phẩm</TableHead>
                   <TableHead className="text-right">Đơn giá</TableHead>
-                  <TableHead className="text-center w-36">Số lượng</TableHead>
+                  <TableHead className="text-center w-48">Số lượng</TableHead>
                   <TableHead className="text-right">Thành tiền</TableHead>
                 </TableRow>
               </TableHeader>
@@ -463,6 +466,7 @@ export default function POSPage() {
                 ) : (
                   cart.map((item) => {
                     const lineTotal = item.quantity * item.stockInfo.conversionFactor * item.price;
+                    const showConversion = item.saleUnitName !== item.stockInfo.baseUnitName;
                     return (
                       <TableRow key={item.productId}>
                         <TableCell className="font-medium">
@@ -473,31 +477,23 @@ export default function POSPage() {
                           {item.stockInfo.baseUnitName}
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() =>
-                                updateCartItem(item.productId, item.quantity - 1)
-                              }
-                            >
-                              <MinusCircle className="h-5 w-5" />
-                            </Button>
-                            <span className="font-bold text-lg w-10 text-center">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() =>
-                                updateCartItem(item.productId, item.quantity + 1)
-                              }
-                            >
-                              <PlusCircle className="h-5 w-5" />
-                            </Button>
-                          </div>
+                           <div className="flex items-center justify-center gap-2">
+                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.productId, item.quantity - 1)}>
+                               <MinusCircle className="h-5 w-5" />
+                             </Button>
+                             <div>
+                                <span className="font-bold text-lg w-10 text-center">{item.quantity}</span>
+                                <span className="text-sm text-muted-foreground ml-1">{item.saleUnitName}</span>
+                             </div>
+                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.productId, item.quantity + 1)}>
+                               <PlusCircle className="h-5 w-5" />
+                             </Button>
+                           </div>
+                          {showConversion && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              (1 {item.saleUnitName} = {item.stockInfo.conversionFactor} {item.stockInfo.baseUnitName})
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-bold text-lg">
                           {formatCurrency(lineTotal)}
