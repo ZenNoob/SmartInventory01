@@ -1,3 +1,4 @@
+
 'use client'
 
 import { notFound, useRouter } from 'next/navigation'
@@ -47,23 +48,22 @@ import { useMemo } from 'react'
 export default function ShiftDetailPage({ params }: { params: { id: string } }) {
   const firestore = useFirestore()
   const router = useRouter()
-  const shiftId = params.id;
 
   const shiftRef = useMemoFirebase(
-    () => (firestore && shiftId ? doc(firestore, 'shifts', shiftId) : null),
-    [firestore, shiftId]
+    () => (firestore && params.id ? doc(firestore, 'shifts', params.id) : null),
+    [firestore, params.id]
   )
   const { data: shift, isLoading: shiftLoading } = useDoc<Shift>(shiftRef)
 
   const salesQuery = useMemoFirebase(
     () =>
-      firestore && shiftId
+      firestore && params.id
         ? query(
             collection(firestore, 'sales_transactions'),
-            where('shiftId', '==', shiftId)
+            where('shiftId', '==', params.id)
           )
         : null,
-    [firestore, shiftId]
+    [firestore, params.id]
   )
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesQuery)
 
