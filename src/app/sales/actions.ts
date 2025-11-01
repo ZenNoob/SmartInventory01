@@ -2,8 +2,9 @@
 
 'use server'
 
-import { Sale, SalesItem } from "@/lib/types";
+import { Sale, SalesItem, LoyaltySettings, Customer } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
+import { FieldValue } from "firebase-admin/firestore";
 
 async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, transaction?: FirebaseFirestore.Transaction): Promise<string> {
     const today = new Date();
@@ -19,7 +20,6 @@ async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, tran
         .orderBy('invoiceNumber', 'desc')
         .limit(1);
 
-    // This is the fix: check if a transaction is passed.
     const snapshot = transaction ? await transaction.get(query) : await query.get();
     
     let nextSequence = 1;
@@ -31,6 +31,48 @@ async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, tran
 
     const sequenceString = nextSequence.toString().padStart(5, '0');
     return `${datePrefix}${sequenceString}`;
+}
+
+async function updateLoyalty(
+  transaction: FirebaseFirestore.Transaction,
+  firestore: FirebaseFirestore.Firestore,
+  customerId: string,
+  saleAmount: number
+) {
+  if (customerId === 'walk-in-customer') return;
+
+  const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
+  const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
+
+  if (!loyaltySettings || !loyaltySettings.pointsPerAmount || loyaltySettings.pointsPerAmount <= 0) {
+    return; // Loyalty program not configured or disabled
+  }
+
+  const customerRef = firestore.collection('customers').doc(customerId);
+  const customerDoc = await transaction.get(customerRef);
+
+  if (!customerDoc.exists) return; // Customer not found
+
+  const customerData = customerDoc.data() as Customer;
+  const earnedPoints = Math.floor(saleAmount / loyaltySettings.pointsPerAmount);
+
+  if (earnedPoints <= 0) return; // No points earned
+
+  const currentPoints = customerData.loyaltyPoints || 0;
+  const newTotalPoints = currentPoints + earnedPoints;
+
+  const sortedTiers = loyaltySettings.tiers.sort((a, b) => b.threshold - a.threshold);
+  const newTier = sortedTiers.find(tier => newTotalPoints >= tier.threshold);
+
+  const loyaltyUpdate: { loyaltyPoints: number; loyaltyTier?: Customer['loyaltyTier'] } = {
+    loyaltyPoints: newTotalPoints
+  };
+
+  if (newTier && newTier.name !== customerData.loyaltyTier) {
+    loyaltyUpdate.loyaltyTier = newTier.name;
+  }
+
+  transaction.update(customerRef, loyaltyUpdate);
 }
 
 
@@ -47,7 +89,7 @@ export async function upsertSaleTransaction(
   // If change is returned and there is change (remainingDebt is negative),
   // then the actual payment amount to be recorded is the finalAmount,
   // and the remaining debt should be 0.
-  if (sale.isChangeReturned && finalRemainingDebt && finalRemainingDebt < 0) {
+  if (sale.isChangeReturned && sale.finalAmount && finalRemainingDebt && finalRemainingDebt < 0) {
     finalCustomerPayment = sale.finalAmount; // Correct the payment amount
     finalRemainingDebt = 0; // Set remaining debt to 0
   }
@@ -123,10 +165,10 @@ export async function upsertSaleTransaction(
   } else {
     // --- CREATE LOGIC ---
     try {
-      const invoiceNumber = await getNextInvoiceNumber(firestore); // Get invoice number outside transaction
       const saleRef = firestore.collection('sales_transactions').doc();
       
       await firestore.runTransaction(async (transaction) => {
+        const invoiceNumber = await getNextInvoiceNumber(firestore, transaction);
         // --- ALL WRITES ---
         const saleDataToCreate = { 
             ...saleDataForDb, 
@@ -151,6 +193,10 @@ export async function upsertSaleTransaction(
               amount: saleDataForDb.customerPayment,
               notes: `Thanh toán cho đơn hàng ${invoiceNumber}`
           });
+        }
+        // Update loyalty points within the same transaction
+        if (saleDataForDb.customerId && saleDataForDb.finalAmount) {
+            await updateLoyalty(transaction, firestore, saleDataForDb.customerId, saleDataForDb.finalAmount);
         }
       });
       return { success: true, saleId: saleRef.id };
@@ -192,8 +238,25 @@ export async function deleteSaleTransaction(saleId: string): Promise<{ success: 
           transaction.delete(paymentsSnapshot.docs[0].ref);
         }
       }
+      // 4. Revert loyalty points
+       if (saleData.customerId && saleData.customerId !== 'walk-in-customer' && saleData.finalAmount && saleData.finalAmount > 0) {
+        const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
+        const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
+        if (loyaltySettings && loyaltySettings.pointsPerAmount > 0) {
+          const customerRef = firestore.collection('customers').doc(saleData.customerId);
+          const customerDoc = await transaction.get(customerRef);
+          if (customerDoc.exists) {
+              const earnedPoints = Math.floor(saleData.finalAmount / loyaltySettings.pointsPerAmount);
+              transaction.update(customerRef, {
+                  loyaltyPoints: FieldValue.increment(-earnedPoints)
+              });
+              // Note: Tier downgrade logic is complex and might be better handled in a separate batch job.
+              // For now, we only revert points.
+          }
+        }
+      }
 
-      // 4. Delete the main sale document
+      // 5. Delete the main sale document
       transaction.delete(saleRef);
 
       return { success: true };

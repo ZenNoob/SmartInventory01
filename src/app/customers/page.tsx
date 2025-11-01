@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useTransition } from "react"
@@ -11,6 +12,7 @@ import {
   ChevronDown,
   ArrowUp,
   ArrowDown,
+  Trophy,
 } from "lucide-react"
 
 import {
@@ -72,8 +74,37 @@ import { DebtPaymentDialog } from "./components/debt-payment-dialog"
 
 type CustomerTypeFilter = 'all' | 'personal' | 'business';
 type GenderFilter = 'all' | 'male' | 'female' | 'other';
-type SortKey = 'name' | 'status' | 'debt' | 'customerType' | 'customerGroup' | 'gender';
+type LoyaltyTierFilter = 'all' | 'diamond' | 'gold' | 'silver' | 'bronze' | 'none';
 
+type SortKey = 'name' | 'status' | 'debt' | 'customerType' | 'customerGroup' | 'gender' | 'loyaltyTier';
+
+
+const tierOrder: Record<string, number> = {
+  diamond: 4,
+  gold: 3,
+  silver: 2,
+  bronze: 1,
+};
+
+const getTierVariant = (tier: string | undefined): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  switch (tier) {
+    case 'diamond': return 'default';
+    case 'gold': return 'default';
+    case 'silver': return 'secondary';
+    case 'bronze': return 'outline';
+    default: return 'outline';
+  }
+};
+
+const getTierName = (tier: string | undefined) => {
+  switch (tier) {
+    case 'diamond': return 'Kim cương';
+    case 'gold': return 'Vàng';
+    case 'silver': return 'Bạc';
+    case 'bronze': return 'Đồng';
+    default: return 'Chưa có hạng';
+  }
+};
 
 export default function CustomersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -90,6 +121,7 @@ export default function CustomersPage() {
   const [isExporting, startExportingTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [loyaltyTierFilter, setLoyaltyTierFilter] = useState<LoyaltyTierFilter>('all');
 
 
   const firestore = useFirestore();
@@ -117,22 +149,14 @@ export default function CustomersPage() {
 
 
   const filteredCustomers = customers?.filter(customer => {
-    // Customer Type Filter
-    if (customerTypeFilter !== 'all' && customer.customerType !== customerTypeFilter) {
-      return false;
+    if (loyaltyTierFilter !== 'all') {
+      if(loyaltyTierFilter === 'none' && customer.loyaltyTier) return false;
+      if(loyaltyTierFilter !== 'none' && customer.loyaltyTier !== loyaltyTierFilter) return false;
     }
+    if (customerTypeFilter !== 'all' && customer.customerType !== customerTypeFilter) return false;
+    if (genderFilter !== 'all' && customer.gender !== genderFilter) return false;
+    if (groupFilter && (!customer.customerGroup || !customer.customerGroup.toLowerCase().includes(groupFilter.toLowerCase()))) return false;
 
-    // Gender Filter
-    if (genderFilter !== 'all' && customer.gender !== genderFilter) {
-      return false;
-    }
-    
-    // Group Filter
-    if (groupFilter && (!customer.customerGroup || !customer.customerGroup.toLowerCase().includes(groupFilter.toLowerCase()))) {
-      return false;
-    }
-
-    // Search Term Filter
     const term = searchTerm.toLowerCase();
     if (term) {
        return (
@@ -247,25 +271,20 @@ export default function CustomersPage() {
             valA = a.name.toLowerCase();
             valB = b.name.toLowerCase();
             break;
-          case 'status':
-            valA = a.status;
-            valB = b.status;
+          case 'loyaltyTier':
+            valA = tierOrder[a.loyaltyTier || ''] || 0;
+            valB = tierOrder[b.loyaltyTier || ''] || 0;
             break;
           case 'debt':
             valA = customerDebts.get(a.id)?.debt || 0;
             valB = customerDebts.get(b.id)?.debt || 0;
             break;
+          case 'status':
           case 'customerType':
-            valA = a.customerType;
-            valB = b.customerType;
-            break;
           case 'customerGroup':
-            valA = a.customerGroup?.toLowerCase() || '';
-            valB = b.customerGroup?.toLowerCase() || '';
-            break;
           case 'gender':
-            valA = a.gender || '';
-            valB = b.gender || '';
+            valA = (a[sortKey] || '').toString().toLowerCase();
+            valB = (b[sortKey] || '').toString().toLowerCase();
             break;
           default:
             return 0;
@@ -401,6 +420,16 @@ export default function CustomersPage() {
                   <DropdownMenuRadioItem value="female">Nữ</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="other">Khác</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                 <DropdownMenuSeparator />
+                <DropdownMenuLabel>Hạng thành viên</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={loyaltyTierFilter} onValueChange={(value) => setLoyaltyTierFilter(value as LoyaltyTierFilter)}>
+                  <DropdownMenuRadioItem value="all">Tất cả các hạng</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="diamond">Kim Cương</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="gold">Vàng</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="silver">Bạc</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="bronze">Đồng</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="none">Chưa có hạng</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportTemplate} disabled={isExporting}>
@@ -450,12 +479,11 @@ export default function CustomersPage() {
                 <TableHead className="w-16 hidden md:table-cell">STT</TableHead>
                 <SortableHeader sortKey="name">Tên</SortableHeader>
                 <SortableHeader sortKey="status">Trạng thái</SortableHeader>
+                <SortableHeader sortKey="loyaltyTier">Hạng</SortableHeader>
                 <SortableHeader sortKey="debt">Công nợ (Trả/Nợ)</SortableHeader>
                 <SortableHeader sortKey="customerType" className="hidden md:table-cell">Loại</SortableHeader>
                 <SortableHeader sortKey="customerGroup" className="hidden md:table-cell">Nhóm</SortableHeader>
-                <SortableHeader sortKey="gender" className="hidden md:table-cell">Giới tính</SortableHeader>
                 <TableHead className="hidden lg:table-cell">Email</TableHead>
-                <TableHead className="hidden lg:table-cell">Điện thoại</TableHead>
                 <TableHead>
                   <span className="sr-only">Hành động</span>
                 </TableHead>
@@ -501,6 +529,12 @@ export default function CustomersPage() {
                       </DropdownMenu>
                     </TableCell>
                      <TableCell>
+                      <Badge variant={getTierVariant(customer.loyaltyTier)} className="capitalize flex items-center gap-1">
+                        <Trophy className="h-3 w-3" />
+                        {getTierName(customer.loyaltyTier)}
+                      </Badge>
+                    </TableCell>
+                     <TableCell>
                       {debtInfo ? (
                         <div className="text-left">
                           <button 
@@ -523,13 +557,7 @@ export default function CustomersPage() {
                      <TableCell className="hidden md:table-cell">
                       {customer.customerGroup}
                     </TableCell>
-                     <TableCell className="capitalize hidden md:table-cell">
-                      {customer.gender === 'male' ? 'Nam' : customer.gender === 'female' ? 'Nữ' : customer.gender === 'other' ? 'Khác' : ''}
-                    </TableCell>
                     <TableCell className="hidden lg:table-cell">{customer.email}</TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {customer.phone}
-                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

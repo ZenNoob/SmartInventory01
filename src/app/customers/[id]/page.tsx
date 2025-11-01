@@ -1,5 +1,6 @@
+
 import { notFound } from "next/navigation"
-import { ChevronLeft, PlusCircle, CreditCard, Bot, Phone, Mail, MapPin, Cake, User, Building, Landmark } from "lucide-react"
+import { ChevronLeft, PlusCircle, CreditCard, Bot, Phone, Mail, MapPin, Cake, User, Building, Landmark, Trophy, Gem, Star, Shield } from "lucide-react"
 
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +52,24 @@ async function getCustomerData(customerId: string) {
     return { customer, sales, payments };
 }
 
+const getTierIcon = (tier: string | undefined) => {
+  switch (tier) {
+    case 'diamond': return <Gem className="h-4 w-4" />;
+    case 'gold': return <Trophy className="h-4 w-4" />;
+    case 'silver': return <Star className="h-4 w-4" />;
+    case 'bronze': return <Shield className="h-4 w-4" />;
+    default: return null;
+  }
+}
+const getTierName = (tier: string | undefined) => {
+  switch (tier) {
+    case 'diamond': return 'Kim Cương';
+    case 'gold': return 'Vàng';
+    case 'silver': return 'Bạc';
+    case 'bronze': return 'Đồng';
+    default: return 'Chưa có hạng';
+  }
+}
 
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
   const { customer, sales, payments } = await getCustomerData(params.id);
@@ -86,7 +105,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           <PredictRiskForm customer={customer} sales={sales} payments={payments} />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Tổng nợ</CardDescription>
@@ -97,6 +116,20 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           <CardContent>
             <div className="text-xs text-muted-foreground">
               Hạn mức tín dụng: {formatCurrency(customer.creditLimit)}
+            </div>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Khách hàng thân thiết</CardDescription>
+            <CardTitle className="text-2xl flex items-center gap-2">
+              {getTierIcon(customer.loyaltyTier)}
+              {getTierName(customer.loyaltyTier)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">
+              Điểm tích lũy: {customer.loyaltyPoints?.toLocaleString() || 0} điểm
             </div>
           </CardContent>
         </Card>
