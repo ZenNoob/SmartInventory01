@@ -25,7 +25,6 @@ import {
   useUser,
   useDoc,
 } from '@/firebase'
-import { useSidebar } from '@/components/ui/sidebar'
 import { getDocs, query, doc, collection } from 'firebase/firestore'
 import {
   Customer,
@@ -75,6 +74,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { useSidebar } from '@/components/ui/sidebar'
 
 
 type CartItem = {
@@ -402,27 +402,24 @@ export default function POSPage() {
   const handleCustomerPaymentChange = (value: number) => {
     setCustomerPayment(value);
     if (value > 0) {
-      const s = value.toString();
-      const suggestions = [
-          parseInt(s + '000'),
-          parseInt(s.slice(0, -1) + '0000'),
-          parseInt(s.slice(0, -2) + '00000'),
-      ].filter(n => n > value && n.toString().length <= 9); // Filter out smaller or too large numbers
-      
-      // Add denominations
-      const finalAmountStr = Math.ceil(finalAmount).toString();
-      const len = finalAmountStr.length;
-      const powerOf10 = Math.pow(10, len-1);
-      const firstDigit = parseInt(finalAmountStr[0]);
-      
-      const nextRoundUp = (firstDigit + 1) * powerOf10;
-      if (nextRoundUp > value) suggestions.push(nextRoundUp);
+        const s = value.toString();
+        const suggestions = [
+            parseInt(s + '000'),
+            parseInt(s.slice(0, -1) + '0000'),
+            parseInt(s.slice(0, -2) + '00000'),
+        ].filter(n => n > value && n.toString().length <= 9);
 
-      // Unique and sorted suggestions
-      setPaymentSuggestions([...new Set(suggestions)].sort((a,b) => a-b));
+        const finalAmountStr = Math.ceil(finalAmount).toString();
+        const len = finalAmountStr.length;
+        const powerOf10 = Math.pow(10, len - 1);
+        const firstDigit = parseInt(finalAmountStr[0]);
+        
+        const nextRoundUp = (firstDigit + 1) * powerOf10;
+        if (nextRoundUp > value) suggestions.push(nextRoundUp);
 
+        setPaymentSuggestions([...new Set(suggestions)].sort((a,b) => a - b));
     } else {
-      setPaymentSuggestions([]);
+        setPaymentSuggestions([]);
     }
   };
 
@@ -680,7 +677,7 @@ export default function POSPage() {
 
               <div className="flex justify-between items-center">
                   <Label className="font-bold">Khách cần trả</Label>
-                  <p className="font-bold text-2xl text-primary">{formatCurrency(finalAmount)}</p>
+                  <p className="font-bold text-base text-primary">{formatCurrency(finalAmount)}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerPayment">
@@ -720,7 +717,7 @@ export default function POSPage() {
                   <Label className={`font-semibold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {changeAmount >= 0 ? 'Tiền thối lại' : 'Còn thiếu'}
                   </Label>
-                  <p className={`font-bold text-xl ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  <p className={`font-bold text-base ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {formatCurrency(Math.abs(changeAmount))}
                   </p>
               </div>
