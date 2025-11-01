@@ -107,7 +107,7 @@ export default function ProductsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
-  const { permissions } = useUserRole();
+  const { permissions, isLoading: isRoleLoading } = useUserRole();
 
 
   const productsQuery = useMemoFirebase(() => {
@@ -236,7 +236,7 @@ export default function ProductsPage() {
     });
   }
 
-  const isLoading = productsLoading || categoriesLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
+  const isLoading = productsLoading || categoriesLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading || isRoleLoading;
   
   const getUnitInfo = useCallback((unitId: string) => {
     const unit = unitsMap.get(unitId);
@@ -404,6 +404,27 @@ export default function ProductsPage() {
     </TableHead>
   );
 
+  const canAdd = permissions?.products?.includes('add');
+  const canEdit = permissions?.products?.includes('edit');
+  const canDelete = permissions?.products?.includes('delete');
+  const canView = permissions?.products?.includes('view');
+
+  if (isLoading) {
+    return <p>Đang tải...</p>;
+  }
+
+  if (!canView) {
+     return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Truy cập bị từ chối</CardTitle>
+          <CardDescription>
+            Bạn không có quyền xem trang sản phẩm.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -531,20 +552,26 @@ export default function ProductsPage() {
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportTemplate} disabled={isExporting}>
-              <File className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                 {isExporting ? 'Đang xuất...' : 'Xuất Template'}
-              </span>
-            </Button>
-            <ImportProducts />
+            {canAdd && (
+            <>
+              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportTemplate} disabled={isExporting}>
+                <File className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  {isExporting ? 'Đang xuất...' : 'Xuất Template'}
+                </span>
+              </Button>
+              <ImportProducts />
+            </>
+            )}
             {permissions?.ai_forecast?.includes('view') && <PredictShortageForm />}
-            <Button size="sm" className="h-8 gap-1" onClick={handleAddProduct}>
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Thêm sản phẩm
-              </span>
-            </Button>
+            {canAdd && (
+              <Button size="sm" className="h-8 gap-1" onClick={handleAddProduct}>
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  Thêm sản phẩm
+                </span>
+              </Button>
+            )}
           </div>
         </div>
         <TabsContent value={statusFilter}>
@@ -652,15 +679,15 @@ export default function ProductsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => handleEditProduct(product)} disabled={isUpdating}>Nhập thêm sản phẩm</DropdownMenuItem>
-                              <DropdownMenuItem 
+                              {canEdit && <DropdownMenuItem onClick={() => handleEditProduct(product)} disabled={isUpdating}>Nhập thêm sản phẩm</DropdownMenuItem>}
+                              {canDelete && <DropdownMenuItem 
                                 className="text-destructive" 
                                 onClick={() => setProductToDelete(product)} 
                                 disabled={isUpdating || hasPurchaseHistory}
                               >
                                 Xóa
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
+                              </DropdownMenuItem>}
+                              {canEdit && <><DropdownMenuSeparator />
                               <DropdownMenuLabel>Thay đổi trạng thái</DropdownMenuLabel>
                                <DropdownMenuItem 
                                 onClick={() => handleStatusChange(product.id, 'active')}
@@ -679,7 +706,7 @@ export default function ProductsPage() {
                                 disabled={product.status === 'archived' || isUpdating}
                               >
                                 Chuyển sang Lưu trữ
-                              </DropdownMenuItem>
+                              </DropdownMenuItem></>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

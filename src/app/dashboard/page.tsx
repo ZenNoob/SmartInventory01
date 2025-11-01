@@ -92,7 +92,7 @@ export default function Dashboard() {
   const [salesSearchTerm, setSalesSearchTerm] = useState("");
   const [customerForPayment, setCustomerForPayment] = useState<CustomerDebtInfo | undefined>(undefined);
   const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
-  const { permissions } = useUserRole();
+  const { permissions, isLoading: isRoleLoading } = useUserRole();
 
 
   const firestore = useFirestore();
@@ -170,7 +170,7 @@ export default function Dashboard() {
     fetchAllSalesItems();
   }, [firestore, sales, salesLoading]);
   
-  const isLoading = customersLoading || salesLoading || paymentsLoading || productsLoading || unitsLoading || salesItemsLoading || categoriesLoading;
+  const isLoading = customersLoading || salesLoading || paymentsLoading || productsLoading || unitsLoading || salesItemsLoading || categoriesLoading || isRoleLoading;
 
   const getUnitInfo = useCallback((unitId: string) => {
     const unit = unitsMap.get(unitId);
@@ -387,6 +387,23 @@ export default function Dashboard() {
     xlsx.utils.book_append_sheet(wb, ws2, "SPBanChay");
 
     xlsx.writeFile(wb, `Report_${dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : 'all'}_${dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : ''}.xlsx`);
+  }
+
+  if (isLoading) {
+    return <p>Đang tải bảng điều khiển...</p>;
+  }
+
+  if (!permissions?.dashboard?.includes('view')) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Truy cập bị từ chối</CardTitle>
+          <CardDescription>
+            Bạn không có quyền xem bảng điều khiển.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   return (

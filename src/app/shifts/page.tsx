@@ -53,6 +53,7 @@ import { Input } from '@/components/ui/input'
 import { formatCurrency, cn } from '@/lib/utils'
 import Link from 'next/link'
 import { Calendar } from '@/components/ui/calendar'
+import { useUserRole } from '@/hooks/use-user-role'
 
 type SortKey = 'startTime' | 'userName' | 'status' | 'totalRevenue' | 'cashDifference';
 type StatusFilter = 'all' | 'active' | 'closed';
@@ -69,6 +70,7 @@ export default function ShiftsPage() {
   const [userFilter, setUserFilter] = useState<string>('all');
   
   const firestore = useFirestore()
+  const { permissions, isLoading: isRoleLoading } = useUserRole();
 
   const shiftsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -90,7 +92,7 @@ export default function ShiftsPage() {
 
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
 
-  const { data: shifts, isLoading } = useCollection<Shift>(shiftsQuery);
+  const { data: shifts, isLoading: shiftsLoading } = useCollection<Shift>(shiftsQuery);
   const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
 
   const filteredShifts = useMemo(() => {
@@ -174,6 +176,27 @@ export default function ShiftsPage() {
       </Button>
     </TableHead>
   )
+
+  const isLoading = shiftsLoading || usersLoading || isRoleLoading;
+  const canView = permissions?.reports_shifts?.includes('view');
+
+  if (isLoading) {
+    return <p>Đang tải...</p>;
+  }
+
+  if (!canView) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Truy cập bị từ chối</CardTitle>
+          <CardDescription>Bạn không có quyền xem trang này.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild><Link href="/dashboard">Quay lại Bảng điều khiển</Link></Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>

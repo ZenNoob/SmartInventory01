@@ -1,6 +1,8 @@
+
 'use client'
 
 import { useState, useMemo } from "react"
+import Link from 'next/link'
 import {
   MoreHorizontal,
   PlusCircle,
@@ -58,6 +60,7 @@ import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
+import { useUserRole } from "@/hooks/use-user-role"
 
 type SortKey = 'transactionDate' | 'type' | 'category' | 'amount' | 'reason';
 type TypeFilter = 'all' | 'thu' | 'chi';
@@ -75,13 +78,14 @@ export default function CashFlowPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const { permissions, isLoading: isRoleLoading } = useUserRole();
 
   const transactionsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "cash_transactions"), orderBy("transactionDate", "desc"));
   }, [firestore]);
 
-  const { data: transactions, isLoading } = useCollection<CashTransaction>(transactionsQuery);
+  const { data: transactions, isLoading: transactionsLoading } = useCollection<CashTransaction>(transactionsQuery);
 
   const categories = useMemo(() => {
     if (!transactions) return [];
@@ -209,6 +213,30 @@ export default function CashFlowPage() {
   const totalChi = useMemo(() => sortedTransactions.filter(t => t.type === 'chi').reduce((acc, t) => acc + t.amount, 0), [sortedTransactions]);
   const balance = totalThu - totalChi;
 
+  const isLoading = transactionsLoading || isRoleLoading;
+  const canView = permissions?.['cash-flow']?.includes('view');
+  const canAdd = permissions?.['cash-flow']?.includes('add');
+  const canEdit = permissions?.['cash-flow']?.includes('edit');
+  const canDelete = permissions?.['cash-flow']?.includes('delete');
+
+  if(isLoading) {
+    return <p>Đang tải...</p>
+  }
+
+  if (!canView) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Truy cập bị từ chối</CardTitle>
+          <CardDescription>Bạn không có quyền xem trang này.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild><Link href="/dashboard">Quay lại Bảng điều khiển</Link></Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <>
       <CashTransactionForm 
@@ -246,12 +274,12 @@ export default function CashFlowPage() {
               <File className="h-3.5 w-3.5" />
               Xuất file
           </Button>
-          <Button size="sm" className="h-8 gap-1" onClick={handleAddTransaction}>
+          {canAdd && <Button size="sm" className="h-8 gap-1" onClick={handleAddTransaction}>
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
               Tạo phiếu mới
             </span>
-          </Button>
+          </Button>}
         </div>
       </div>
       <Card>
@@ -327,8 +355,8 @@ export default function CashFlowPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>Sửa</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setTransactionToDelete(transaction)}>Xóa</DropdownMenuItem>
+                          {canEdit && <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>Sửa</DropdownMenuItem>}
+                          {canDelete && <DropdownMenuItem className="text-destructive" onClick={() => setTransactionToDelete(transaction)}>Xóa</DropdownMenuItem>}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -346,8 +374,7 @@ export default function CashFlowPage() {
                 <TableRow>
                     <TableCell colSpan={3} className="font-bold">Tổng cộng</TableCell>
                     <TableCell className="text-right font-bold text-primary">{formatCurrency(totalThu)}</TableCell>
-                    <TableCell className="text-right font-bold text-destructive">{formatCurrency(totalChi)}</TableCell>
-                    <TableCell colSpan={2} className={`text-right font-bold text-lg ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatCurrency(balance)}</TableCell>
+                    <TableCell colSpan={3} className={`text-right font-bold text-lg ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatCurrency(balance)}</TableCell>
                 </TableRow>
             </TableFooter>
           </Table>
