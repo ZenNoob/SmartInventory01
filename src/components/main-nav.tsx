@@ -23,6 +23,7 @@ import {
   FileBox,
   Wallet,
   DollarSign,
+  ChevronDown,
 } from 'lucide-react'
 
 import {
@@ -190,9 +191,12 @@ export function MainNav() {
             <Collapsible asChild>
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className="w-full" isActive={isActive('/reports')} tooltip="Báo cáo">
-                      <LineChart />
-                      {state === 'expanded' && <span>Báo cáo</span>}
+                    <SidebarMenuButton className="w-full justify-start" isActive={isActive('/reports')} tooltip="Báo cáo">
+                      <div className="flex items-center gap-2 flex-1">
+                        <LineChart />
+                        {state === 'expanded' && <span>Báo cáo</span>}
+                      </div>
+                      {state === 'expanded' && <ChevronDown className="h-4 w-4 ml-auto shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />}
                     </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent asChild>
