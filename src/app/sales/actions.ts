@@ -42,7 +42,7 @@ async function updateLoyalty(
 ) {
   const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
 
-  if (!loyaltySettings) return;
+  if (!loyaltySettings || !loyaltySettings.enabled) return;
   if (!customerDoc.exists) return;
 
   const customerData = customerDoc.data() as Customer;

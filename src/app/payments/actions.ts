@@ -1,4 +1,5 @@
 
+
 'use server'
 
 import { Payment, Customer, LoyaltySettings } from "@/lib/types";
@@ -18,7 +19,7 @@ async function updateLoyaltyOnPayment(
   const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
   const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
 
-  if (!loyaltySettings || !loyaltySettings.pointsPerAmount || loyaltySettings.pointsPerAmount <= 0) {
+  if (!loyaltySettings || !loyaltySettings.enabled || !loyaltySettings.pointsPerAmount || loyaltySettings.pointsPerAmount <= 0) {
     return;
   }
 

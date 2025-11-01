@@ -46,6 +46,7 @@ import { hexToHsl, hslToHex } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import { AlertCircle, FileDown, Loader2, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Switch } from '@/components/ui/switch'
 
 const loyaltyTierSchema = z.object({
   name: z.enum(['bronze', 'silver', 'gold', 'diamond']),
@@ -54,6 +55,7 @@ const loyaltyTierSchema = z.object({
 });
 
 const loyaltySettingsSchema = z.object({
+  enabled: z.boolean().default(false),
   pointsPerAmount: z.coerce.number().min(1, "Giá trị phải lớn hơn 0."),
   pointsToVndRate: z.coerce.number().min(0, "Giá trị phải là số không âm."),
   tiers: z.array(loyaltyTierSchema),
@@ -96,6 +98,7 @@ export default function SettingsPage() {
   const { data: themeSettings, isLoading } = useDoc<ThemeSettings>(settingsRef);
   
   const defaultLoyaltySettings: LoyaltySettings = {
+    enabled: false,
     pointsPerAmount: 100000, // 100,000 VND for 1 point
     pointsToVndRate: 1000, // 1 point = 1,000 VND
     tiers: [
@@ -265,6 +268,8 @@ export default function SettingsPage() {
       )}
     />
   );
+  
+  const loyaltyEnabled = form.watch('loyalty.enabled');
 
 
   return (
@@ -424,78 +429,105 @@ export default function SettingsPage() {
                   </div>
                   <Separator />
                   <div>
+                    <div className="space-y-1 mb-6">
                       <h3 className="text-lg font-medium">Chương trình khách hàng thân thiết</h3>
-                      <p className="text-sm text-muted-foreground mb-6">Cấu hình cách tích điểm và phân hạng thành viên.</p>
-                      <div className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <FormField
-                              control={form.control}
-                              name="loyalty.pointsPerAmount"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Tỷ lệ tích điểm</FormLabel>
-                                  <FormControl>
-                                    <Input type="number" {...field} />
-                                  </FormControl>
-                                  <FormDescription>
-                                    Số tiền (VNĐ) cần chi tiêu để nhận được 1 điểm.
-                                  </FormDescription>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="loyalty.pointsToVndRate"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Tỷ lệ quy đổi điểm</FormLabel>
-                                  <FormControl>
-                                    <Input type="number" {...field} />
-                                  </FormControl>
-                                  <FormDescription>
-                                    Giá trị của 1 điểm khi khách hàng sử dụng (VNĐ).
-                                  </FormDescription>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                        </div>
-                        <div>
-                          <h4 className="font-medium mb-2">Ngưỡng lên hạng (dựa trên tổng điểm đã tích lũy)</h4>
-                          <div className="space-y-4">
-                              {tierFields.map((field, index) => (
-                                <FormField
-                                  key={field.id}
-                                  control={form.control}
-                                  name={`loyalty.tiers.${index}.threshold`}
-                                  render={({ field }) => (
-                                      <FormItem className="max-w-xs">
-                                          <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
-                                          <FormControl>
-                                              <Input type="number" {...field} />
-                                          </FormControl>
-                                          <FormDescription>
-                                              Tổng điểm tích lũy tối thiểu để đạt hạng này.
-                                          </FormDescription>
-                                          <FormMessage />
-                                      </FormItem>
-                                  )}
-                                />
-                              ))}
+                      <p className="text-sm text-muted-foreground">Cấu hình cách tích điểm và phân hạng thành viên.</p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="loyalty.enabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mb-6">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Kích hoạt chương trình
+                            </FormLabel>
+                            <FormDescription>
+                              Bật hoặc tắt hệ thống tích điểm và phân hạng khách hàng.
+                            </FormDescription>
                           </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                      {loyaltyEnabled && (
+                        <div className="space-y-6 pl-4 border-l">
+                          <div className="grid md:grid-cols-2 gap-6">
+                              <FormField
+                                control={form.control}
+                                name="loyalty.pointsPerAmount"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Tỷ lệ tích điểm</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Số tiền (VNĐ) cần chi tiêu để nhận được 1 điểm.
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="loyalty.pointsToVndRate"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Tỷ lệ quy đổi điểm</FormLabel>
+                                    <FormControl>
+                                      <Input type="number" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Giá trị của 1 điểm khi khách hàng sử dụng (VNĐ).
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                          </div>
+                          <div>
+                            <h4 className="font-medium mb-2">Ngưỡng lên hạng (dựa trên tổng điểm đã tích lũy)</h4>
+                            <div className="space-y-4">
+                                {tierFields.map((field, index) => (
+                                  <FormField
+                                    key={field.id}
+                                    control={form.control}
+                                    name={`loyalty.tiers.${index}.threshold`}
+                                    render={({ field }) => (
+                                        <FormItem className="max-w-xs">
+                                            <FormLabel>Hạng {tierFields[index].vietnameseName}</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Tổng điểm tích lũy tối thiểu để đạt hạng này.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                  />
+                                ))}
+                            </div>
+                          </div>
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              Lưu cài đặt trước khi tính lại điểm. Việc tính toán lại có thể mất vài phút.
+                            </AlertDescription>
+                          </Alert>
+                          <Button type="button" variant="outline" onClick={handleRecalculate} disabled={isRecalculating || form.formState.isSubmitting}>
+                              {isRecalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              Tính lại điểm & phân hạng cho toàn bộ khách hàng
+                            </Button>
                         </div>
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            Lưu cài đặt trước khi tính lại điểm. Việc tính toán lại có thể mất vài phút.
-                          </AlertDescription>
-                        </Alert>
-                        <Button type="button" variant="outline" onClick={handleRecalculate} disabled={isRecalculating || form.formState.isSubmitting}>
-                            {isRecalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Tính lại điểm & phân hạng cho toàn bộ khách hàng
-                          </Button>
-                      </div>
+                      )}
                   </div>
                 </>
               )}

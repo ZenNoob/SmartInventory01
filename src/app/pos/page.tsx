@@ -463,6 +463,14 @@ export default function POSPage() {
         setPaymentSuggestions([]);
     }
   };
+  
+  const handleNewCustomerCreated = (newCustomerId?: string) => {
+    setIsCustomerFormOpen(false);
+    router.refresh();
+    if(newCustomerId){
+        setSelectedCustomerId(newCustomerId);
+    }
+  }
 
 
   const isLoading = customersLoading || productsLoading || unitsLoading || salesLoading || salesItemsLoading || settingsLoading;
@@ -479,7 +487,7 @@ export default function POSPage() {
     <>
     <CustomerForm 
       isOpen={isCustomerFormOpen} 
-      onOpenChange={setIsCustomerFormOpen} 
+      onOpenChange={handleNewCustomerCreated} 
     />
     <div className="flex flex-col h-[calc(100vh-5rem)] -m-6 bg-muted/30">
       <header className="p-4 border-b bg-background flex items-center gap-4">
@@ -737,7 +745,7 @@ export default function POSPage() {
                 </div>
               )}
               
-              {selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && settings?.loyalty && (
+              {selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && settings?.loyalty?.enabled && (
                 <div className="space-y-2 pt-2">
                     <Label htmlFor="pointsUsed">Sử dụng điểm ({selectedCustomer.loyaltyPoints || 0} điểm khả dụng)</Label>
                     <div className="flex items-center gap-2">
@@ -749,16 +757,15 @@ export default function POSPage() {
                           max={selectedCustomer.loyaltyPoints || 0}
                       />
                     </div>
+                    {pointsDiscount > 0 && (
+                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>Giảm giá điểm thưởng ({pointsUsed} điểm):</span>
+                            <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
+                        </div>
+                    )}
                 </div>
               )}
-
-              {pointsDiscount > 0 && (
-                <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <span>Giảm giá điểm thưởng ({pointsUsed} điểm):</span>
-                    <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
-                </div>
-              )}
-
+              
               {vatRate > 0 && (
                 <div className="flex justify-between items-center">
                     <Label>Thuế VAT ({vatRate}%):</Label>

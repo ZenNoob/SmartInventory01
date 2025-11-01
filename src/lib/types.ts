@@ -126,6 +126,7 @@ export type LoyaltyTierConfig = {
 };
 
 export type LoyaltySettings = {
+  enabled: boolean;
   pointsPerAmount: number; // How much money to spend to get 1 point
   pointsToVndRate: number; // How much 1 point is worth in VND
   tiers: LoyaltyTierConfig[];
