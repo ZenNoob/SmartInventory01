@@ -15,6 +15,7 @@ import {
   Truck,
   Sparkles,
   PackagePlus,
+  Store,
 } from 'lucide-react'
 
 import {
@@ -56,6 +57,8 @@ export function MainNav() {
   const { data: admins, isLoading: isAdminLoading } = useCollection<AppUser>(adminsQuery);
 
   const isActive = (path: string) => {
+    // Exact match for dashboard, startsWith for others
+    if (path === '/dashboard') return pathname === path;
     return pathname.startsWith(path)
   }
 
@@ -90,6 +93,18 @@ export function MainNav() {
                   <Link href="/dashboard">
                     <Home />
                     {state === 'expanded' && <span>Bảng điều khiển</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/pos')}
+                  tooltip="POS Bán tại quầy"
+                >
+                  <Link href="/pos">
+                    <Store />
+                    {state === 'expanded' && <span className='text-primary font-bold'>POS Bán tại quầy</span>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
