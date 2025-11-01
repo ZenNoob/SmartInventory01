@@ -47,14 +47,98 @@ const defaultPermissions: Record<string, Permissions> = {
         reports_sold_products: ['view'],
     },
     inventory_manager: {
-        dashboard: ['view'],
-        categories: ['view', 'add', 'edit'],
-        units: ['view', 'add', 'edit'],
-        suppliers: ['view', 'add', 'edit', 'delete'],
-        products: ['view', 'add', 'edit'],
-        purchases: ['view', 'add', 'edit'],
-        reports_inventory: ['view'],
-    },
+        'reports_supplier_debt': [
+                'view'
+        ],
+        'reports_transactions': [
+                'view'
+        ],
+        'reports_profit': [
+                'view'
+        ],
+        'reports_supplier_debt_tracking': [
+                'view'
+        ],
+        'purchases': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_sold_products': [
+                'view'
+        ],
+        'products': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'suppliers': [
+                'view'
+        ],
+        'pos': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'units': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'customers': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_ai_basket_analysis': [
+                'view'
+        ],
+        'reports_shifts': [
+                'view'
+        ],
+        'reports_inventory': [
+                'view'
+        ],
+        'ai_forecast': [
+                'view'
+        ],
+        'sales': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_debt': [
+                'view'
+        ],
+        'reports_income_statement': [
+                'view'
+        ],
+        'categories': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_revenue': [
+                'view'
+        ],
+        'users': [],
+        'reports': [
+                'view'
+        ],
+        'settings': [],
+        'reports_ai_segmentation': [
+                'view'
+        ],
+        'cash-flow': [
+                'view',
+                'add',
+                'edit',
+                'delete'
+        ],
+        'dashboard': [
+                'view'
+        ]
+},
     salesperson: {
         pos: ['view', 'add'],
         customers: ['view', 'add'],
