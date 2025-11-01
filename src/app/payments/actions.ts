@@ -1,3 +1,4 @@
+
 'use server'
 
 import { Payment, Customer, LoyaltySettings } from "@/lib/types";
@@ -13,10 +14,10 @@ async function updateLoyaltyOnPayment(
 ) {
   if (customerId === 'walk-in-customer') return;
 
+  // --- READS FIRST ---
   const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
   const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
 
-  // Do nothing if loyalty program is not configured
   if (!loyaltySettings || !loyaltySettings.pointsPerAmount || loyaltySettings.pointsPerAmount <= 0) {
     return;
   }
@@ -29,23 +30,21 @@ async function updateLoyaltyOnPayment(
     return;
   }
 
+  // --- THEN WRITES ---
   const customerData = customerDoc.data() as Customer;
   
-  // Calculate points earned from this specific payment
   const earnedPoints = Math.floor(paymentAmount / loyaltySettings.pointsPerAmount);
   
   if (earnedPoints <= 0) {
-    return; // No points earned for this payment, no update needed.
+    return;
   }
 
   const currentSpendablePoints = customerData.loyaltyPoints || 0;
   const currentLifetimePoints = customerData.lifetimePoints || 0;
 
-  // Add new points
   const newSpendablePoints = currentSpendablePoints + earnedPoints;
   const newLifetimePoints = currentLifetimePoints + earnedPoints;
   
-  // Determine new tier based on lifetime points
   const sortedTiers = loyaltySettings.tiers.sort((a, b) => b.threshold - a.threshold);
   const newTier = sortedTiers.find(tier => newLifetimePoints >= tier.threshold);
   const newTierName = newTier?.name || undefined;
@@ -75,14 +74,17 @@ export async function addPayment(
     try {
        const paymentId = await firestore.runTransaction(async (transaction) => {
             const paymentRef = firestore.collection('payments').doc();
+            
+            // We pass the transaction object to the loyalty update function.
+            // It will perform its own reads and writes within this transaction.
+            await updateLoyaltyOnPayment(transaction, firestore, paymentData.customerId, paymentData.amount);
+
+            // Now, perform the write for the payment itself.
             const newPayment = {
                 ...paymentData,
                 id: paymentRef.id,
             };
             transaction.set(paymentRef, newPayment);
-
-            // After recording the payment, update the customer's loyalty points
-            await updateLoyaltyOnPayment(transaction, firestore, paymentData.customerId, paymentData.amount);
             
             return paymentRef.id;
         });

@@ -35,21 +35,14 @@ async function getNextInvoiceNumber(firestore: FirebaseFirestore.Firestore, tran
 
 async function updateLoyalty(
   transaction: FirebaseFirestore.Transaction,
-  firestore: FirebaseFirestore.Firestore,
-  customerId: string,
+  settingsDoc: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>,
+  customerDoc: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>,
   saleAmount: number,
   pointsUsed: number = 0
 ) {
-  if (customerId === 'walk-in-customer') return;
-
-  const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
   const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
 
   if (!loyaltySettings) return;
-
-  const customerRef = firestore.collection('customers').doc(customerId);
-  const customerDoc = await transaction.get(customerRef);
-
   if (!customerDoc.exists) return;
 
   const customerData = customerDoc.data() as Customer;
@@ -81,7 +74,7 @@ async function updateLoyalty(
     loyaltyUpdate.loyaltyTier = newTierName || FieldValue.delete();
   }
 
-  transaction.update(customerRef, loyaltyUpdate);
+  transaction.update(customerDoc.ref, loyaltyUpdate);
 }
 
 
@@ -112,17 +105,25 @@ export async function upsertSaleTransaction(
     try {
       const saleRef = firestore.collection('sales_transactions').doc(sale.id!);
       await firestore.runTransaction(async (transaction) => {
+        // --- READS FIRST ---
         const oldSaleDoc = await transaction.get(saleRef);
         if (!oldSaleDoc.exists) throw new Error("Đơn hàng không tồn tại.");
+        
         const oldSaleData = oldSaleDoc.data() as Sale;
-
         const oldItemsQuery = saleRef.collection('sales_items');
         const oldItemsSnapshot = await transaction.get(oldItemsQuery);
+
+        const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
+        const customerRef = oldSaleData.customerId !== 'walk-in-customer' ? firestore.collection('customers').doc(oldSaleData.customerId) : null;
+        const customerDoc = customerRef ? await transaction.get(customerRef) : null;
+
+
+        // --- THEN WRITES ---
         oldItemsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
         
         // Revert points from old sale before applying new ones
-        if (oldSaleData.customerId && oldSaleData.customerId !== 'walk-in-customer') {
-            await updateLoyalty(transaction, firestore, oldSaleData.customerId, -oldSaleData.finalAmount, -(oldSaleData.pointsUsed || 0));
+        if (customerDoc && customerDoc.exists) {
+            await updateLoyalty(transaction, settingsDoc, customerDoc, -oldSaleData.finalAmount, -(oldSaleData.pointsUsed || 0));
         }
 
         const saleDataToUpdate = { ...saleDataForDb, invoiceNumber: oldSaleData.invoiceNumber };
@@ -134,11 +135,12 @@ export async function upsertSaleTransaction(
         });
 
         // Apply new points
-        if (saleDataForDb.customerId && saleDataForDb.finalAmount) {
-            await updateLoyalty(transaction, firestore, saleDataForDb.customerId, saleDataForDb.finalAmount, saleDataForDb.pointsUsed);
+        if (customerDoc && customerDoc.exists && saleDataForDb.finalAmount) {
+            // We need to re-fetch the customer doc after the first point update to get the latest state for the second update
+            const freshCustomerDoc = await transaction.get(customerDoc.ref);
+            await updateLoyalty(transaction, settingsDoc, freshCustomerDoc, saleDataForDb.finalAmount, saleDataForDb.pointsUsed);
         }
 
-        // We assume payment is handled separately for updates for simplicity
       });
       return { success: true, saleId: sale.id };
     } catch (error: any) {
@@ -151,7 +153,13 @@ export async function upsertSaleTransaction(
       const saleRef = firestore.collection('sales_transactions').doc();
       
       await firestore.runTransaction(async (transaction) => {
+        // --- READS FIRST ---
         const invoiceNumber = await getNextInvoiceNumber(firestore, transaction);
+        const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
+        const customerRef = (saleDataForDb.customerId && saleDataForDb.customerId !== 'walk-in-customer') ? firestore.collection('customers').doc(saleDataForDb.customerId) : null;
+        const customerDoc = customerRef ? await transaction.get(customerRef) : null;
+
+        // --- THEN WRITES ---
         const saleDataToCreate = { 
             ...saleDataForDb, 
             id: saleRef.id, 
@@ -175,8 +183,8 @@ export async function upsertSaleTransaction(
               notes: `Thanh toán cho đơn hàng ${invoiceNumber}`
           });
         }
-        if (saleDataForDb.customerId && saleDataForDb.finalAmount) {
-            await updateLoyalty(transaction, firestore, saleDataForDb.customerId, saleDataForDb.finalAmount, saleDataForDb.pointsUsed);
+        if (customerDoc && customerDoc.exists && saleDataForDb.finalAmount) {
+            await updateLoyalty(transaction, settingsDoc, customerDoc, saleDataForDb.finalAmount, saleDataForDb.pointsUsed);
         }
       });
       return { success: true, saleId: saleRef.id };
@@ -194,27 +202,35 @@ export async function deleteSaleTransaction(saleId: string): Promise<{ success: 
 
   try {
     return await firestore.runTransaction(async (transaction) => {
+        // --- READS FIRST ---
       const saleDoc = await transaction.get(saleRef);
       if (!saleDoc.exists) throw new Error("Đơn hàng không tồn tại.");
+      
       const saleData = saleDoc.data() as Sale;
-
       const itemsQuery = saleRef.collection('sales_items');
       const itemsSnapshot = await transaction.get(itemsQuery);
-      itemsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
-
+      
+      let paymentsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = null;
       if (saleData.customerId && saleData.customerPayment && saleData.customerPayment > 0) {
         const paymentNote = `Thanh toán cho đơn hàng ${saleData.invoiceNumber}`;
         const paymentsQuery = firestore.collection('payments')
             .where('customerId', '==', saleData.customerId)
             .where('notes', '==', paymentNote);
-        
-        const paymentsSnapshot = await transaction.get(paymentsQuery);
-        if (!paymentsSnapshot.empty) {
-          transaction.delete(paymentsSnapshot.docs[0].ref);
-        }
+        paymentsSnapshot = await transaction.get(paymentsQuery);
       }
-       if (saleData.customerId && saleData.customerId !== 'walk-in-customer' && saleData.finalAmount && saleData.finalAmount > 0) {
-        await updateLoyalty(transaction, firestore, saleData.customerId, -saleData.finalAmount, -(saleData.pointsUsed || 0));
+      
+      const settingsDoc = await transaction.get(firestore.collection('settings').doc('theme'));
+      const customerRef = (saleData.customerId && saleData.customerId !== 'walk-in-customer') ? firestore.collection('customers').doc(saleData.customerId) : null;
+      const customerDoc = customerRef ? await transaction.get(customerRef) : null;
+
+        // --- THEN WRITES ---
+      itemsSnapshot.docs.forEach(doc => transaction.delete(doc.ref));
+
+      if (paymentsSnapshot && !paymentsSnapshot.empty) {
+        transaction.delete(paymentsSnapshot.docs[0].ref);
+      }
+       if (customerDoc && customerDoc.exists && saleData.finalAmount && saleData.finalAmount > 0) {
+        await updateLoyalty(transaction, settingsDoc, customerDoc, -saleData.finalAmount, -(saleData.pointsUsed || 0));
       }
 
       transaction.delete(saleRef);
