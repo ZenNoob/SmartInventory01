@@ -194,24 +194,17 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
 
     const debtMap = new Map<string, number>();
     
-    // Determine which sales and payments to consider
-    const salesToConsider = sale ? sales.filter(s => s.id !== sale.id) : sales;
-    const paymentsToConsider = sale ? payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.invoiceNumber}`) : payments;
-
     customers.forEach(customer => {
-        const customerSales = salesToConsider.filter(s => s.customerId === customer.id);
-        
-        // Correctly separate sales from returns
-        const totalRevenue = customerSales.filter(s => s.finalAmount >= 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-        const totalReturns = customerSales.filter(s => s.finalAmount < 0).reduce((sum, s) => sum + (s.finalAmount || 0), 0); // This will be a negative number
+        const customerSales = sales.filter(s => s.customerId === customer.id);
+        const customerPayments = payments.filter(p => p.customerId === customer.id);
 
-        const customerPayments = paymentsToConsider.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
+        const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+        const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
         
-        // Correct debt calculation
-        debtMap.set(customer.id, totalRevenue + totalReturns - customerPayments);
+        debtMap.set(customer.id, totalRevenue - totalPaid);
     });
     return debtMap;
-  }, [customers, sales, payments, sale]);
+  }, [customers, sales, payments]);
 
 
   const refinedSaleFormSchema = useMemo(() => saleFormSchema.superRefine((data, ctx) => {
@@ -344,8 +337,30 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   const vatRate = settings?.vatRate || 0;
   const vatAmount = (amountAfterDiscount * vatRate) / 100;
   const finalAmount = amountAfterDiscount + vatAmount;
+  
+  const previousDebt = useMemo(() => {
+    if (!selectedCustomerId) return 0;
+    
+    // If we are editing a sale, calculate the debt *before* this sale
+    if (sale) {
+      const salesToConsider = sales.filter(s => s.id !== sale.id);
+      const paymentsToConsider = payments.filter(p => p.notes !== `Thanh toán cho đơn hàng ${sale.invoiceNumber}`);
 
-  const previousDebt = customerDebts.get(selectedCustomerId) || 0;
+      const customerSales = salesToConsider.filter(s => s.customerId === selectedCustomerId);
+      const totalRevenue = customerSales.reduce((sum, s) => sum + (s.finalAmount || 0), 0);
+      
+      const customerPayments = paymentsToConsider.filter(p => p.customerId === selectedCustomerId);
+      const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
+
+      return totalRevenue - totalPaid;
+    }
+    
+    // If creating a new sale, use the pre-calculated total current debt
+    return customerDebts.get(selectedCustomerId) || 0;
+
+  }, [selectedCustomerId, customerDebts, sales, payments, sale]);
+
+
   const totalPayable = finalAmount + previousDebt;
   const remainingDebt = totalPayable - (customerPayment || 0);
   const isChange = remainingDebt < 0;
