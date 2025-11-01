@@ -51,7 +51,7 @@ const purchaseOrderItemSchema = z.object({
 });
 
 const purchaseOrderSchema = z.object({
-  supplierId: z.string().min(1, "Nhà cung cấp là bắt buộc."),
+  supplierId: z.string().optional(),
   importDate: z.string().min(1, "Ngày nhập là bắt buộc."),
   items: z.array(purchaseOrderItemSchema).min(1, "Đơn nhập phải có ít nhất một sản phẩm."),
   notes: z.string().optional(),

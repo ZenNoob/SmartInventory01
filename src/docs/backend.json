@@ -593,7 +593,7 @@
           "items": { "$ref": "#/entities/PurchaseOrderItem" }
         }
       },
-      "required": ["id", "orderNumber", "supplierId", "importDate", "totalAmount", "createdAt", "items"]
+      "required": ["id", "orderNumber", "importDate", "totalAmount", "createdAt", "items"]
     }
   },
   "auth": {

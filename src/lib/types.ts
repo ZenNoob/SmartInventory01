@@ -192,7 +192,7 @@ export type PurchaseOrderItem = {
 export type PurchaseOrder = {
   id: string;
   orderNumber: string;
-  supplierId: string;
+  supplierId?: string;
   importDate: string; // ISO date string
   items: PurchaseOrderItem[];
   totalAmount: number;
