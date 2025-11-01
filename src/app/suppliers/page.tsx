@@ -46,14 +46,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
-import { Supplier } from "@/lib/types"
+import { Supplier, PurchaseOrder, SupplierPayment } from "@/lib/types"
 import { SupplierForm } from "./components/supplier-form"
 import { deleteSupplier } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { formatCurrency } from "@/lib/utils"
+import { SupplierPaymentForm } from "./components/supplier-payment-form"
 
-type SortKey = 'name' | 'contactPerson' | 'email' | 'phone';
+type SortKey = 'name' | 'contactPerson' | 'email' | 'phone' | 'debt';
 
 export default function SuppliersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -63,17 +65,35 @@ export default function SuppliersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [supplierForPayment, setSupplierForPayment] = useState<any>(null);
   
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
 
-  const suppliersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "suppliers"));
-  }, [firestore]);
+  const suppliersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "suppliers")) : null, [firestore]);
+  const purchasesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "purchase_orders")) : null, [firestore]);
+  const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "supplier_payments")) : null, [firestore]);
 
-  const { data: suppliers, isLoading } = useCollection<Supplier>(suppliersQuery);
+  const { data: suppliers, isLoading: suppliersLoading } = useCollection<Supplier>(suppliersQuery);
+  const { data: purchases, isLoading: purchasesLoading } = useCollection<PurchaseOrder>(purchasesQuery);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<SupplierPayment>(paymentsQuery);
+
+  const supplierDebts = useMemo(() => {
+    if (!suppliers || !purchases || !payments) return new Map();
+    const debtMap = new Map<string, { totalPurchases: number; totalPayments: number; debt: number }>();
+    suppliers.forEach(supplier => {
+        const supplierPurchases = purchases.filter(p => p.supplierId === supplier.id).reduce((sum, p) => sum + p.totalAmount, 0);
+        const supplierPayments = payments.filter(p => p.supplierId === supplier.id).reduce((sum, p) => sum + p.amount, 0);
+        debtMap.set(supplier.id, {
+            totalPurchases: supplierPurchases,
+            totalPayments: supplierPayments,
+            debt: supplierPurchases - supplierPayments
+        });
+    });
+    return debtMap;
+  }, [suppliers, purchases, payments]);
+
 
   const filteredSuppliers = suppliers?.filter(supplier => {
     const term = searchTerm.toLowerCase();
@@ -98,8 +118,14 @@ export default function SuppliersPage() {
     let sortableItems = [...(filteredSuppliers || [])];
     if (sortKey) {
       sortableItems.sort((a, b) => {
-        const valA = (a[sortKey] || '').toLowerCase();
-        const valB = (b[sortKey] || '').toLowerCase();
+        let valA, valB;
+        if (sortKey === 'debt') {
+          valA = supplierDebts.get(a.id)?.debt || 0;
+          valB = supplierDebts.get(b.id)?.debt || 0;
+        } else {
+          valA = (a[sortKey] || '').toLowerCase();
+          valB = (b[sortKey] || '').toLowerCase();
+        }
 
         if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
         if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
@@ -107,10 +133,10 @@ export default function SuppliersPage() {
       });
     }
     return sortableItems;
-  }, [filteredSuppliers, sortKey, sortDirection]);
+  }, [filteredSuppliers, sortKey, sortDirection, supplierDebts]);
 
-  const SortableHeader = ({ sortKey: key, children }: { sortKey: SortKey; children: React.ReactNode }) => (
-    <TableHead>
+  const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode, className?: string; }) => (
+    <TableHead className={className}>
       <Button variant="ghost" onClick={() => handleSort(key)} className="px-2 py-1 h-auto">
         {children}
         {sortKey === key && (
@@ -150,6 +176,10 @@ export default function SuppliersPage() {
     setIsDeleting(false);
     setSupplierToDelete(null);
   }
+  
+  const isLoading = suppliersLoading || purchasesLoading || paymentsLoading;
+  const currentDebtInfo = supplierForPayment ? supplierDebts.get(supplierForPayment.id) : undefined;
+
 
   return (
     <>
@@ -158,6 +188,17 @@ export default function SuppliersPage() {
         onOpenChange={setIsFormOpen}
         supplier={selectedSupplier}
       />
+      {supplierForPayment && currentDebtInfo && (
+        <SupplierPaymentForm
+          isOpen={!!supplierForPayment}
+          onOpenChange={() => setSupplierForPayment(null)}
+          supplier={{
+            supplierId: supplierForPayment.id,
+            supplierName: supplierForPayment.name,
+            finalDebt: currentDebtInfo.debt
+          }}
+        />
+      )}
       <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -211,30 +252,44 @@ export default function SuppliersPage() {
               <TableRow>
                 <TableHead className="w-16">STT</TableHead>
                 <SortableHeader sortKey="name">Tên Nhà cung cấp</SortableHeader>
-                <SortableHeader sortKey="contactPerson">Người liên hệ</SortableHeader>
                 <SortableHeader sortKey="phone">Điện thoại</SortableHeader>
-                <SortableHeader sortKey="email">Email</SortableHeader>
+                <TableHead className="text-right">Tổng nhập</TableHead>
+                <TableHead className="text-right">Đã trả</TableHead>
+                <SortableHeader sortKey="debt" className="text-right">Công nợ</SortableHeader>
                 <TableHead>
                   <span className="sr-only">Hành động</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Đang tải...</TableCell></TableRow>}
-              {!isLoading && sortedSuppliers?.map((supplier, index) => (
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Đang tải...</TableCell></TableRow>}
+              {!isLoading && sortedSuppliers?.map((supplier, index) => {
+                const debtInfo = supplierDebts.get(supplier.id);
+                const hasDebt = debtInfo && debtInfo.debt > 0;
+                return (
                   <TableRow key={supplier.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       {supplier.name}
                     </TableCell>
                     <TableCell>
-                      {supplier.contactPerson}
-                    </TableCell>
-                    <TableCell>
                       {supplier.phone}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {supplier.email}
+                     <TableCell className="text-right">
+                      {debtInfo ? formatCurrency(debtInfo.totalPurchases) : '...'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {debtInfo ? formatCurrency(debtInfo.totalPayments) : '...'}
+                    </TableCell>
+                    <TableCell className={`text-right font-semibold ${hasDebt ? 'text-destructive' : ''}`}>
+                      <Button 
+                        variant="link" 
+                        onClick={() => hasDebt && setSupplierForPayment(supplier)}
+                        disabled={!hasDebt}
+                        className={`p-0 h-auto ${hasDebt ? 'text-destructive' : ''}`}
+                      >
+                         {debtInfo ? formatCurrency(debtInfo.debt) : '...'}
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -256,10 +311,10 @@ export default function SuppliersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
                 {!isLoading && sortedSuppliers?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
+                        <TableCell colSpan={7} className="text-center h-24">
                             Không tìm thấy nhà cung cấp nào.
                         </TableCell>
                     </TableRow>
