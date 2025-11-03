@@ -12,7 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { List, ListChecks, ListPlus, Truck, BarChart2, DollarSign, FileText, History, Home, Settings, ShoppingCart, Store, User, Users2, Warehouse, Wallet, Building, Briefcase, Sparkles, PackagePlus, LineChart } from "lucide-react"
+import { List, ListChecks, ListPlus, Truck, BarChart2, DollarSign, FileText, History, Home, Settings, ShoppingCart, Store, User, Users2, Warehouse, Wallet, Building, Briefcase, Sparkles, PackagePlus, LineChart, Star, Zap, Gem } from "lucide-react"
 
 export default function GuidePage() {
   return (
@@ -23,6 +23,84 @@ export default function GuidePage() {
       </p>
 
       <div className="space-y-6">
+
+        {/* =======================
+              Các Gói Triển Khai
+        ======================== */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Các Gói Triển Khai & Báo giá</CardTitle>
+            <CardDescription>Lựa chọn gói dịch vụ phù hợp nhất với nhu cầu kinh doanh của bạn.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* Gói Cơ bản */}
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Star className="h-6 w-6 text-yellow-500" />
+                    <CardTitle>Gói Cơ bản</CardTitle>
+                  </div>
+                  <CardDescription>Dành cho các cửa hàng cần những chức năng thiết yếu để bắt đầu.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-4">
+                    <p className="text-3xl font-bold">1.500.000 <span className="text-sm font-normal text-muted-foreground">VNĐ/năm</span></p>
+                    <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+                      <li>POS - Bán hàng tại quầy</li>
+                      <li>Quản lý Sản phẩm, Đơn vị, Danh mục</li>
+                      <li>Quản lý Khách hàng & Nhà cung cấp</li>
+                      <li>Quản lý Nhập - Bán hàng</li>
+                      <li>Sổ quỹ Thu-Chi</li>
+                      <li>Báo cáo cơ bản (Doanh thu, Tồn kho)</li>
+                    </ul>
+                </CardContent>
+              </Card>
+
+              {/* Gói Tiêu chuẩn */}
+              <Card className="border-primary flex flex-col">
+                 <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-6 w-6 text-blue-500" />
+                    <CardTitle>Gói Tiêu chuẩn</CardTitle>
+                  </div>
+                  <CardDescription>Mở rộng quy mô với các công cụ quản lý và báo cáo nâng cao.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-4">
+                    <p className="text-3xl font-bold">3.000.000 <span className="text-sm font-normal text-muted-foreground">VNĐ/năm</span></p>
+                    <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+                      <li><strong className="text-foreground">Tất cả tính năng của Gói Cơ bản</strong></li>
+                      <li>Quản lý Ca làm việc</li>
+                      <li>Báo cáo nâng cao (Lợi nhuận, Công nợ chi tiết)</li>
+                      <li>Quản lý Người dùng & Phân quyền chi tiết</li>
+                      <li>Tùy chỉnh Cài đặt (logo, màu sắc, VAT)</li>
+                       <li>Chương trình Khách hàng thân thiết (Tích điểm)</li>
+                    </ul>
+                </CardContent>
+              </Card>
+
+              {/* Gói Nâng cao */}
+              <Card className="flex flex-col">
+                 <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Gem className="h-6 w-6 text-violet-500" />
+                    <CardTitle>Gói Nâng cao</CardTitle>
+                  </div>
+                  <CardDescription>Tối ưu hóa kinh doanh với sức mạnh của Trí tuệ nhân tạo (AI).</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-4">
+                    <p className="text-3xl font-bold">5.000.000 <span className="text-sm font-normal text-muted-foreground">VNĐ/năm</span></p>
+                    <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+                      <li><strong className="text-foreground">Tất cả tính năng của Gói Tiêu chuẩn</strong></li>
+                      <li>Phân tích & Phân khúc Khách hàng bằng AI</li>
+                      <li>Phân tích Rổ hàng hóa (sản phẩm mua kèm) bằng AI</li>
+                      <li>Dự báo Doanh số & Đề xuất nhập hàng bằng AI</li>
+                    </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
 
         {/* =======================
               Bảng điều khiển
