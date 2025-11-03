@@ -2,6 +2,7 @@
 
 
 
+
 'use client'
 
 import * as React from 'react'
@@ -394,27 +395,41 @@ export default function SettingsPage() {
                                     <FormControl>
                                       <RadioGroupItem value="basic" id="pkg-basic" className="sr-only peer" />
                                     </FormControl>
-                                    <FormLabel htmlFor="pkg-basic" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                      <span className="font-bold text-lg">Cơ bản</span>
-                                      <span className="text-sm text-muted-foreground mt-2 text-center">Các chức năng thiết yếu để bắt đầu kinh doanh.</span>
+                                    <FormLabel htmlFor="pkg-basic" className="flex flex-col rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                      <span className="font-bold text-lg mb-2">Cơ bản</span>
+                                      <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 text-left w-full">
+                                        <li>POS - Bán tại quầy</li>
+                                        <li>Quản lý Sản phẩm, Khách hàng</li>
+                                        <li>Sổ quỹ Thu-Chi</li>
+                                        <li>Báo cáo cơ bản</li>
+                                      </ul>
                                     </FormLabel>
                                   </FormItem>
                                   <FormItem>
                                     <FormControl>
                                       <RadioGroupItem value="standard" id="pkg-standard" className="sr-only peer" />
                                     </FormControl>
-                                    <FormLabel htmlFor="pkg-standard" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                      <span className="font-bold text-lg">Tiêu chuẩn</span>
-                                      <span className="text-sm text-muted-foreground mt-2 text-center">Công cụ quản lý và báo cáo nâng cao.</span>
+                                    <FormLabel htmlFor="pkg-standard" className="flex flex-col rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                       <span className="font-bold text-lg mb-2">Tiêu chuẩn</span>
+                                       <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 text-left w-full">
+                                        <li>Mọi tính năng gói Cơ bản</li>
+                                        <li>Báo cáo nâng cao</li>
+                                        <li>Quản lý Người dùng</li>
+                                        <li>Khách hàng thân thiết</li>
+                                      </ul>
                                     </FormLabel>
                                   </FormItem>
                                   <FormItem>
                                     <FormControl>
                                       <RadioGroupItem value="advanced" id="pkg-advanced" className="sr-only peer" />
                                     </FormControl>
-                                    <FormLabel htmlFor="pkg-advanced" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                                      <span className="font-bold text-lg">Nâng cao</span>
-                                      <span className="text-sm text-muted-foreground mt-2 text-center">Tối ưu hóa kinh doanh với Trí tuệ Nhân tạo (AI).</span>
+                                    <FormLabel htmlFor="pkg-advanced" className="flex flex-col rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                      <span className="font-bold text-lg mb-2">Nâng cao</span>
+                                      <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 text-left w-full">
+                                        <li>Mọi tính năng gói Tiêu chuẩn</li>
+                                        <li>Phân tích AI</li>
+                                        <li>Dự báo doanh số</li>
+                                      </ul>
                                     </FormLabel>
                                   </FormItem>
                                 </RadioGroup>
