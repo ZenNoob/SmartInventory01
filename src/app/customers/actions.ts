@@ -1,6 +1,6 @@
 'use server'
 
-import { Customer } from "@/lib/types";
+import { Customer, LoyaltySettings } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 import { FieldValue } from "firebase-admin/firestore";
 import * as xlsx from 'xlsx';
@@ -9,13 +9,29 @@ export async function upsertCustomer(customer: Partial<Customer>): Promise<{ suc
   try {
     const { firestore } = await getAdminServices();
     let customerId: string;
+    
+    const customerData: Partial<Customer> = { ...customer };
 
-    if (customer.id) {
+    // If lifetimePoints are being updated, we need to recalculate the tier
+    if (customerData.lifetimePoints !== undefined) {
+      const settingsDoc = await firestore.collection('settings').doc('theme').get();
+      if (settingsDoc.exists) {
+        const loyaltySettings = settingsDoc.data()?.loyalty as LoyaltySettings | undefined;
+        if (loyaltySettings && loyaltySettings.enabled) {
+          const sortedTiers = [...loyaltySettings.tiers].sort((a, b) => b.threshold - a.threshold);
+          const newTier = sortedTiers.find(tier => customerData.lifetimePoints! >= tier.threshold);
+          customerData.loyaltyTier = newTier?.name || undefined;
+        }
+      }
+    }
+
+
+    if (customerData.id) {
       // Update existing customer
-      customerId = customer.id;
+      customerId = customerData.id;
       const customerRef = firestore.collection('customers').doc(customerId);
       await customerRef.set({
-        ...customer,
+        ...customerData,
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     } else {
@@ -23,7 +39,7 @@ export async function upsertCustomer(customer: Partial<Customer>): Promise<{ suc
       const customerRef = firestore.collection('customers').doc();
       customerId = customerRef.id;
       await customerRef.set({ 
-        ...customer, 
+        ...customerData, 
         id: customerId,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
