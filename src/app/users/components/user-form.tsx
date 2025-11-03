@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
@@ -46,6 +47,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 
 const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delete'])))
@@ -70,33 +72,52 @@ const permissionsFormSchema = z.object({
     permissions: permissionsSchema,
 })
 
-
-const modules: { id: Module; name: string; description: string; }[] = [
-    { id: 'dashboard', name: 'Bảng điều khiển', description: 'Xem tổng quan tình hình kinh doanh, doanh thu, công nợ.' },
-    { id: 'pos', name: 'POS - Bán tại quầy', description: 'Sử dụng giao diện bán hàng nhanh tại quầy.' },
-    { id: 'categories', name: 'Danh mục', description: 'Quản lý các loại sản phẩm (VD: Giống, Phân bón).' },
-    { id: 'units', name: 'Đơn vị tính', description: 'Quản lý các đơn vị (VD: Cái, Kg, Bao).' },
-    { id: 'suppliers', name: 'Nhà cung cấp', description: 'Quản lý thông tin các nhà cung cấp hàng hóa.' },
-    { id: 'products', name: 'Sản phẩm', description: 'Quản lý thông tin, giá và các lô nhập của sản phẩm.' },
-    { id: 'purchases', name: 'Nhập hàng', description: 'Tạo và quản lý các phiếu nhập hàng từ nhà cung cấp.' },
-    { id: 'sales', name: 'Bán hàng', description: 'Tạo và quản lý các đơn hàng bán cho khách.' },
-    { id: 'customers', name: 'Khách hàng', description: 'Quản lý thông tin và công nợ của khách hàng.' },
-    { id: 'cash-flow', name: 'Sổ quỹ', description: 'Quản lý các giao dịch thu, chi tiền mặt.' },
-    { id: 'reports_shifts', name: 'BC - Quản lý Ca', description: 'Xem lại và quản lý các ca làm việc của nhân viên.' },
-    { id: 'reports_income_statement', name: 'BC - Thu-Chi', description: 'Báo cáo kết quả kinh doanh (lãi/lỗ).' },
-    { id: 'reports_profit', name: 'BC - Lợi nhuận', description: 'Phân tích lợi nhuận theo sản phẩm.' },
-    { id: 'reports_debt', name: 'BC - Công nợ KH', description: 'Báo cáo tổng hợp công nợ khách hàng.' },
-    { id: 'reports_supplier_debt', name: 'BC - Công nợ NCC', description: 'Báo cáo tổng hợp công nợ nhà cung cấp.' },
-    { id: 'reports_transactions', name: 'BC - Lịch sử Giao dịch', description: 'Xem lại nhật ký giao dịch của khách hàng.' },
-    { id: 'reports_supplier_debt_tracking', name: 'BC - Theo dõi Công nợ NCC', description: 'Xem biến động công nợ của nhà cung cấp.' },
-    { id: 'reports_revenue', name: 'BC - Doanh thu', description: 'Báo cáo doanh thu chi tiết theo đơn hàng.' },
-    { id: 'reports_sold_products', name: 'BC - SP đã bán', description: 'Thống kê các sản phẩm đã được bán ra.' },
-    { id: 'reports_inventory', name: 'BC - Tồn kho', description: 'Báo cáo nhập, xuất, tồn kho của sản phẩm.' },
-    { id: 'reports_ai_segmentation', name: 'BC - Phân khúc KH (AI)', description: 'Sử dụng AI để phân nhóm khách hàng.' },
-    { id: 'reports_ai_basket_analysis', name: 'BC - Phân tích rổ hàng (AI)', description: 'Sử dụng AI để tìm sản phẩm mua kèm.' },
-    { id: 'ai_forecast', name: 'AI - Dự báo & Đề xuất', description: 'Sử dụng AI để dự báo doanh số và đề xuất nhập hàng.' },
-    { id: 'users', name: 'Người dùng', description: 'Quản lý tài khoản và phân quyền người dùng hệ thống.' },
-    { id: 'settings', name: 'Cài đặt', description: 'Tùy chỉnh thông tin chung và giao diện của ứng dụng.' },
+const permissionGroups: { groupName: string; modules: { id: Module; name: string; description: string; }[] }[] = [
+    {
+        groupName: "Nghiệp vụ cơ bản",
+        modules: [
+            { id: 'dashboard', name: 'Bảng điều khiển', description: 'Xem tổng quan tình hình kinh doanh, doanh thu, công nợ.' },
+            { id: 'pos', name: 'POS - Bán tại quầy', description: 'Sử dụng giao diện bán hàng nhanh tại quầy.' },
+            { id: 'categories', name: 'Danh mục', description: 'Quản lý các loại sản phẩm (VD: Giống, Phân bón).' },
+            { id: 'units', name: 'Đơn vị tính', description: 'Quản lý các đơn vị (VD: Cái, Kg, Bao).' },
+            { id: 'suppliers', name: 'Nhà cung cấp', description: 'Quản lý thông tin các nhà cung cấp hàng hóa.' },
+            { id: 'products', name: 'Sản phẩm', description: 'Quản lý thông tin, giá và các lô nhập của sản phẩm.' },
+            { id: 'purchases', name: 'Nhập hàng', description: 'Tạo và quản lý các phiếu nhập hàng từ nhà cung cấp.' },
+            { id: 'sales', name: 'Bán hàng', description: 'Tạo và quản lý các đơn hàng bán cho khách.' },
+            { id: 'customers', name: 'Khách hàng', description: 'Quản lý thông tin và công nợ của khách hàng.' },
+            { id: 'cash-flow', name: 'Sổ quỹ', description: 'Quản lý các giao dịch thu, chi tiền mặt.' },
+        ]
+    },
+    {
+        groupName: "Báo cáo & Phân tích",
+        modules: [
+            { id: 'reports_shifts', name: 'BC - Quản lý Ca', description: 'Xem lại và quản lý các ca làm việc của nhân viên.' },
+            { id: 'reports_income_statement', name: 'BC - Thu-Chi', description: 'Báo cáo kết quả kinh doanh (lãi/lỗ).' },
+            { id: 'reports_profit', name: 'BC - Lợi nhuận', description: 'Phân tích lợi nhuận theo sản phẩm.' },
+            { id: 'reports_debt', name: 'BC - Công nợ KH', description: 'Báo cáo tổng hợp công nợ khách hàng.' },
+            { id: 'reports_supplier_debt', name: 'BC - Công nợ NCC', description: 'Báo cáo tổng hợp công nợ nhà cung cấp.' },
+            { id: 'reports_transactions', name: 'BC - Lịch sử Giao dịch', description: 'Xem lại nhật ký giao dịch của khách hàng.' },
+            { id: 'reports_supplier_debt_tracking', name: 'BC - Đối soát Công nợ NCC', description: 'Xem biến động công nợ của nhà cung cấp.' },
+            { id: 'reports_revenue', name: 'BC - Doanh thu', description: 'Báo cáo doanh thu chi tiết theo đơn hàng.' },
+            { id: 'reports_sold_products', name: 'BC - SP đã bán', description: 'Thống kê các sản phẩm đã được bán ra.' },
+            { id: 'reports_inventory', name: 'BC - Tồn kho', description: 'Báo cáo nhập, xuất, tồn kho của sản phẩm.' },
+        ]
+    },
+    {
+        groupName: "Phân tích AI",
+        modules: [
+             { id: 'reports_ai_segmentation', name: 'AI - Phân khúc KH', description: 'Sử dụng AI để phân nhóm khách hàng.' },
+            { id: 'reports_ai_basket_analysis', name: 'AI - Phân tích rổ hàng', description: 'Sử dụng AI để tìm sản phẩm mua kèm.' },
+            { id: 'ai_forecast', name: 'AI - Dự báo & Đề xuất', description: 'Sử dụng AI để dự báo doanh số và đề xuất nhập hàng.' },
+        ]
+    },
+    {
+        groupName: "Quản trị hệ thống",
+        modules: [
+             { id: 'users', name: 'Người dùng', description: 'Quản lý tài khoản và phân quyền người dùng hệ thống.' },
+            { id: 'settings', name: 'Cài đặt', description: 'Tùy chỉnh thông tin chung và giao diện của ứng dụng.' },
+        ]
+    }
 ];
 
 const permissions: { id: Permission; name: string }[] = [
@@ -147,18 +168,101 @@ const defaultPermissions: Record<string, Permissions> = {
         reports_sold_products: ['view'],
     },
     inventory_manager: {
-        dashboard: ['view'],
-        categories: ['view', 'add', 'edit'],
-        units: ['view', 'add', 'edit'],
-        suppliers: ['view', 'add', 'edit', 'delete'],
-        products: ['view', 'add', 'edit'],
-        purchases: ['view', 'add', 'edit'],
-        reports_inventory: ['view'],
-    },
+        'reports_supplier_debt': [
+                'view'
+        ],
+        'reports_transactions': [
+                'view'
+        ],
+        'reports_profit': [
+                'view'
+        ],
+        'reports_supplier_debt_tracking': [
+                'view'
+        ],
+        'purchases': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_sold_products': [
+                'view'
+        ],
+        'products': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'suppliers': [
+                'view'
+        ],
+        'pos': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'units': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'customers': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_ai_basket_analysis': [
+                'view'
+        ],
+        'reports_shifts': [
+                'view'
+        ],
+        'reports_inventory': [
+                'view'
+        ],
+        'ai_forecast': [
+                'view'
+        ],
+        'sales': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_debt': [
+                'view'
+        ],
+        'reports_income_statement': [
+                'view'
+        ],
+        'categories': [
+                'view',
+                'add',
+                'edit'
+        ],
+        'reports_revenue': [
+                'view'
+        ],
+        'users': [],
+        'reports': [
+                'view'
+        ],
+        'settings': [],
+        'reports_ai_segmentation': [
+                'view'
+        ],
+        'cash-flow': [
+                'view',
+                'add',
+                'edit',
+                'delete'
+        ],
+        'dashboard': [
+                'view'
+        ]
+},
     salesperson: {
         pos: ['view', 'add'],
         customers: ['view', 'add'],
-        suppliers: ['view'],
     },
     custom: {},
 };
@@ -430,55 +534,64 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-2 flex-grow overflow-y-auto">
-                          {modules.map((module) => (
-                            <FormField
-                              key={module.id}
-                              control={permissionsForm.control}
-                              name={`permissions.${module.id}`}
-                              render={() => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                  <div className="space-y-0.5">
-                                    <FormLabel>{module.name}</FormLabel>
-                                  </div>
-                                  <div className="flex items-center space-x-4">
-                                    {permissions.map((permission) => (
-                                      <FormField
-                                        key={permission.id}
-                                        control={permissionsForm.control}
-                                        name={`permissions.${module.id}`}
-                                        render={({ field }) => {
-                                          return (
-                                            <FormItem
-                                              key={permission.id}
-                                              className="flex flex-row items-center space-x-2 space-y-0"
-                                            >
-                                              <FormControl>
-                                                <Checkbox
-                                                  checked={field.value?.includes(permission.id)}
-                                                  onCheckedChange={(checked) => {
-                                                    return checked
-                                                      ? field.onChange([...(field.value || []), permission.id])
-                                                      : field.onChange(
-                                                        field.value?.filter(
-                                                          (value) => value !== permission.id
-                                                        )
-                                                      )
-                                                  }}
-                                                />
-                                              </FormControl>
-                                              <FormLabel className="text-sm font-normal">
-                                                {permission.name}
-                                              </FormLabel>
-                                            </FormItem>
-                                          )
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                </FormItem>
-                              )}
-                            />
-                          ))}
+                            <Accordion type="multiple" className="w-full" defaultValue={permissionGroups.map(g => g.groupName)}>
+                                {permissionGroups.map(group => (
+                                    <AccordionItem value={group.groupName} key={group.groupName}>
+                                        <AccordionTrigger>{group.groupName}</AccordionTrigger>
+                                        <AccordionContent className="space-y-2 pl-2">
+                                            {group.modules.map((module) => (
+                                            <FormField
+                                                key={module.id}
+                                                control={permissionsForm.control}
+                                                name={`permissions.${module.id}`}
+                                                render={() => (
+                                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                                    <div className="space-y-0.5">
+                                                    <FormLabel>{module.name}</FormLabel>
+                                                    </div>
+                                                    <div className="flex items-center space-x-4">
+                                                    {permissions.map((permission) => (
+                                                        <FormField
+                                                        key={permission.id}
+                                                        control={permissionsForm.control}
+                                                        name={`permissions.${module.id}`}
+                                                        render={({ field }) => {
+                                                            return (
+                                                            <FormItem
+                                                                key={permission.id}
+                                                                className="flex flex-row items-center space-x-2 space-y-0"
+                                                            >
+                                                                <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value?.includes(permission.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                        ? field.onChange([...(field.value || []), permission.id])
+                                                                        : field.onChange(
+                                                                            field.value?.filter(
+                                                                            (value) => value !== permission.id
+                                                                            )
+                                                                        )
+                                                                    }}
+                                                                />
+                                                                </FormControl>
+                                                                <FormLabel className="text-sm font-normal">
+                                                                {permission.name}
+                                                                </FormLabel>
+                                                            </FormItem>
+                                                            )
+                                                        }}
+                                                        />
+                                                    ))}
+                                                    </div>
+                                                </FormItem>
+                                                )}
+                                            />
+                                            ))}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
                         </CardContent>
                         <div className="p-6 pt-4 mt-auto">
                           <Button type="submit" className="w-full" disabled={permissionsForm.formState.isSubmitting}>
