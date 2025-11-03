@@ -48,6 +48,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { useUserRole } from '@/hooks/use-user-role'
 
 
 const permissionsSchema = z.record(z.array(z.enum(['view', 'add', 'edit', 'delete'])))
@@ -280,6 +281,7 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
   const { toast } = useToast();
   const router = useRouter();
   const [copyUserPopoverOpen, setCopyUserPopoverOpen] = useState(false);
+  const { role: currentUserRole } = useUserRole();
 
   const isEditMode = !!user;
 
@@ -471,7 +473,7 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                           </SelectTrigger>
                                           </FormControl>
                                           <SelectContent>
-                                          <SelectItem value="admin">Quản trị viên</SelectItem>
+                                          <SelectItem value="admin" disabled={currentUserRole !== 'admin'}>Quản trị viên</SelectItem>
                                           <SelectItem value="accountant">Kế toán</SelectItem>
                                           <SelectItem value="inventory_manager">Quản lý kho</SelectItem>
                                           <SelectItem value="salesperson">Nhân viên bán hàng</SelectItem>
@@ -604,5 +606,3 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
     </>
   )
 }
-
-    

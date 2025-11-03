@@ -5,10 +5,40 @@
 import { AppUser, Permissions } from "@/lib/types";
 import { getAdminServices } from "@/lib/admin-actions";
 import { FieldValue } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import { cookies } from "next/headers";
+
+async function isRequestingUserAdmin(): Promise<boolean> {
+    const { auth, firestore } = await getAdminServices();
+    const session = cookies().get('__session')?.value;
+    if (!session) return false;
+
+    try {
+        const decodedToken = await auth.verifySessionCookie(session, true);
+        const userDoc = await firestore.collection('users').doc(decodedToken.uid).get();
+        if (userDoc.exists && userDoc.data()?.role === 'admin') {
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Error verifying session cookie or user role:", error);
+        return false;
+    }
+}
+
 
 export async function upsertUser(user: Partial<Omit<AppUser, 'id'>> & { id?: string; password?: string }): Promise<{ success: boolean; error?: string }> {
   try {
     const { auth, firestore } = await getAdminServices();
+
+    // Security Check: Only admins can create or assign the 'admin' role.
+    if (user.role === 'admin') {
+        const isRequestorAdmin = await isRequestingUserAdmin();
+        if (!isRequestorAdmin) {
+            return { success: false, error: "Chỉ Quản trị viên mới có quyền tạo hoặc gán vai trò Quản trị viên." };
+        }
+    }
+
 
     const userDataForDb: Partial<AppUser> = {
         ...(user.email && { email: user.email }),
