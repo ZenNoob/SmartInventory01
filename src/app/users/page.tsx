@@ -1,3 +1,4 @@
+
 'use client'
 
 import {
@@ -77,7 +78,7 @@ function getRoleVietnamese(role: string) {
 
 export default function UsersPage() {
   const { user: currentUser } = useUser();
-  const { permissions, isLoading: isRoleLoading } = useUserRole();
+  const { permissions, role: currentUserRole, isLoading: isRoleLoading } = useUserRole();
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
@@ -101,6 +102,11 @@ export default function UsersPage() {
   
   const filteredUsers = useMemo(() => {
     return users?.filter(user => {
+      // Hide other admin accounts if the current user is not an admin
+      if (user.role === 'admin' && currentUserRole !== 'admin') {
+        return false;
+      }
+      
       const term = searchTerm.toLowerCase();
       const roleMatch = roleFilter === 'all' || user.role === roleFilter;
       const searchMatch = term === '' || 
@@ -108,7 +114,7 @@ export default function UsersPage() {
                           (user.displayName && user.displayName.toLowerCase().includes(term));
       return roleMatch && searchMatch;
     });
-  }, [users, searchTerm, roleFilter]);
+  }, [users, searchTerm, roleFilter, currentUserRole]);
 
   const canAccess = permissions?.users?.includes('view');
   const canAdd = permissions?.users?.includes('add');
