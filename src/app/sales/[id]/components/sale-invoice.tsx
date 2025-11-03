@@ -1,6 +1,5 @@
 
 
-
 'use client'
 
 import { useRef, useEffect } from 'react'
@@ -268,50 +267,50 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={6} className="text-right font-medium">Tổng tiền hàng</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(sale.totalAmount)}</TableCell>
+                        <TableCell colSpan={6} className="text-right font-medium py-1">Tổng tiền hàng</TableCell>
+                        <TableCell className="text-right font-semibold py-1">{formatCurrency(sale.totalAmount)}</TableCell>
                     </TableRow>
                     {sale.tierDiscountAmount && sale.tierDiscountAmount > 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-right font-medium">Ưu đãi hạng {loyaltyTier?.vietnameseName} ({sale.tierDiscountPercentage}%)</TableCell>
-                            <TableCell className="text-right font-semibold">-{formatCurrency(sale.tierDiscountAmount)}</TableCell>
+                            <TableCell colSpan={6} className="text-right font-medium py-1">Ưu đãi hạng {loyaltyTier?.vietnameseName} ({sale.tierDiscountPercentage}%)</TableCell>
+                            <TableCell className="text-right font-semibold py-1">-{formatCurrency(sale.tierDiscountAmount)}</TableCell>
                         </TableRow>
                     ) : null}
                     {sale.discount && sale.discount > 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-right font-medium">Giảm giá</TableCell>
-                            <TableCell className="text-right font-semibold">-{formatCurrency(sale.discount)}</TableCell>
+                            <TableCell colSpan={6} className="text-right font-medium py-1">Giảm giá</TableCell>
+                            <TableCell className="text-right font-semibold py-1">-{formatCurrency(sale.discount)}</TableCell>
                         </TableRow>
                     ) : null}
                      {sale.pointsDiscount && sale.pointsDiscount > 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-right font-medium">Giảm giá điểm thưởng ({sale.pointsUsed} điểm)</TableCell>
-                            <TableCell className="text-right font-semibold">-{formatCurrency(sale.pointsDiscount)}</TableCell>
+                            <TableCell colSpan={6} className="text-right font-medium py-1">Giảm giá điểm thưởng ({sale.pointsUsed} điểm)</TableCell>
+                            <TableCell className="text-right font-semibold py-1">-{formatCurrency(sale.pointsDiscount)}</TableCell>
                         </TableRow>
                     ) : null}
                      {sale.vatAmount && sale.vatAmount > 0 && settings?.vatRate ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-right font-medium">Thuế VAT ({settings.vatRate}%)</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(sale.vatAmount)}</TableCell>
+                            <TableCell colSpan={6} className="text-right font-medium py-1">Thuế VAT ({settings.vatRate}%)</TableCell>
+                            <TableCell className="text-right font-semibold py-1">{formatCurrency(sale.vatAmount)}</TableCell>
                         </TableRow>
                     ) : null}
                      <TableRow>
-                        <TableCell colSpan={6} className="text-right font-medium">Tổng cộng</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(sale.finalAmount)}</TableCell>
+                        <TableCell colSpan={6} className="text-right font-medium py-1">Tổng cộng</TableCell>
+                        <TableCell className="text-right font-semibold py-1">{formatCurrency(sale.finalAmount)}</TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={6} className="text-right font-medium">Nợ cũ</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(sale.previousDebt || 0)}</TableCell>
+                        <TableCell colSpan={6} className="text-right font-medium py-1">Nợ cũ</TableCell>
+                        <TableCell className="text-right font-semibold py-1">{formatCurrency(sale.previousDebt || 0)}</TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={6} className="text-right font-medium">Khách thanh toán</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(sale.customerPayment || 0)}</TableCell>
+                        <TableCell colSpan={6} className="text-right font-medium py-1">Khách thanh toán</TableCell>
+                        <TableCell className="text-right font-semibold py-1">{formatCurrency(sale.customerPayment || 0)}</TableCell>
                     </TableRow>
                      <TableRow className="text-lg">
-                        <TableCell colSpan={6} className={`text-right font-bold ${isChange ? 'text-green-600' : ''}`}>
+                        <TableCell colSpan={6} className={`text-right font-bold py-2 ${isChange ? 'text-green-600' : ''}`}>
                             {isChange ? 'Tiền thối lại' : 'Còn nợ lại'}
                         </TableCell>
-                        <TableCell className={`text-right font-bold ${isChange ? 'text-green-600' : ''}`}>
+                        <TableCell className={`text-right font-bold py-2 ${isChange ? 'text-green-600' : ''}`}>
                             {formatCurrency(Math.abs(remainingDebt))}
                         </TableCell>
                     </TableRow>
