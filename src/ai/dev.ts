@@ -8,3 +8,4 @@ import '@/ai/flows/forecast-sales.ts';
 import '@/ai/flows/segment-customers-flow.ts';
 import '@/ai/flows/analyze-market-basket.ts';
 import '@/ai/flows/suggest-related-products-flow.ts';
+import '@/ai/flows/suggest-product-info-flow.ts';

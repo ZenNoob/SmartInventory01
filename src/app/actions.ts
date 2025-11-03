@@ -6,6 +6,7 @@ import { forecastSales, ForecastSalesInput } from '@/ai/flows/forecast-sales';
 import { segmentCustomers, SegmentCustomersInput } from '@/ai/flows/segment-customers-flow';
 import { analyzeMarketBasket, MarketBasketAnalysisInput } from '@/ai/flows/analyze-market-basket';
 import { suggestRelatedProducts, SuggestRelatedProductsInput } from '@/ai/flows/suggest-related-products-flow';
+import { suggestProductInfo, SuggestProductInfoInput } from '@/ai/flows/suggest-product-info-flow';
 
 export async function getDebtRiskPrediction(input: PredictDebtRiskInput) {
   try {
@@ -65,5 +66,15 @@ export async function getRelatedProductsSuggestion(input: SuggestRelatedProducts
     } catch (error) {
         console.error("Error suggesting related products:", error);
         return { success: false, error: 'Không thể gợi ý sản phẩm.' };
+    }
+}
+
+export async function getProductInfoSuggestion(input: SuggestProductInfoInput) {
+    try {
+        const result = await suggestProductInfo(input);
+        return { success: true, data: result };
+    } catch (error) {
+        console.error("Error suggesting product info:", error);
+        return { success: false, error: 'Không thể lấy gợi ý từ AI.' };
     }
 }

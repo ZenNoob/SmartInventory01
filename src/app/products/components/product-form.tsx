@@ -1,9 +1,10 @@
 
 
 
+
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,10 +38,12 @@ import { Product, Category, PurchaseLot, Unit } from '@/lib/types'
 import { upsertProduct } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
-import { PlusCircle, Trash2, Wrench } from 'lucide-react'
+import { PlusCircle, Trash2, Wrench, Sparkles, Loader2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getProductInfoSuggestion } from '@/app/actions'
+import { Textarea } from '@/components/ui/textarea'
 
 // Helper component for formatted number input
 const FormattedNumberInput = ({ value, onChange, ...props }: { value: number; onChange: (value: number) => void; [key: string]: any }) => {
@@ -78,6 +81,7 @@ const purchaseLotSchema = z.object({
 const productFormSchema = z.object({
   name: z.string().min(1, "Tên sản phẩm không được để trống."),
   barcode: z.string().optional(),
+  description: z.string().optional(),
   categoryId: z.string().min(1, "Danh mục là bắt buộc."),
   unitId: z.string().min(1, "Đơn vị tính là bắt buộc."),
   sellingPrice: z.coerce.number().optional(),
@@ -100,12 +104,19 @@ interface ProductFormProps {
 export function ProductForm({ isOpen, onOpenChange, product, categories, units }: ProductFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [isSuggesting, startSuggestionTransition] = useTransition();
 
   const unitsMap = useMemo(() => {
     const map = new Map<string, Unit>();
     units?.forEach(u => map.set(u.id, u));
     return map;
   }, [units]);
+  
+  const categoriesMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories?.forEach(c => map.set(c.id, c));
+    return map;
+  }, [categories]);
 
   const getBaseUnitInfo = (unitId: string): { baseUnit?: Unit; conversionFactor: number } => {
     const unit = unitsMap.get(unitId);
@@ -123,6 +134,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
     ? { 
         name: product.name, 
         barcode: product.barcode,
+        description: product.description,
         categoryId: product.categoryId,
         unitId: product.unitId,
         sellingPrice: product.sellingPrice,
@@ -136,6 +148,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
     : { 
         name: '', 
         barcode: '',
+        description: '',
         categoryId: '',
         unitId: '',
         sellingPrice: 0,
@@ -166,6 +179,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                 ? {
                     name: product.name,
                     barcode: product.barcode || '',
+                    description: product.description || '',
                     categoryId: product.categoryId,
                     unitId: product.unitId,
                     sellingPrice: product.sellingPrice,
@@ -178,6 +192,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                 : {
                     name: '',
                     barcode: '',
+                    description: '',
                     categoryId: '',
                     unitId: '',
                     sellingPrice: 0,
@@ -210,6 +225,55 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
         description: result.error,
       });
     }
+  };
+  
+  const handleGetSuggestion = () => {
+    const { name, categoryId, unitId, purchaseLots } = form.getValues();
+
+    if (!name) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu thông tin",
+        description: "Vui lòng nhập Tên sản phẩm trước khi lấy gợi ý.",
+      });
+      return;
+    }
+
+    startSuggestionTransition(async () => {
+      let totalCost = 0;
+      let totalQuantityInBaseUnit = 0;
+      purchaseLots?.forEach(lot => {
+          const { conversionFactor } = getBaseUnitInfo(lot.unitId);
+          const quantityInBaseUnit = lot.quantity * conversionFactor;
+          if (lot.cost > 0) {
+            totalCost += lot.cost * quantityInBaseUnit;
+            totalQuantityInBaseUnit += quantityInBaseUnit;
+          }
+      });
+      const avgCost = totalQuantityInBaseUnit > 0 ? totalCost / totalQuantityInBaseUnit : 0;
+
+      const result = await getProductInfoSuggestion({
+        productName: name,
+        categoryName: categoriesMap.get(categoryId)?.name || '',
+        unitName: unitsMap.get(unitId)?.name || '',
+        avgCost: avgCost,
+      });
+
+      if (result.success && result.data) {
+        form.setValue('description', result.data.description, { shouldValidate: true, shouldDirty: true });
+        form.setValue('sellingPrice', result.data.suggestedSellingPrice, { shouldValidate: true, shouldDirty: true });
+        toast({
+          title: "Đã nhận được gợi ý từ AI!",
+          description: "Mô tả và giá bán đã được cập nhật.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: result.error || "Không thể lấy gợi ý từ AI.",
+        });
+      }
+    });
   };
   
   const hasExistingLots = !!product?.purchaseLots && product.purchaseLots.length > 0;
@@ -254,6 +318,26 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   )}
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleGetSuggestion} disabled={isSuggesting}>
+                  {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Gợi ý bằng AI
+                </Button>
+                 <p className="text-xs text-muted-foreground">Tự động điền mô tả và giá bán.</p>
+              </div>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mô tả sản phẩm</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Mô tả chi tiết về sản phẩm..." {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}

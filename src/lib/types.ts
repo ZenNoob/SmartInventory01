@@ -1,4 +1,5 @@
 
+
 export type Permission = 'view' | 'add' | 'edit' | 'delete';
 
 export type Module = 
@@ -58,6 +59,7 @@ export type Product = {
   id: string
   name: string
   barcode?: string;
+  description?: string;
   categoryId: string
   unitId: string;
   sellingPrice?: number;
