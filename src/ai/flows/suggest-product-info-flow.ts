@@ -37,29 +37,33 @@ const prompt = ai.definePrompt({
   name: 'suggestProductInfoPrompt',
   input: {schema: SuggestProductInfoInputSchema},
   output: {schema: SuggestProductInfoOutputSchema},
-  prompt: `You are an expert business consultant for an agricultural supply store in Vietnam. Your task is to generate a product description and suggest a selling price.
+  prompt: `You are an expert business consultant for an agricultural supply store in Vietnam. Your task is to generate a product description and suggest a selling price based on the provided information.
 
-  **IMPORTANT: All output text must be in VIETNAMESE.**
+**IMPORTANT: All output text must be in VIETNAMESE.**
 
-  **Analyze the following product information:**
-  - Product Name: {{{productName}}}
-  - Category: {{{categoryName}}}
-  - Unit: {{{unitName}}}
-  - Average Cost: {{{avgCost}}} VND per base unit.
+**Analyze the following product information:**
+- Product Name: {{{productName}}}
+- Category: {{{categoryName}}}
+- Unit: {{{unitName}}}
+- Average Cost: {{{avgCost}}} VND per base unit.
 
-  **Your Task:**
-  1.  **Generate Description:**
-      - Write a concise, appealing, and informative product description.
-      - Highlight key benefits and uses. For example, for a fertilizer, mention its effect on crops (e.g., "giúp cây ra rễ mạnh, đẻ nhánh khỏe"). For a pesticide, mention which pests it targets.
-      - Keep it brief, around 2-3 sentences. Do not use bullet points.
+**Your Task:**
 
-  2.  **Suggest Selling Price:**
-      - Based on the average cost of {{{avgCost}}} VND, recommend a competitive and profitable retail price ('suggestedSellingPrice').
-      - The profit margin should be reasonable for an agricultural supply store, typically between 25% and 50% depending on the product type.
-      - Round the final suggested price to a sensible number (e.g., end in 000 or 500).
+1.  **Generate Description:**
+    - Write a concise, appealing, and informative product description.
+    - Highlight key benefits and uses. For example, for a fertilizer, mention its effect on crops (e.g., "giúp cây ra rễ mạnh, đẻ nhánh khỏe"). For a pesticide, mention which pests it targets.
+    - Keep it brief, around 2-3 sentences. Do not use bullet points.
 
-  **Output Format:**
-  Return a JSON object that strictly adheres to the 'SuggestProductInfoOutputSchema'.
+2.  **Suggest Selling Price:**
+    - Based on the average cost of **{{{avgCost}}} VND**, recommend a competitive and profitable retail price ('suggestedSellingPrice').
+    - **Your logic must be based on the product category:**
+        - For common, low-value items (e.g., basic fertilizers, common seeds), apply a lower profit margin (around 20-35%) to stay competitive.
+        - For specialized, high-value, or technical products (e.g., specific pesticides, growth stimulants, high-tech fertilizers), apply a higher profit margin (around 35-55%).
+    - **Crucially, briefly explain your reasoning in the description.** For example: "Đây là sản phẩm phổ thông nên đề xuất mức lợi nhuận vừa phải để cạnh tranh" or "Sản phẩm kỹ thuật cao, đề xuất mức lợi nhuận cao hơn."
+    - Round the final suggested price to a sensible number (e.g., end in 000 or 500).
+
+**Output Format:**
+Return a JSON object that strictly adheres to the 'SuggestProductInfoOutputSchema'. The description field should now contain both the product description and your brief reasoning for the price suggestion.
   `,
 });
 
