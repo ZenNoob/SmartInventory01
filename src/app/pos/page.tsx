@@ -427,13 +427,6 @@ export default function POSPage() {
     }
   }, [finalAmount]);
   
-  // Trigger print when receiptData is set
-  useEffect(() => {
-      if (receiptData && receiptRef.current) {
-          handlePrint();
-      }
-  }, [receiptData, handlePrint]);
-
   // #region Form Submission
   const handleCreateSale = async () => {
     if (cart.length === 0) {
@@ -481,16 +474,6 @@ export default function POSPage() {
         description: `Đã tạo đơn hàng ${result.saleData.invoiceNumber}.`,
       });
 
-      // Handle printing
-      if (settings?.printerType && settings.printerType !== 'none') {
-        const fullItemsData = itemsData.map(item => ({
-            ...item,
-            id: '', // dummy id
-            salesTransactionId: result.saleData!.id,
-        }));
-        setReceiptData({ sale: result.saleData, items: fullItemsData });
-      }
-
       // Reset state for new sale
       setCart([])
       setCustomerPayment(0)
@@ -499,6 +482,10 @@ export default function POSPage() {
       setDiscountType('amount')
       setPointsUsed(0);
       router.refresh();
+
+      // Open new tab for printing preview
+      window.open(`/sales/${result.saleData.id}?print=true`, '_blank');
+
     } else {
       toast({
         variant: 'destructive',

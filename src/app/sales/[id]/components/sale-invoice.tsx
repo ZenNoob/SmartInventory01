@@ -48,8 +48,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
       window.print();
       document.body.innerHTML = originalContents;
       // We need to reload to re-initialize React app and its event handlers
-      location.reload(); 
-      await updateSaleStatus(sale.id, 'printed');
+      window.location.href = '/pos'; 
     }
   };
 
