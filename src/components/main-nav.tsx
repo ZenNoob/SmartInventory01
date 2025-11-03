@@ -41,6 +41,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  SidebarSeparator,
 } from '@/components/ui/sidebar'
 import {
   Collapsible,
@@ -317,6 +318,10 @@ export function MainNav() {
             </Collapsible>
           )}
 
+          <SidebarMenuItem className="mt-auto">
+            <SidebarSeparator />
+          </SidebarMenuItem>
+
           {hasPermission('users', 'view') && (
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/users')} tooltip="Quản lý người dùng">
@@ -327,11 +332,7 @@ export function MainNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-         {hasPermission('settings', 'view') && (
+          {hasPermission('settings', 'view') && (
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={isActive('/settings')} tooltip="Cài đặt">
               <Link href="/settings">
@@ -342,7 +343,7 @@ export function MainNav() {
           </SidebarMenuItem>
          )}
         </SidebarMenu>
-      </SidebarFooter>
+      </SidebarContent>
     </Sidebar>
   )
 }
