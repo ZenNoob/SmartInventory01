@@ -505,7 +505,7 @@ export default function POSPage() {
 
   // Trigger print when receiptData is set
   useEffect(() => {
-    if (receiptData) {
+    if (receiptData && receiptRef.current) {
       handlePrint();
     }
   }, [receiptData, handlePrint]);
