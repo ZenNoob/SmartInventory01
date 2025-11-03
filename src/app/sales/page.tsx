@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect, useTransition } from "react"
@@ -142,6 +143,12 @@ export default function SalesPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const fullSalesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "sales_transactions")) : null, [firestore]);
+  const fullPaymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "payments")) : null, [firestore]);
+
+  const { data: allSales, isLoading: allSalesLoading } = useCollection<Sale>(fullSalesQuery);
+  const { data: allPayments, isLoading: allPaymentsLoading } = useCollection<Payment>(fullPaymentsQuery);
+
   const salesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
@@ -191,10 +198,6 @@ export default function SalesPage() {
     return query(collection(firestore, "units"));
   }, [firestore]);
   
-  const paymentsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "payments"));
-  }, [firestore]);
 
   const settingsRef = useMemoFirebase(() => {
     if(!firestore) return null;
@@ -206,7 +209,6 @@ export default function SalesPage() {
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: units, isLoading: unitsLoading } = useCollection<Unit>(unitsQuery);
-  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
   const { data: settings, isLoading: settingsLoading } = useDoc<ThemeSettings>(settingsRef);
   
   const customersMap = useMemo(() => {
@@ -224,11 +226,13 @@ export default function SalesPage() {
       setSalesItemsLoading(true);
       const items: SalesItem[] = [];
       try {
-        for (const sale of sales) {
-          const itemsCollectionRef = collection(firestore, `sales_transactions/${sale.id}/sales_items`);
+        // We fetch items for all sales, not just the date-filtered ones, for accurate stock calcs.
+        const allSalesSnapshot = await getDocs(query(collection(firestore, 'sales_transactions')));
+        for (const saleDoc of allSalesSnapshot.docs) {
+          const itemsCollectionRef = collection(firestore, `sales_transactions/${saleDoc.id}/sales_items`);
           const itemsSnapshot = await getDocs(itemsCollectionRef);
           itemsSnapshot.forEach(doc => {
-            items.push({ id: doc.id, ...doc.data() } as SalesItem);
+            items.push({ id: doc.id, salesTransactionId: saleDoc.id, ...doc.data() } as SalesItem);
           });
         }
         setAllSalesItems(items);
@@ -239,7 +243,7 @@ export default function SalesPage() {
       }
     }
     fetchAllSalesItems();
-  }, [sales, firestore, salesLoading]);
+  }, [firestore, salesLoading]); // Depend on salesLoading to refetch when allSales is available
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -327,7 +331,7 @@ export default function SalesPage() {
   }, [sortedSales]);
 
 
-  const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || paymentsLoading || settingsLoading;
+  const isLoading = salesLoading || customersLoading || productsLoading || unitsLoading || salesItemsLoading || allSalesLoading || allPaymentsLoading || settingsLoading;
 
   const handleAddSale = () => {
     setSelectedSale(undefined);
@@ -445,8 +449,8 @@ export default function SalesPage() {
         products={products || []}
         units={units || []}
         allSalesItems={allSalesItems || []}
-        sales={sales || []}
-        payments={payments || []}
+        sales={allSales || []}
+        payments={allPayments || []}
         settings={settings || null}
         sale={selectedSale}
       />

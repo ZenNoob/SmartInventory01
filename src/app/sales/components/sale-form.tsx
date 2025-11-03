@@ -4,7 +4,6 @@
 
 
 
-
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -376,15 +375,10 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
   
   const previousDebt = useMemo(() => {
     if (!selectedCustomerId) return 0;
-    // For new sales, get the total current debt
-    if (!sale) {
-        const totalSales = sales.filter(s => s.customerId === selectedCustomerId).reduce((sum, s) => sum + (s.finalAmount || 0), 0);
-        const totalPayments = payments.filter(p => p.customerId === selectedCustomerId).reduce((sum, p) => sum + p.amount, 0);
-        return totalSales - totalPayments;
-    }
-    // For editing sales, calculate debt *before* this sale
+    // For editing a sale, the "previous debt" is the customer's total debt *excluding* the sale being edited.
+    // For a new sale, it's just the customer's current total debt.
     return customerDebts.get(selectedCustomerId) || 0;
-  }, [selectedCustomerId, customerDebts, sale, sales, payments]);
+  }, [selectedCustomerId, customerDebts]);
 
 
   const totalPayable = finalAmount + previousDebt;
@@ -434,8 +428,8 @@ export function SaleForm({ isOpen, onOpenChange, customers, products, units, all
       onOpenChange(false);
       form.reset();
       router.refresh();
-      if (result.saleId && !sale) {
-        router.push(`/sales/${result.saleId}`);
+      if (result.saleData && !sale) {
+        router.push(`/sales/${result.saleData.id}`);
       }
     } else {
       toast({
