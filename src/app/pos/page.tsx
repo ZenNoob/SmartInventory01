@@ -1,5 +1,6 @@
 
 
+
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
@@ -448,7 +449,7 @@ export default function POSPage() {
       customerPayment: customerPayment,
       previousDebt: previousDebt, 
       remainingDebt: remainingDebt,
-      status: settings?.printerType === 'none' ? 'printed' : 'unprinted',
+      status: settings?.invoiceFormat === 'none' ? 'printed' : 'unprinted',
       isChangeReturned: isChangeReturned,
     }
 
@@ -461,8 +462,15 @@ export default function POSPage() {
       });
 
       // Open new window for printing if enabled
-      if (settings?.printerType && settings.printerType !== 'none') {
-          window.open(`/sales/${result.saleData.id}?print=true`, '_blank', 'width=350,height=600');
+      if (settings?.invoiceFormat && settings.invoiceFormat !== 'none') {
+        const printWindow = window.open(`/sales/${result.saleData.id}?print=true`, '_blank', 'width=800,height=600');
+        if (!printWindow) {
+          toast({
+            variant: "destructive",
+            title: "Lỗi in",
+            description: "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt chặn pop-up của trình duyệt.",
+          })
+        }
       }
 
       // Reset state for new sale

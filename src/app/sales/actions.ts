@@ -3,6 +3,7 @@
 
 
 
+
 'use server'
 
 import { Sale, SalesItem, LoyaltySettings, Customer } from "@/lib/types";
@@ -179,7 +180,7 @@ export async function upsertSaleTransaction(
                 ...saleDataForDb, 
                 id: saleId, 
                 invoiceNumber,
-                status: sale.status || 'unprinted',
+                status: sale.status || (settingsDoc.data()?.invoiceFormat === 'none' ? 'printed' : 'unprinted'),
             } as Sale;
             transaction.set(saleRef, finalData);
 

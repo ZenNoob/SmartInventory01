@@ -1,12 +1,10 @@
 
-
 import { notFound } from "next/navigation"
 import { getAdminServices } from "@/lib/admin-actions"
 import type { Customer, Sale, SalesItem, Product, Unit, ThemeSettings } from "@/lib/types"
 import { SaleInvoice } from "./components/sale-invoice";
 import { ThermalReceipt } from "./components/thermal-receipt";
 import { toPlainObject } from "@/lib/utils";
-
 
 async function getSaleData(saleId: string) {
     const { firestore } = await getAdminServices();
@@ -57,22 +55,27 @@ export default async function SaleDetailPage({ params, searchParams }: { params:
     notFound()
   }
 
-  const isThermalPrint = searchParams.print === 'true';
+  const isPrintView = searchParams.print === 'true';
+  const invoiceFormat = settings?.invoiceFormat || 'A4'; // Default to A4 if not set
 
-  if (isThermalPrint) {
-    return (
-      <div className="flex justify-center bg-gray-100 min-h-screen p-4">
-        <ThermalReceipt 
-          sale={sale}
-          items={items}
-          customer={customer}
-          productsMap={productsMap}
-          unitsMap={unitsMap}
-          settings={settings}
-        />
-      </div>
-    );
+  // If print is requested, decide which component to use based on settings
+  if (isPrintView) {
+    if (invoiceFormat === '80mm' || invoiceFormat === '58mm') {
+      return (
+        <div className="flex justify-center bg-gray-100 min-h-screen p-4">
+          <ThermalReceipt
+            sale={sale}
+            items={items}
+            customer={customer}
+            productsMap={productsMap}
+            unitsMap={unitsMap}
+            settings={settings}
+          />
+        </div>
+      );
+    }
   }
 
-  return <SaleInvoice sale={sale} items={items} customer={customer} productsMap={productsMap} unitsMap={unitsMap} settings={settings} />
+  // Default view is the A4/A5 invoice
+  return <SaleInvoice sale={sale} items={items} customer={customer} productsMap={productsMap} unitsMap={unitsMap} settings={settings} autoPrint={isPrintView} />
 }

@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export type Permission = 'view' | 'add' | 'edit' | 'delete';
 
 export type Module = 
@@ -188,7 +183,7 @@ export type ThemeSettings = {
   accentForeground: string;
   lowStockThreshold: number;
   vatRate?: number;
-  printerType?: 'none' | '58mm' | '80mm';
+  invoiceFormat?: 'A4' | 'A5' | '80mm' | '58mm' | 'none';
   companyName?: string;
   companyBusinessLine?: string;
   companyAddress?: string;

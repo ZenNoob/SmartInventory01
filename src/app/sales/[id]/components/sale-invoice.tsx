@@ -1,5 +1,6 @@
 
 
+
 'use client'
 
 import { useRef, useEffect } from 'react'
@@ -30,23 +31,27 @@ interface SaleInvoiceProps {
     productsMap: Map<string, Product>;
     unitsMap: Map<string, Unit>;
     settings: ThemeSettings | null;
+    autoPrint?: boolean;
 }
 
-export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, settings }: SaleInvoiceProps) {
+export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, settings, autoPrint = false }: SaleInvoiceProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = async () => {
-    const printContents = invoiceRef.current?.innerHTML;
-    const originalContents = document.body.innerHTML;
-
-    if (printContents) {
-      document.body.innerHTML = printContents;
-      window.print();
-      document.body.innerHTML = originalContents;
-      // We need to reload to re-initialize React app and its event handlers
-      window.location.reload(); 
-    }
+  const handlePrint = () => {
+    window.print();
   };
+
+  useEffect(() => {
+    if (autoPrint) {
+      setTimeout(() => {
+        handlePrint();
+        // Optional: Redirect or close after printing
+        // For example, to go back to sales list after a delay
+        // setTimeout(() => router.push('/sales'), 2000);
+      }, 500); // Delay to ensure content is fully rendered
+    }
+  }, [autoPrint]);
+
 
   const getUnitInfo = (unitId: string) => {
     const unit = unitsMap.get(unitId);
@@ -111,10 +116,56 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
   const isChange = remainingDebt < 0;
 
   const loyaltyTier = settings?.loyalty?.tiers.find(t => t.name === customer?.loyaltyTier);
+  const paperSizeClass = settings?.invoiceFormat === 'A5' ? 'a5-page' : 'a4-page';
+
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-4">
+    <div className={paperSizeClass}>
+       <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .printable-area, .printable-area * {
+            visibility: visible;
+          }
+          .printable-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+          }
+          .a4-page {
+            width: 210mm;
+            height: 297mm;
+            margin: 0;
+            padding: 0;
+          }
+          .a5-page {
+            width: 148mm;
+            height: 210mm;
+            margin: 0;
+            padding: 0;
+          }
+           @page {
+            size: ${settings?.invoiceFormat === 'A5' ? 'A5' : 'A4'};
+            margin: 0;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+        .a5-page {
+          width: 148mm;
+          margin: 0 auto;
+        }
+        .a4-page {
+          width: 210mm;
+           margin: 0 auto;
+        }
+      `}</style>
+      <div className="flex items-center gap-4 mb-4 no-print">
         <Button variant="outline" size="icon" className="h-7 w-7" asChild>
           <Link href="/sales">
             <ChevronLeft className="h-4 w-4" />
@@ -132,6 +183,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
           </Button>
         </div>
       </div>
+        <div className="printable-area">
         <Card className="p-6 sm:p-8" ref={invoiceRef}>
             <header className="flex items-start justify-between mb-8">
                 <div className="flex items-center gap-4">
@@ -279,6 +331,7 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
                 </div>
             </div>
         </Card>
+        </div>
     </div>
   )
 }

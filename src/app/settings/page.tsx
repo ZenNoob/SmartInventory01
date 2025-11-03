@@ -4,6 +4,7 @@
 
 
 
+
 'use client'
 
 import * as React from 'react'
@@ -79,7 +80,7 @@ const themeFormSchema = z.object({
   accentForeground: z.string().min(1, "Bắt buộc"),
   lowStockThreshold: z.coerce.number().min(0, "Ngưỡng phải là số dương."),
   vatRate: z.coerce.number().min(0, "Tỷ lệ VAT phải là số không âm.").optional(),
-  printerType: z.enum(['none', '58mm', '80mm']).default('none'),
+  invoiceFormat: z.enum(['A4', 'A5', '80mm', '58mm', 'none']).default('none'),
   companyName: z.string().optional(),
   companyBusinessLine: z.string().optional(),
   companyAddress: z.string().optional(),
@@ -155,7 +156,7 @@ export default function SettingsPage() {
       accentForeground: '#111827',
       lowStockThreshold: 10,
       vatRate: 0,
-      printerType: 'none',
+      invoiceFormat: 'none',
       companyName: '',
       companyBusinessLine: '',
       companyAddress: '',
@@ -182,7 +183,7 @@ export default function SettingsPage() {
         accentForeground: hslToHex(themeSettings.accentForeground),
         lowStockThreshold: themeSettings.lowStockThreshold || 10,
         vatRate: themeSettings.vatRate || 0,
-        printerType: themeSettings.printerType || 'none',
+        invoiceFormat: themeSettings.invoiceFormat || 'none',
         companyName: themeSettings.companyName || '',
         companyBusinessLine: themeSettings.companyBusinessLine || '',
         companyAddress: themeSettings.companyAddress || '',
@@ -204,7 +205,7 @@ export default function SettingsPage() {
       accentForeground: hexToHsl(data.accentForeground),
       lowStockThreshold: data.lowStockThreshold,
       vatRate: data.vatRate,
-      printerType: data.printerType,
+      invoiceFormat: data.invoiceFormat,
       companyName: data.companyName,
       companyBusinessLine: data.companyBusinessLine,
       companyAddress: data.companyAddress,
@@ -248,7 +249,7 @@ export default function SettingsPage() {
     }
   };
 
-  const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold' | 'vatRate' | 'companyName' | 'companyBusinessLine' | 'companyAddress' | 'companyPhone' | 'loyalty' | 'printerType' | 'companyLogo' | 'softwarePackage'>, label: string }) => (
+  const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold' | 'vatRate' | 'companyName' | 'companyBusinessLine' | 'companyAddress' | 'companyPhone' | 'loyalty' | 'invoiceFormat' | 'companyLogo' | 'softwarePackage'>, label: string }) => (
     <FormField
       control={form.control}
       name={name}
@@ -525,14 +526,13 @@ export default function SettingsPage() {
                     <AccordionContent className="space-y-8">
                        <div>
                         <h3 className="text-lg font-medium">Cài đặt In ấn</h3>
-                        <p className="text-sm text-muted-foreground mb-6">Cấu hình máy in nhiệt cho quầy POS.</p>
+                        <p className="text-sm text-muted-foreground mb-6">Cấu hình khổ giấy mặc định khi in hóa đơn.</p>
                         <FormField
                           control={form.control}
-                          name="printerType"
+                          name="invoiceFormat"
                           render={({ field }) => (
                             <FormItem className="space-y-3">
-                              <FormLabel>Tự động in hóa đơn sau khi thanh toán</FormLabel>
-                              <FormDescription>Hệ thống sẽ tự động gửi lệnh in đến máy in mặc định của máy tính.</FormDescription>
+                              <FormLabel>Khổ giấy in hóa đơn</FormLabel>
                               <FormControl>
                                 <RadioGroup
                                   onValueChange={field.onChange}
@@ -540,28 +540,24 @@ export default function SettingsPage() {
                                   className="flex flex-col space-y-1"
                                 >
                                   <FormItem className="flex items-center space-x-3 space-y-0">
-                                    <FormControl>
-                                      <RadioGroupItem value="none" />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                    Không in
-                                    </FormLabel>
+                                    <FormControl><RadioGroupItem value="none" /></FormControl>
+                                    <FormLabel className="font-normal">Không in</FormLabel>
                                   </FormItem>
                                   <FormItem className="flex items-center space-x-3 space-y-0">
-                                    <FormControl>
-                                      <RadioGroupItem value="58mm" />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      In khổ 58mm
-                                    </FormLabel>
+                                    <FormControl><RadioGroupItem value="A4" /></FormControl>
+                                    <FormLabel className="font-normal">Khổ A4</FormLabel>
                                   </FormItem>
                                   <FormItem className="flex items-center space-x-3 space-y-0">
-                                    <FormControl>
-                                      <RadioGroupItem value="80mm" />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      In khổ 80mm
-                                    </FormLabel>
+                                    <FormControl><RadioGroupItem value="A5" /></FormControl>
+                                    <FormLabel className="font-normal">Khổ A5</FormLabel>
+                                  </FormItem>
+                                  <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl><RadioGroupItem value="80mm" /></FormControl>
+                                    <FormLabel className="font-normal">In nhiệt 80mm</FormLabel>
+                                  </FormItem>
+                                   <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl><RadioGroupItem value="58mm" /></FormControl>
+                                    <FormLabel className="font-normal">In nhiệt 58mm</FormLabel>
                                   </FormItem>
                                 </RadioGroup>
                               </FormControl>

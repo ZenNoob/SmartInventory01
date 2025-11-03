@@ -1,6 +1,7 @@
 
 
 
+
 {
   "entities": {
     "Category": {
@@ -562,10 +563,10 @@
             "type": "number",
             "description": "The Value Added Tax rate in percentage."
         },
-        "printerType": {
+        "invoiceFormat": {
           "type": "string",
-          "description": "The type of thermal printer to use.",
-          "enum": ["none", "58mm", "80mm"]
+          "description": "The paper size for printing invoices.",
+          "enum": ["A4", "A5", "80mm", "58mm", "none"]
         },
         "companyName": {
           "type": "string",
