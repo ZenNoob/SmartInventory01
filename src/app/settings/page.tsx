@@ -6,6 +6,7 @@
 
 
 
+
 'use client'
 
 import * as React from 'react'
@@ -67,6 +68,7 @@ import { Switch } from '@/components/ui/switch'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+import { Label } from '@/components/ui/label'
 
 const loyaltyTierSchema = z.object({
   name: z.enum(['bronze', 'silver', 'gold', 'diamond']),
