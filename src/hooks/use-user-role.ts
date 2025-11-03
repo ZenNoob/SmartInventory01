@@ -2,6 +2,7 @@
 
 'use client';
 
+import { useMemo } from "react";
 import { useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { AppUser, Permissions, SoftwarePackage, ThemeSettings } from "@/lib/types";
@@ -199,7 +200,7 @@ export function useUserRole() {
     const softwarePackage = settings?.softwarePackage || 'advanced';
     
     // Start with the user's base permissions (either from custom field or role default)
-    let basePermissions = userPermissions !== undefined
+    let basePermissions: Permissions = userPermissions !== undefined && role === 'custom'
       ? userPermissions
       : (role ? defaultPermissions[role] : {});
 
