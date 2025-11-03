@@ -328,6 +328,17 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
     }
   }, [user, isOpen, infoForm, permissionsForm]);
 
+  const getRoleVietnamese = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Quản trị viên';
+      case 'accountant': return 'Kế toán';
+      case 'inventory_manager': return 'Quản lý kho';
+      case 'salesperson': return 'Nhân viên bán hàng';
+      case 'custom': return 'Tùy chỉnh';
+      default: return role;
+    }
+  }
+
   const handleApplyDefaultPermissions = () => {
     if (role && role !== 'custom') {
       permissionsForm.setValue('permissions', defaultPermissions[role], { shouldValidate: true, shouldDirty: true });
@@ -388,17 +399,6 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
         });
     }
     setCopyUserPopoverOpen(false);
-  }
-
-  const getRoleVietnamese = (role: string) => {
-    switch (role) {
-      case 'admin': return 'Quản trị viên';
-      case 'accountant': return 'Kế toán';
-      case 'inventory_manager': return 'Quản lý kho';
-      case 'salesperson': return 'Nhân viên bán hàng';
-      case 'custom': return 'Tùy chỉnh';
-      default: return role;
-    }
   }
 
   return (
@@ -499,37 +499,33 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                         <CardHeader>
                           <div className="flex justify-between items-center">
                             <CardTitle>Phân quyền chi tiết</CardTitle>
-                            <div className="flex gap-2">
-                              <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
-                                  <PopoverTrigger asChild>
-                                  <Button type="button" variant="outline" size="sm"><Copy className="h-4 w-4 mr-2" />Sao chép</Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-[300px] p-0">
-                                  <Command>
-                                      <CommandInput placeholder="Tìm người dùng để sao chép..." />
-                                      <CommandList>
-                                      <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                                      <CommandGroup>
-                                          {allUsers?.filter(u => u.id !== user.id).map((sourceUser) => (
-                                          <CommandItem
-                                              key={sourceUser.id}
-                                              value={`${sourceUser.displayName} ${sourceUser.email}`}
-                                              onSelect={() => handleCopyPermissions(sourceUser.id!)}
-                                          >
-                                              {sourceUser.displayName || sourceUser.email}
-                                          </CommandItem>
-                                          ))}
-                                      </CommandGroup>
-                                      </CommandList>
-                                  </Command>
-                                  </PopoverContent>
-                              </Popover>
-                              {role !== 'custom' && (
-                                  <Button size="sm" variant="outline" type="button" onClick={handleApplyDefaultPermissions}>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Mặc định
-                                  </Button>
-                              )}
+                             <div className="flex gap-2">
+                                <Popover open={copyUserPopoverOpen} onOpenChange={setCopyUserPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm"><Copy className="h-4 w-4 mr-2" />Sao chép</Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Tìm người dùng..." />
+                                            <CommandList>
+                                                <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {allUsers?.filter(u => u.id !== user.id).map((sourceUser) => (
+                                                        <CommandItem key={sourceUser.id} value={`${sourceUser.displayName} ${sourceUser.email}`} onSelect={() => handleCopyPermissions(sourceUser.id!)}>
+                                                            {sourceUser.displayName || sourceUser.email}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                {role !== 'custom' && (
+                                    <Button size="sm" variant="outline" type="button" onClick={handleApplyDefaultPermissions}>
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Mặc định
+                                    </Button>
+                                )}
                             </div>
                           </div>
                         </CardHeader>
@@ -608,3 +604,5 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
     </>
   )
 }
+
+    
