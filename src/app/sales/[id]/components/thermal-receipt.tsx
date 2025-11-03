@@ -26,15 +26,15 @@ const ThermalReceipt = ({ sale, items, customer, productsMap, unitsMap, settings
             if (sale.status !== 'printed') {
                 await updateSaleStatus(sale.id, 'printed');
             }
-            window.close();
+            // window.close(); // Temporarily disable auto-close for easier debugging if needed
         },
     });
 
-    const paperWidth = settings?.printerType === '58mm' ? 'w-[58mm]' : 'w-[80mm]';
+    const paperWidth = settings?.invoiceFormat === '58mm' ? 'w-[58mm]' : 'w-[80mm]';
     const isChange = (sale.remainingDebt || 0) < 0;
 
     return (
-        <div className="bg-white p-2 rounded-lg shadow-lg">
+        <div className="bg-gray-100 p-4 flex flex-col items-center">
             {/* The content to be printed */}
             <div ref={componentRef} className={`p-1 font-mono text-[10px] bg-white text-black ${paperWidth}`}>
                 <div className="text-center space-y-1">
