@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Category": {
@@ -580,6 +581,10 @@
         "companyPhone": {
           "type": "string",
           "description": "The phone number of the company."
+        },
+        "companyLogo": {
+          "type": "string",
+          "description": "A Base64 encoded data URI of the company logo."
         }
       },
       "required": [

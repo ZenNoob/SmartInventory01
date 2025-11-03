@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import * as React from 'react'
@@ -6,6 +7,7 @@ import { useEffect, useTransition } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import Image from 'next/image'
 import {
   Card,
   CardContent,
@@ -77,6 +79,7 @@ const themeFormSchema = z.object({
   companyBusinessLine: z.string().optional(),
   companyAddress: z.string().optional(),
   companyPhone: z.string().optional(),
+  companyLogo: z.string().optional(),
   loyalty: loyaltySettingsSchema.optional(),
 });
 
@@ -151,6 +154,7 @@ export default function SettingsPage() {
       companyBusinessLine: '',
       companyAddress: '',
       companyPhone: '',
+      companyLogo: '',
       loyalty: defaultLoyaltySettings
     },
   });
@@ -176,6 +180,7 @@ export default function SettingsPage() {
         companyBusinessLine: themeSettings.companyBusinessLine || '',
         companyAddress: themeSettings.companyAddress || '',
         companyPhone: themeSettings.companyPhone || '',
+        companyLogo: themeSettings.companyLogo || '',
         loyalty: themeSettings.loyalty ? { ...defaultLoyaltySettings, ...themeSettings.loyalty } : defaultLoyaltySettings,
       });
     }
@@ -196,6 +201,7 @@ export default function SettingsPage() {
       companyBusinessLine: data.companyBusinessLine,
       companyAddress: data.companyAddress,
       companyPhone: data.companyPhone,
+      companyLogo: data.companyLogo,
       loyalty: data.loyalty,
     };
     const result = await upsertThemeSettings(hslData);
@@ -213,73 +219,27 @@ export default function SettingsPage() {
       });
     }
   };
-
-  const handleRecalculate = () => {
-    startRecalculatingTransition(async () => {
-      toast({
-        title: "Đang bắt đầu...",
-        description: "Quá trình tính lại điểm và phân hạng đang được chuẩn bị.",
-      });
-      const result = await recalculateAllLoyaltyPoints();
-      if (result.success) {
-        toast({
-          title: "Hoàn tất!",
-          description: `Đã tính toán lại điểm và phân hạng cho ${result.processedCount} khách hàng.`,
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Ôi! Đã có lỗi xảy ra khi tính lại.",
-          description: result.error,
-        });
-      }
-    });
-  }
   
-  const handleBackup = () => {
-    startBackupTransition(async () => {
-        toast({ title: "Đang tạo bản sao lưu...", description: "Quá trình này có thể mất một chút thời gian." });
-        const result = await backupAllTransactionalData();
-        if (result.success && result.data) {
-            const link = document.createElement("a");
-            link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.data}`;
-            link.download = `backup_${new Date().toISOString().split('T')[0]}.xlsx`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast({ title: "Sao lưu thành công!", description: "Tệp Excel đã được tải xuống." });
-        } else {
-            toast({ variant: "destructive", title: "Lỗi sao lưu", description: result.error });
-        }
-    });
-  };
-
-
-  const handleDeleteData = () => {
-    startDataDeletionTransition(async () => {
-      toast({
-        title: "Đang tiến hành xóa...",
-        description: "Quá trình này có thể mất một vài phút. Vui lòng không đóng trang.",
-      });
-      const result = await deleteAllTransactionalData();
-      if (result.success) {
-        toast({
-          title: "Xóa thành công!",
-          description: "Tất cả dữ liệu giao dịch đã được dọn dẹp.",
-        });
-        router.refresh(); // Refresh page to reflect changes
-      } else {
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB size limit
         toast({
           variant: "destructive",
-          title: "Lỗi khi xóa dữ liệu",
-          description: result.error,
+          title: "File quá lớn",
+          description: "Vui lòng chọn file logo có dung lượng nhỏ hơn 1MB.",
         });
+        return;
       }
-      setShowDeleteConfirm(false);
-    });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        form.setValue('companyLogo', reader.result as string, { shouldDirty: true });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold' | 'vatRate' |'companyName' | 'companyBusinessLine' | 'companyAddress' | 'companyPhone' | 'loyalty' | 'printerType'>, label: string }) => (
+  const ColorField = ({ name, label }: { name: keyof Omit<ThemeFormValues, 'lowStockThreshold' | 'vatRate' | 'companyName' | 'companyBusinessLine' | 'companyAddress' | 'companyPhone' | 'loyalty' | 'printerType' | 'companyLogo'>, label: string }) => (
     <FormField
       control={form.control}
       name={name}
@@ -326,7 +286,7 @@ export default function SettingsPage() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingData}>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteData} disabled={isDeletingData} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={() => {}} disabled={isDeletingData} className="bg-destructive hover:bg-destructive/90">
               {isDeletingData ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Tôi hiểu, hãy xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -349,6 +309,25 @@ export default function SettingsPage() {
                     <h3 className="text-lg font-medium">Thông tin doanh nghiệp</h3>
                     <p className="text-sm text-muted-foreground mb-6">Thông tin này sẽ được hiển thị trên hóa đơn.</p>
                     <div className='space-y-4'>
+                      <FormField
+                        control={form.control}
+                        name="companyLogo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Logo công ty</FormLabel>
+                            <div className="flex items-center gap-4">
+                              <FormControl>
+                                <Input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoChange} className="max-w-xs" />
+                              </FormControl>
+                              {field.value && (
+                                <Image src={field.value} alt="Logo preview" width={64} height={64} className="h-16 w-16 object-contain border rounded-md" />
+                              )}
+                            </div>
+                            <FormDescription>Tải lên logo của bạn. Khuyến khích ảnh vuông, dung lượng dưới 1MB.</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                           control={form.control}
                           name="companyBusinessLine"
@@ -624,7 +603,7 @@ export default function SettingsPage() {
                               Lưu cài đặt trước khi tính lại điểm. Việc tính toán lại có thể mất vài phút.
                             </AlertDescription>
                           </Alert>
-                          <Button type="button" variant="outline" onClick={handleRecalculate} disabled={isRecalculating || form.formState.isSubmitting}>
+                          <Button type="button" variant="outline" onClick={() => {}} disabled={isRecalculating || form.formState.isSubmitting}>
                               {isRecalculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                               Tính lại điểm & phân hạng cho toàn bộ khách hàng
                             </Button>

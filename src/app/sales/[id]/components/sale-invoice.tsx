@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useRef, useEffect } from 'react'
@@ -18,7 +19,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table"
-import { Logo } from "@/components/icons"
+import Image from 'next/image'
 import { formatCurrency } from "@/lib/utils"
 import type { Customer, Sale, SalesItem, Product, Unit, ThemeSettings } from "@/lib/types"
 import { updateSaleStatus } from '../../actions'
@@ -149,7 +150,13 @@ export function SaleInvoice({ sale, items, customer, productsMap, unitsMap, sett
         <Card className="p-6 sm:p-8 invoice-card" ref={invoicePrintRef}>
             <header className="flex items-start justify-between mb-8">
                 <div className="flex items-center gap-4">
-                    <Logo className="h-16 w-16 text-primary" />
+                     {settings?.companyLogo ? (
+                        <Image src={settings.companyLogo} alt="Company Logo" width={64} height={64} className="h-16 w-16 object-contain" />
+                    ) : (
+                        <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                            <span className="text-xs text-muted-foreground">Logo</span>
+                        </div>
+                    )}
                     <div>
                         <p className="font-semibold text-lg">{settings?.companyBusinessLine || 'CƠ SỞ SẢN XUẤT VÀ KINH DOANH GIỐNG CÂY TRỒNG'}</p>
                         <p className="font-bold text-2xl text-primary">{settings?.companyName || 'MINH PHÁT'}</p>

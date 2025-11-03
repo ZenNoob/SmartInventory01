@@ -2,6 +2,7 @@
 
 
 
+
 export type Permission = 'view' | 'add' | 'edit' | 'delete';
 
 export type Module = 
@@ -189,6 +190,7 @@ export type ThemeSettings = {
   companyBusinessLine?: string;
   companyAddress?: string;
   companyPhone?: string;
+  companyLogo?: string;
   loyalty?: LoyaltySettings;
 }
 
