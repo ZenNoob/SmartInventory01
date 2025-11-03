@@ -533,7 +533,11 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                         </CardHeader>
                         <CardContent className="space-y-2 flex-grow overflow-y-auto">
                             <Accordion type="multiple" className="w-full" defaultValue={permissionGroups.map(g => g.groupName)}>
-                                {permissionGroups.map(group => (
+                                {permissionGroups.map(group => {
+                                  if (group.groupName === 'Quản trị hệ thống' && currentUserRole !== 'admin') {
+                                    return null;
+                                  }
+                                  return (
                                     <AccordionItem value={group.groupName} key={group.groupName}>
                                         <AccordionTrigger>{group.groupName}</AccordionTrigger>
                                         <AccordionContent className="space-y-2 pl-2">
@@ -588,7 +592,8 @@ export function UserForm({ isOpen, onOpenChange, user, allUsers }: UserFormProps
                                             ))}
                                         </AccordionContent>
                                     </AccordionItem>
-                                ))}
+                                  )
+                                })}
                             </Accordion>
                         </CardContent>
                         <div className="p-6 pt-4 mt-auto">
