@@ -1,0 +1,247 @@
+import { Router, Response } from 'express';
+import { query, queryOne } from '../db';
+import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
+
+const router = Router();
+
+router.use(authenticate);
+router.use(storeContext);
+
+// GET /api/sales
+router.get('/', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    
+    const sales = await query(
+      `SELECT s.*, c.full_name as customer_name
+       FROM Sales s
+       LEFT JOIN Customers c ON s.customer_id = c.id
+       WHERE s.store_id = @storeId
+       ORDER BY s.transaction_date DESC`,
+      { storeId }
+    );
+
+    res.json(sales.map((s: Record<string, unknown>) => ({
+      id: s.id,
+      storeId: s.store_id,
+      invoiceNumber: s.invoice_number,
+      customerId: s.customer_id,
+      customerName: s.customer_name,
+      shiftId: s.shift_id,
+      transactionDate: s.transaction_date,
+      status: s.status,
+      totalAmount: s.total_amount,
+      vatAmount: s.vat_amount,
+      finalAmount: s.final_amount,
+      discount: s.discount,
+      discountType: s.discount_type,
+      discountValue: s.discount_value,
+      tierDiscountPercentage: s.tier_discount_percentage,
+      tierDiscountAmount: s.tier_discount_amount,
+      pointsUsed: s.points_used,
+      pointsDiscount: s.points_discount,
+      customerPayment: s.customer_payment,
+      previousDebt: s.previous_debt,
+      remainingDebt: s.remaining_debt,
+      paymentMethod: s.payment_method,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    })));
+  } catch (error) {
+    console.error('Get sales error:', error);
+    res.status(500).json({ error: 'Failed to get sales' });
+  }
+});
+
+// GET /api/sales/:id
+router.get('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+
+    const sale = await queryOne(
+      `SELECT s.*, c.full_name as customer_name
+       FROM Sales s
+       LEFT JOIN Customers c ON s.customer_id = c.id
+       WHERE s.id = @id AND s.store_id = @storeId`,
+      { id, storeId }
+    );
+
+    if (!sale) {
+      res.status(404).json({ error: 'Sale not found' });
+      return;
+    }
+
+    res.json({
+      id: sale.id,
+      storeId: sale.store_id,
+      invoiceNumber: sale.invoice_number,
+      customerId: sale.customer_id,
+      customerName: sale.customer_name,
+      shiftId: sale.shift_id,
+      transactionDate: sale.transaction_date,
+      status: sale.status,
+      totalAmount: sale.total_amount,
+      vatAmount: sale.vat_amount,
+      finalAmount: sale.final_amount,
+      discount: sale.discount,
+      paymentMethod: sale.payment_method,
+      customerPayment: sale.customer_payment,
+      remainingDebt: sale.remaining_debt,
+    });
+  } catch (error) {
+    console.error('Get sale error:', error);
+    res.status(500).json({ error: 'Failed to get sale' });
+  }
+});
+
+// GET /api/sales/:id/items
+router.get('/:id/items', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+
+    const items = await query(
+      `SELECT si.*, p.name as product_name, u.name as unit_name
+       FROM SaleItems si
+       JOIN Products p ON si.product_id = p.id
+       LEFT JOIN Units u ON p.unit_id = u.id
+       JOIN Sales s ON si.sale_id = s.id
+       WHERE si.sale_id = @id AND s.store_id = @storeId`,
+      { id, storeId }
+    );
+
+    res.json(items.map((i: Record<string, unknown>) => ({
+      id: i.id,
+      saleId: i.sale_id,
+      productId: i.product_id,
+      productName: i.product_name,
+      unitName: i.unit_name,
+      quantity: i.quantity,
+      unitPrice: i.unit_price,
+      totalPrice: i.total_price,
+    })));
+  } catch (error) {
+    console.error('Get sale items error:', error);
+    res.status(500).json({ error: 'Failed to get sale items' });
+  }
+});
+
+// POST /api/sales
+router.post('/', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    const { 
+      customerId, shiftId, items, totalAmount, vatAmount, finalAmount,
+      discount, discountType, discountValue, paymentMethod, customerPayment,
+      previousDebt, remainingDebt
+    } = req.body;
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now()}`;
+
+    const result = await query(
+      `INSERT INTO Sales (
+        id, store_id, invoice_number, customer_id, shift_id, transaction_date,
+        status, total_amount, vat_amount, final_amount, discount, discount_type,
+        discount_value, payment_method, customer_payment, previous_debt, remaining_debt,
+        created_at, updated_at
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        NEWID(), @storeId, @invoiceNumber, @customerId, @shiftId, GETDATE(),
+        'completed', @totalAmount, @vatAmount, @finalAmount, @discount, @discountType,
+        @discountValue, @paymentMethod, @customerPayment, @previousDebt, @remainingDebt,
+        GETDATE(), GETDATE()
+      )`,
+      { 
+        storeId, invoiceNumber, customerId: customerId || null, shiftId: shiftId || null,
+        totalAmount, vatAmount: vatAmount || 0, finalAmount, discount: discount || 0,
+        discountType: discountType || null, discountValue: discountValue || 0,
+        paymentMethod: paymentMethod || 'cash', customerPayment: customerPayment || finalAmount,
+        previousDebt: previousDebt || 0, remainingDebt: remainingDebt || 0
+      }
+    );
+
+    const sale = result[0];
+
+    // Insert sale items
+    if (items && items.length > 0) {
+      for (const item of items) {
+        await query(
+          `INSERT INTO SaleItems (id, sale_id, product_id, quantity, unit_price, total_price, created_at)
+           VALUES (NEWID(), @saleId, @productId, @quantity, @unitPrice, @totalPrice, GETDATE())`,
+          { 
+            saleId: sale.id, 
+            productId: item.productId, 
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice || item.quantity * item.unitPrice
+          }
+        );
+
+        // Update inventory
+        await query(
+          `UPDATE Inventory SET current_stock = current_stock - @quantity, updated_at = GETDATE()
+           WHERE store_id = @storeId AND product_id = @productId`,
+          { storeId, productId: item.productId, quantity: item.quantity }
+        );
+      }
+    }
+
+    res.status(201).json({
+      id: sale.id,
+      invoiceNumber: sale.invoice_number,
+      status: sale.status,
+      finalAmount: sale.final_amount,
+    });
+  } catch (error) {
+    console.error('Create sale error:', error);
+    res.status(500).json({ error: 'Failed to create sale' });
+  }
+});
+
+// PUT /api/sales/:id
+router.put('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+    const { status, customerPayment, remainingDebt } = req.body;
+
+    await query(
+      `UPDATE Sales SET 
+        status = COALESCE(@status, status),
+        customer_payment = COALESCE(@customerPayment, customer_payment),
+        remaining_debt = COALESCE(@remainingDebt, remaining_debt),
+        updated_at = GETDATE()
+       WHERE id = @id AND store_id = @storeId`,
+      { id, storeId, status, customerPayment, remainingDebt }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update sale error:', error);
+    res.status(500).json({ error: 'Failed to update sale' });
+  }
+});
+
+// DELETE /api/sales/:id
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+
+    // Delete sale items first
+    await query('DELETE FROM SaleItems WHERE sale_id = @id', { id });
+    
+    // Delete sale
+    await query('DELETE FROM Sales WHERE id = @id AND store_id = @storeId', { id, storeId });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete sale error:', error);
+    res.status(500).json({ error: 'Failed to delete sale' });
+  }
+});
+
+export default router;

@@ -1,0 +1,124 @@
+'use client';
+
+import { apiClient } from '@/lib/api-client';
+
+export interface ThemeSettings {
+  primary: string;
+  primaryForeground: string;
+  background: string;
+  foreground: string;
+  accent: string;
+  accentForeground: string;
+  lowStockThreshold?: number;
+  vatRate?: number;
+  invoiceFormat?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+}
+
+/**
+ * Fetch settings for the current store
+ */
+export async function getSettings(): Promise<{
+  success: boolean;
+  settings?: Record<string, unknown>;
+  error?: string;
+}> {
+  try {
+    const settings = await apiClient.getSettings();
+    return { success: true, settings };
+  } catch (error: unknown) {
+    console.error('Error fetching settings:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy cài đặt' 
+    };
+  }
+}
+
+/**
+ * Get theme settings - returns null if not available (for SSR compatibility)
+ */
+export async function getThemeSettings(): Promise<ThemeSettings | null> {
+  // Return null for server-side rendering - theme will be applied on client
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  try {
+    const result = await getSettings();
+    if (result.success && result.settings) {
+      return result.settings as ThemeSettings;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Update settings for the current store
+ */
+export async function updateSettings(settings: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiClient.updateSettings(settings);
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error updating settings:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Không thể cập nhật cài đặt' 
+    };
+  }
+}
+
+
+/**
+ * Upsert theme settings
+ */
+export async function upsertThemeSettings(settings: ThemeSettings): Promise<{ success: boolean; error?: string }> {
+  try {
+    await apiClient.updateSettings(settings as unknown as Record<string, unknown>);
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error upserting theme settings:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Không thể cập nhật cài đặt giao diện' 
+    };
+  }
+}
+
+/**
+ * Recalculate all loyalty points
+ */
+export async function recalculateAllLoyaltyPoints(): Promise<{ success: boolean; error?: string }> {
+  // This would typically call a backend endpoint to recalculate loyalty points
+  // For now, return success as placeholder
+  return { success: true };
+}
+
+/**
+ * Delete all transactional data
+ */
+export async function deleteAllTransactionalData(): Promise<{ success: boolean; error?: string }> {
+  // This would typically call a backend endpoint to delete transactional data
+  // For now, return success as placeholder
+  console.warn('deleteAllTransactionalData: Not implemented');
+  return { success: false, error: 'Chức năng này chưa được triển khai' };
+}
+
+/**
+ * Backup all transactional data
+ */
+export async function backupAllTransactionalData(): Promise<{ 
+  success: boolean; 
+  data?: string;
+  error?: string 
+}> {
+  // This would typically call a backend endpoint to backup data
+  // For now, return success as placeholder
+  console.warn('backupAllTransactionalData: Not implemented');
+  return { success: false, error: 'Chức năng này chưa được triển khai' };
+}
