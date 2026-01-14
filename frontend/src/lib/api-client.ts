@@ -300,8 +300,32 @@ class ApiClient {
   }
 
   // ==================== Sales ====================
-  async getSales() {
-    return this.request<Array<Record<string, unknown>>>('/sales');
+  async getSales(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: string;
+    customerId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.customerId) searchParams.set('customerId', params.customerId);
+    if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) searchParams.set('dateTo', params.dateTo);
+    const query = searchParams.toString();
+    return this.request<{
+      success: boolean;
+      data: Array<Record<string, unknown>>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/sales${query ? `?${query}` : ''}`);
   }
 
   async getSale(id: string) {

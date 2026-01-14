@@ -5,14 +5,26 @@ import { apiClient } from '@/lib/api-client';
 /**
  * Fetch all sales for the current store
  */
-export async function getSales(): Promise<{
+export async function getSales(params?: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  customerId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<{
   success: boolean;
-  sales?: Array<Record<string, unknown>>;
+  data?: Array<Record<string, unknown>>;
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
   error?: string;
 }> {
   try {
-    const sales = await apiClient.getSales();
-    return { success: true, sales };
+    const result = await apiClient.getSales(params);
+    return result;
   } catch (error: unknown) {
     console.error('Error fetching sales:', error);
     return { 

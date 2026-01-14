@@ -129,7 +129,7 @@ export default function Dashboard() {
         setSalesLoading(true);
         try {
           const salesData = await apiClient.getSales();
-          setSales(salesData as Sale[]);
+          setSales((salesData.data || []) as Sale[]);
         } catch (e) {
           console.error('Error fetching sales:', e);
         }

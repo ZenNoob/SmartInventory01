@@ -11,42 +11,100 @@ router.use(storeContext);
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
+    const { page = '1', pageSize = '20', search, status, customerId, dateFrom, dateTo } = req.query;
     
-    const sales = await query(
-      `SELECT s.*, c.full_name as customer_name
+    const pageNum = parseInt(page as string);
+    const pageSizeNum = parseInt(pageSize as string);
+    const offset = (pageNum - 1) * pageSizeNum;
+
+    // Build WHERE clause
+    const conditions = ['s.store_id = @storeId'];
+    const params: Record<string, unknown> = { storeId };
+
+    if (search) {
+      conditions.push('(s.invoice_number LIKE @search OR c.full_name LIKE @search)');
+      params.search = `%${search}%`;
+    }
+
+    if (status && status !== 'all') {
+      conditions.push('s.status = @status');
+      params.status = status;
+    }
+
+    if (customerId && customerId !== 'all') {
+      conditions.push('s.customer_id = @customerId');
+      params.customerId = customerId;
+    }
+
+    if (dateFrom) {
+      conditions.push('s.transaction_date >= @dateFrom');
+      params.dateFrom = dateFrom;
+    }
+
+    if (dateTo) {
+      conditions.push('s.transaction_date <= @dateTo');
+      params.dateTo = dateTo;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(*) as total
        FROM Sales s
        LEFT JOIN Customers c ON s.customer_id = c.id
-       WHERE s.store_id = @storeId
-       ORDER BY s.transaction_date DESC`,
-      { storeId }
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / pageSizeNum);
+
+    // Get paginated sales with item count
+    const sales = await query(
+      `SELECT s.*, c.full_name as customer_name,
+              (SELECT COUNT(*) FROM SalesItems si WHERE si.sales_transaction_id = s.id) as item_count
+       FROM Sales s
+       LEFT JOIN Customers c ON s.customer_id = c.id
+       WHERE ${whereClause}
+       ORDER BY s.transaction_date DESC
+       OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`,
+      { ...params, offset, pageSize: pageSizeNum }
     );
 
-    res.json(sales.map((s: Record<string, unknown>) => ({
-      id: s.id,
-      storeId: s.store_id,
-      invoiceNumber: s.invoice_number,
-      customerId: s.customer_id,
-      customerName: s.customer_name,
-      shiftId: s.shift_id,
-      transactionDate: s.transaction_date,
-      status: s.status,
-      totalAmount: s.total_amount,
-      vatAmount: s.vat_amount,
-      finalAmount: s.final_amount,
-      discount: s.discount,
-      discountType: s.discount_type,
-      discountValue: s.discount_value,
-      tierDiscountPercentage: s.tier_discount_percentage,
-      tierDiscountAmount: s.tier_discount_amount,
-      pointsUsed: s.points_used,
-      pointsDiscount: s.points_discount,
-      customerPayment: s.customer_payment,
-      previousDebt: s.previous_debt,
-      remainingDebt: s.remaining_debt,
-      paymentMethod: s.payment_method,
-      createdAt: s.created_at,
-      updatedAt: s.updated_at,
-    })));
+    res.json({
+      success: true,
+      data: sales.map((s: Record<string, unknown>) => ({
+        id: s.id,
+        storeId: s.store_id,
+        invoiceNumber: s.invoice_number,
+        customerId: s.customer_id,
+        customerName: s.customer_name,
+        shiftId: s.shift_id,
+        transactionDate: s.transaction_date,
+        status: s.status,
+        totalAmount: s.total_amount,
+        vatAmount: s.vat_amount,
+        finalAmount: s.final_amount,
+        discount: s.discount,
+        discountType: s.discount_type,
+        discountValue: s.discount_value,
+        tierDiscountPercentage: s.tier_discount_percentage,
+        tierDiscountAmount: s.tier_discount_amount,
+        pointsUsed: s.points_used,
+        pointsDiscount: s.points_discount,
+        customerPayment: s.customer_payment,
+        previousDebt: s.previous_debt,
+        remainingDebt: s.remaining_debt,
+        paymentMethod: s.payment_method,
+        itemCount: s.item_count,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      })),
+      total,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      totalPages,
+    });
   } catch (error) {
     console.error('Get sales error:', error);
     res.status(500).json({ error: 'Failed to get sales' });

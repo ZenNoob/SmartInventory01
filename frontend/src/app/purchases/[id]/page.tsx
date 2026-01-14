@@ -28,11 +28,18 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
       
       setIsLoading(true);
       try {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {
+          'X-Store-Id': currentStore.id,
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         // Fetch purchase order
         const orderResponse = await fetch(`/api/purchases/${resolvedParams.id}`, {
-          headers: {
-            'X-Store-Id': currentStore.id,
-          },
+          headers,
         });
         
         if (!orderResponse.ok) {
@@ -49,9 +56,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         // Fetch supplier if exists
         if (orderResult.purchaseOrder?.supplierId) {
           const supplierResponse = await fetch(`/api/suppliers/${orderResult.purchaseOrder.supplierId}`, {
-            headers: {
-              'X-Store-Id': currentStore.id,
-            },
+            headers,
           });
           if (supplierResponse.ok) {
             const supplierResult = await supplierResponse.json();
@@ -63,9 +68,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         const productIds = [...new Set(orderResult.purchaseOrder?.items?.map((item: PurchaseOrderItem) => item.productId) || [])];
         if (productIds.length > 0) {
           const productsResponse = await fetch('/api/products', {
-            headers: {
-              'X-Store-Id': currentStore.id,
-            },
+            headers,
           });
           if (productsResponse.ok) {
             const productsResult = await productsResponse.json();
@@ -81,9 +84,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         
         // Fetch units
         const unitsResponse = await fetch('/api/units', {
-          headers: {
-            'X-Store-Id': currentStore.id,
-          },
+          headers,
         });
         if (unitsResponse.ok) {
           const unitsResult = await unitsResponse.json();

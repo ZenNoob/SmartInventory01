@@ -24,11 +24,18 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
             
             setIsLoading(true);
             try {
+                const token = localStorage.getItem('auth_token');
+                const headers: Record<string, string> = {
+                    'X-Store-Id': currentStore.id,
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
                 // Fetch purchase order
                 const orderResponse = await fetch(`/api/purchases/${resolvedParams.id}`, {
-                    headers: {
-                        'X-Store-Id': currentStore.id,
-                    },
+                    headers,
                 });
                 
                 if (!orderResponse.ok) {
@@ -44,9 +51,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 
                 // Fetch products
                 const productsResponse = await fetch('/api/products?pageSize=1000', {
-                    headers: {
-                        'X-Store-Id': currentStore.id,
-                    },
+                    headers,
                 });
                 if (productsResponse.ok) {
                     const productsResult = await productsResponse.json();
@@ -55,9 +60,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 
                 // Fetch suppliers
                 const suppliersResponse = await fetch('/api/suppliers', {
-                    headers: {
-                        'X-Store-Id': currentStore.id,
-                    },
+                    headers,
                 });
                 if (suppliersResponse.ok) {
                     const suppliersResult = await suppliersResponse.json();
@@ -66,9 +69,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 
                 // Fetch units
                 const unitsResponse = await fetch('/api/units', {
-                    headers: {
-                        'X-Store-Id': currentStore.id,
-                    },
+                    headers,
                 });
                 if (unitsResponse.ok) {
                     const unitsResult = await unitsResponse.json();

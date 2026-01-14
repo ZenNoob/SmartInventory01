@@ -95,10 +95,7 @@ export default function PurchasesPage() {
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrderWithSupplier | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, startExportingTransition] = useTransition();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: endOfMonth(new Date()),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const [purchases, setPurchases] = useState<PurchaseOrderWithSupplier[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -133,18 +130,34 @@ export default function PurchasesPage() {
         params.set('dateTo', dateRange.to.toISOString());
       }
 
+      console.log('Fetching purchases with params:', params.toString());
+      console.log('Store ID:', currentStore.id);
+      
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {
+        'X-Store-Id': currentStore.id,
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`/api/purchases?${params.toString()}`, {
-        headers: {
-          'X-Store-Id': currentStore.id,
-        },
+        headers,
       });
+      
+      console.log('Response status:', response.status);
       
       if (response.ok) {
         const result = await response.json();
+        console.log('Purchases result:', result);
         setPurchases(result.data || []);
         if (result.pagination) {
           setPagination(result.pagination);
         }
+      } else {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
       }
     } catch (error) {
       console.error('Error fetching purchases:', error);
@@ -163,10 +176,17 @@ export default function PurchasesPage() {
     if (!currentStore?.id) return;
     
     try {
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {
+        'X-Store-Id': currentStore.id,
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/suppliers', {
-        headers: {
-          'X-Store-Id': currentStore.id,
-        },
+        headers,
       });
       
       if (response.ok) {
