@@ -1,3 +1,9 @@
+/**
+ * @deprecated This repository uses inline SQL queries.
+ * For new code, use CategoriesSPRepository from './categories-sp-repository' which uses stored procedures.
+ * This file is kept for backward compatibility and type exports.
+ * Requirements: 9.1-9.4 - All category operations should use stored procedures.
+ */
 import { query, queryOne, SqlValue, QueryParams } from '../db';
 
 /**

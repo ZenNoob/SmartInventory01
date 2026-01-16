@@ -26,7 +26,9 @@ export async function getSettings(): Promise<{
   error?: string;
 }> {
   try {
-    const settings = await apiClient.getSettings();
+    const response = await apiClient.getSettings();
+    // Backend returns { settings: {...} }, extract the settings object
+    const settings = (response as any)?.settings || response;
     return { success: true, settings };
   } catch (error: unknown) {
     console.error('Error fetching settings:', error);
@@ -91,12 +93,36 @@ export async function upsertThemeSettings(settings: ThemeSettings): Promise<{ su
 }
 
 /**
- * Recalculate all loyalty points
+ * Recalculate all loyalty tiers based on customer spending
  */
-export async function recalculateAllLoyaltyPoints(): Promise<{ success: boolean; error?: string }> {
-  // This would typically call a backend endpoint to recalculate loyalty points
-  // For now, return success as placeholder
-  return { success: true };
+export async function recalculateAllLoyaltyPoints(): Promise<{ 
+  success: boolean; 
+  message?: string;
+  totalCustomers?: number;
+  updatedCount?: number;
+  error?: string 
+}> {
+  try {
+    const response = await apiClient.request<{
+      success: boolean;
+      message: string;
+      totalCustomers: number;
+      updatedCount: number;
+    }>('/settings/recalculate-tiers', { method: 'POST' });
+    
+    return { 
+      success: true, 
+      message: response.message,
+      totalCustomers: response.totalCustomers,
+      updatedCount: response.updatedCount,
+    };
+  } catch (error: unknown) {
+    console.error('Error recalculating loyalty tiers:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Không thể tính lại hạng khách hàng' 
+    };
+  }
 }
 
 /**

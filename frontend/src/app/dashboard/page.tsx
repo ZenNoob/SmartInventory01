@@ -550,8 +550,13 @@ export default function Dashboard() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredSalesForDialog.map(sale => (
-                        <TableRow key={sale.id}>
+                        {filteredSalesForDialog.length === 0 ? (
+                        <TableRow key="empty-sales">
+                            <TableCell colSpan={4} className="text-center h-24">Không có đơn hàng nào.</TableCell>
+                        </TableRow>
+                        ) : (
+                        filteredSalesForDialog.map((sale, index) => (
+                        <TableRow key={sale.id || `sale-${index}`}>
                             <TableCell>
                             <Link href={`/sales/${sale.id}`} className="font-medium hover:underline">
                                 {sale.invoiceNumber}
@@ -561,11 +566,7 @@ export default function Dashboard() {
                             <TableCell>{format(new Date(sale.transactionDate), 'dd/MM/yyyy')}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(sale.finalAmount)}</TableCell>
                         </TableRow>
-                        ))}
-                        {filteredSalesForDialog.length === 0 && (
-                        <TableRow>
-                            <TableCell colSpan={4} className="text-center h-24">Không có đơn hàng nào.</TableCell>
-                        </TableRow>
+                        ))
                         )}
                     </TableBody>
                     </Table>
@@ -634,8 +635,13 @@ export default function Dashboard() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredCustomersWithDebt.map(customer => (
-                            <TableRow key={customer.customerId} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenPaymentForm(customer)}>
+                            {filteredCustomersWithDebt.length === 0 ? (
+                            <TableRow key="empty-debt">
+                                <TableCell colSpan={3} className="text-center h-24">Không có khách hàng nào đang nợ.</TableCell>
+                            </TableRow>
+                            ) : (
+                            filteredCustomersWithDebt.map((customer, index) => (
+                            <TableRow key={customer.customerId || `debt-${index}`} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenPaymentForm(customer)}>
                                 <TableCell>
                                 <Link href={`/customers/${customer.customerId}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
                                     {customer.customerName}
@@ -644,11 +650,7 @@ export default function Dashboard() {
                                 <TableCell>{customer.customerPhone || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-semibold text-destructive">{formatCurrency(customer.finalDebt)}</TableCell>
                             </TableRow>
-                            ))}
-                            {filteredCustomersWithDebt.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={3} className="text-center h-24">Không có khách hàng nào đang nợ.</TableCell>
-                            </TableRow>
+                            ))
                             )}
                         </TableBody>
                         </Table>
@@ -697,8 +699,13 @@ export default function Dashboard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {inventoryByCategory.get(category.id)?.map(({ product, stockDisplay }) => (
-                                <TableRow key={product.id}>
+                                {(inventoryByCategory.get(category.id) || []).length === 0 ? (
+                                <TableRow key="empty-inventory">
+                                    <TableCell colSpan={2} className="text-center h-12">Không có sản phẩm.</TableCell>
+                                </TableRow>
+                                ) : (
+                                (inventoryByCategory.get(category.id) || []).map(({ product, stockDisplay }, index) => (
+                                <TableRow key={product.id || `product-${index}`}>
                                     <TableCell>
                                     <Link href={`/products?q=${product.name}`} className="font-medium hover:underline">
                                         {product.name}
@@ -706,7 +713,8 @@ export default function Dashboard() {
                                     </TableCell>
                                     <TableCell className="text-right">{stockDisplay}</TableCell>
                                 </TableRow>
-                                ))}
+                                ))
+                                )}
                             </TableBody>
                             </Table>
                         </AccordionContent>
@@ -749,10 +757,13 @@ export default function Dashboard() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {isLoading && <TableRow><TableCell colSpan={4} className="h-24 text-center">Đang tải...</TableCell></TableRow>}
-                    {!isLoading && topCustomers.length === 0 && <TableRow><TableCell colSpan={4} className="h-24 text-center">Không có dữ liệu.</TableCell></TableRow>}
-                    {!isLoading && topCustomers.map((customer, index) => (
-                    <TableRow key={customer.customerId}>
+                    {isLoading ? (
+                      <TableRow key="loading"><TableCell colSpan={4} className="h-24 text-center">Đang tải...</TableCell></TableRow>
+                    ) : topCustomers.length === 0 ? (
+                      <TableRow key="empty"><TableCell colSpan={4} className="h-24 text-center">Không có dữ liệu.</TableCell></TableRow>
+                    ) : (
+                      topCustomers.map((customer, index) => (
+                    <TableRow key={customer.customerId || `customer-${index}`}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell>
                         <Link href={`/customers/${customer.customerId}`} className="font-medium hover:underline">
@@ -771,7 +782,8 @@ export default function Dashboard() {
                         </Button>
                         </TableCell>
                     </TableRow>
-                    ))}
+                    ))
+                    )}
                 </TableBody>
                 </Table>
             </CardContent>
@@ -796,17 +808,21 @@ export default function Dashboard() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={3} className="h-24 text-center">Đang tải...</TableCell></TableRow>}
-                {!isLoading && soldProductsData.length === 0 && <TableRow><TableCell colSpan={3} className="h-24 text-center">Không có dữ liệu.</TableCell></TableRow>}
-                {!isLoading && soldProductsData.slice(0, 5).map((p) => (
-                    <TableRow key={p.productId}>
+                {isLoading ? (
+                  <TableRow key="loading"><TableCell colSpan={3} className="h-24 text-center">Đang tải...</TableCell></TableRow>
+                ) : soldProductsData.length === 0 ? (
+                  <TableRow key="empty"><TableCell colSpan={3} className="h-24 text-center">Không có dữ liệu.</TableCell></TableRow>
+                ) : (
+                  soldProductsData.slice(0, 5).map((p, index) => (
+                    <TableRow key={p.productId || `sold-${index}`}>
                     <TableCell>
                         <div className="font-medium">{p.productName}</div>
                     </TableCell>
                     <TableCell className="text-right">{p.totalQuantity.toLocaleString()} {p.baseUnitName}</TableCell>
                     <TableCell className="text-right">{formatCurrency(p.totalRevenue)}</TableCell>
                     </TableRow>
-                ))}
+                  ))
+                )}
                 </TableBody>
             </Table>
             </CardContent>

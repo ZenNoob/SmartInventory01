@@ -58,7 +58,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/contexts/store-context'
-import { upsertThemeSettings, recalculateAllLoyaltyPoints, deleteAllTransactionalData, backupAllTransactionalData } from './actions'
+import { upsertThemeSettings, recalculateAllLoyaltyPoints, deleteAllTransactionalData, backupAllTransactionalData, getSettings } from './actions'
 import { SyncDataButton } from '@/components/sync-data-button'
 import type { ThemeSettings, LoyaltySettings, SoftwarePackage } from '@/lib/types'
 import { hexToHsl, hslToHex } from '@/lib/utils'
@@ -152,13 +152,10 @@ export default function SettingsPage() {
     
     setIsLoading(true);
     try {
-      const response = await fetch('/api/settings', {
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setThemeSettings(data.settings);
+      const result = await getSettings();
+      console.log('[Settings] Fetched data:', result);
+      if (result.success && result.settings) {
+        setThemeSettings(result.settings as ThemeSettings);
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -212,6 +209,7 @@ export default function SettingsPage() {
   
   useEffect(() => {
     if (themeSettings) {
+      console.log('[Settings] Resetting form with:', themeSettings);
       form.reset({
         primary: hslToHex(themeSettings.primary),
         primaryForeground: hslToHex(themeSettings.primaryForeground),
@@ -314,7 +312,7 @@ export default function SettingsPage() {
       if (result.success) {
         toast({
           title: "Hoàn tất!",
-          description: `Đã xử lý và tính toán lại điểm cho ${result.processedCount} khách hàng.`,
+          description: result.message || `Đã cập nhật hạng cho ${result.updatedCount}/${result.totalCustomers} khách hàng.`,
         });
         router.refresh();
       } else {

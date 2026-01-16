@@ -309,3 +309,50 @@ export async function getCustomerDebtWithHistory(
     };
   }
 }
+
+/**
+ * Sync all customer accounts - recalculate total_spent, total_paid, total_debt from Sales data
+ */
+export interface SyncCustomerAccountsResult {
+  totalCustomers: number;
+  updatedCustomers: number;
+  details: Array<{
+    customerId: string;
+    customerName: string;
+    oldValues: { totalSpent: number; totalPaid: number; totalDebt: number };
+    newValues: { totalSpent: number; totalPaid: number; totalDebt: number };
+  }>;
+}
+
+export async function syncCustomerAccounts(): Promise<{
+  success: boolean;
+  message?: string;
+  result?: SyncCustomerAccountsResult;
+  error?: string;
+}> {
+  try {
+    const response = await apiClient.request<{
+      success: boolean;
+      message: string;
+      totalCustomers: number;
+      updatedCustomers: number;
+      details: SyncCustomerAccountsResult['details'];
+    }>('/sync-data/customers', { method: 'POST' });
+    
+    return {
+      success: true,
+      message: response.message,
+      result: {
+        totalCustomers: response.totalCustomers,
+        updatedCustomers: response.updatedCustomers,
+        details: response.details,
+      },
+    };
+  } catch (error: unknown) {
+    console.error('Error syncing customer accounts:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể đồng bộ tài khoản khách hàng',
+    };
+  }
+}

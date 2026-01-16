@@ -1,0 +1,274 @@
+/**
+ * Products SP Repository
+ * 
+ * Repository for product operations using stored procedures.
+ * Implements CRUD operations via sp_Products_* stored procedures.
+ */
+
+import { SPBaseRepository, SPParams } from './sp-base-repository';
+import { Product, ProductWithStock } from './product-repository';
+
+/**
+ * Database record interface for Products from stored procedures (camelCase - as returned by SP)
+ */
+interface ProductSPRecord {
+  id: string;
+  storeId: string;
+  categoryId: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  costPrice: number;
+  sku: string | null;
+  unitId: string | null;
+  stockQuantity: number;
+  images: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  // Joined fields from SP
+  categoryName?: string;
+  currentStock?: number;
+  unitName?: string;
+}
+
+/**
+ * Input for creating a product via stored procedure
+ */
+export interface CreateProductSPInput {
+  id?: string;
+  storeId: string;
+  categoryId?: string | null;
+  name: string;
+  description?: string | null;
+  price: number;
+  costPrice: number;
+  sku?: string | null;
+  unitId?: string | null;
+  stockQuantity?: number;
+  status?: 'active' | 'draft' | 'archived';
+  images?: string | null;
+}
+
+/**
+ * Input for updating a product via stored procedure
+ */
+export interface UpdateProductSPInput {
+  categoryId?: string | null;
+  name?: string;
+  description?: string | null;
+  price?: number;
+  costPrice?: number;
+  sku?: string | null;
+  unitId?: string | null;
+  status?: 'active' | 'draft' | 'archived';
+  images?: string | null;
+}
+
+/**
+ * Products repository using stored procedures
+ */
+export class ProductsSPRepository extends SPBaseRepository<Product> {
+  protected tableName = 'Products';
+
+  /**
+   * Map database record to Product entity
+   */
+  private mapToEntity(record: ProductSPRecord): ProductWithStock & { unitId?: string | null } {
+    return {
+      id: record.id,
+      storeId: record.storeId,
+      categoryId: record.categoryId || '',
+      name: record.name,
+      description: record.description || undefined,
+      price: record.price || 0,
+      costPrice: record.costPrice || 0,
+      sku: record.sku || undefined,
+      stockQuantity: record.stockQuantity || 0,
+      images: record.images || undefined,
+      status: (record.status as 'active' | 'draft' | 'archived') || 'active',
+      createdAt: record.createdAt
+        ? record.createdAt instanceof Date
+          ? record.createdAt.toISOString()
+          : String(record.createdAt)
+        : undefined,
+      updatedAt: record.updatedAt
+        ? record.updatedAt instanceof Date
+          ? record.updatedAt.toISOString()
+          : String(record.updatedAt)
+        : undefined,
+      // Extended fields
+      currentStock: record.currentStock ?? record.stockQuantity ?? 0,
+      averageCost: record.costPrice || 0,
+      categoryName: record.categoryName,
+      unitName: record.unitName,
+      unitId: record.unitId,
+    };
+  }
+
+  /**
+   * Create a new product using sp_Products_Create
+   * Requirements: 1.1
+   * 
+   * @param input - Product data to create
+   * @returns Created product
+   */
+  async create(input: CreateProductSPInput): Promise<ProductWithStock> {
+    const id = input.id || crypto.randomUUID();
+    
+    const params: SPParams = {
+      id,
+      storeId: input.storeId,
+      categoryId: input.categoryId || null,
+      name: input.name,
+      description: input.description || null,
+      price: input.price,
+      costPrice: input.costPrice,
+      sku: input.sku || null,
+      unitId: input.unitId || null,
+      stockQuantity: input.stockQuantity ?? 0,
+      status: input.status || 'active',
+      images: input.images || null,
+    };
+
+    await this.executeSP('sp_Products_Create', params);
+    
+    // Fetch and return the created product
+    const product = await this.getById(id, input.storeId);
+    if (!product) {
+      throw new Error('Failed to create product');
+    }
+    return product;
+  }
+
+  /**
+   * Update a product using sp_Products_Update
+   * Requirements: 1.2
+   * 
+   * @param id - Product ID
+   * @param storeId - Store ID
+   * @param data - Fields to update
+   * @returns Updated product or null if not found
+   */
+  async update(
+    id: string,
+    storeId: string,
+    data: UpdateProductSPInput
+  ): Promise<ProductWithStock | null> {
+    const params: SPParams = {
+      id,
+      storeId,
+      categoryId: data.categoryId,
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      costPrice: data.costPrice,
+      sku: data.sku,
+      unitId: data.unitId,
+      status: data.status,
+      images: data.images,
+    };
+
+    const result = await this.executeSPSingle<{ AffectedRows: number }>(
+      'sp_Products_Update',
+      params
+    );
+
+    if (!result || result.AffectedRows === 0) {
+      return null;
+    }
+
+    return this.getById(id, storeId);
+  }
+
+  /**
+   * Delete (soft delete) a product using sp_Products_Delete
+   * Requirements: 1.3
+   * 
+   * @param id - Product ID
+   * @param storeId - Store ID
+   * @returns True if deleted, false if not found
+   */
+  async delete(id: string, storeId: string): Promise<boolean> {
+    const result = await this.executeSPSingle<{ AffectedRows: number }>(
+      'sp_Products_Delete',
+      { id, storeId }
+    );
+
+    return (result?.AffectedRows ?? 0) > 0;
+  }
+
+  /**
+   * Get all products for a store using sp_Products_GetByStore
+   * Requirements: 1.4
+   * 
+   * @param storeId - Store ID
+   * @param status - Optional status filter
+   * @param categoryId - Optional category filter
+   * @returns Array of products
+   */
+  async getByStore(
+    storeId: string,
+    status?: string | null,
+    categoryId?: string | null
+  ): Promise<ProductWithStock[]> {
+    const params: SPParams = {
+      storeId,
+      status: status || null,
+      categoryId: categoryId || null,
+    };
+
+    const results = await this.executeSP<ProductSPRecord>(
+      'sp_Products_GetByStore',
+      params
+    );
+
+    return results.map((r) => this.mapToEntity(r));
+  }
+
+  /**
+   * Get a single product by ID using sp_Products_GetById
+   * Requirements: 1.5
+   * 
+   * @param id - Product ID
+   * @param storeId - Store ID
+   * @returns Product or null if not found
+   */
+  async getById(id: string, storeId: string): Promise<ProductWithStock | null> {
+    const result = await this.executeSPSingle<ProductSPRecord>(
+      'sp_Products_GetById',
+      { id, storeId }
+    );
+
+    return result ? this.mapToEntity(result) : null;
+  }
+
+  /**
+   * Get active products for a store
+   * Convenience method that filters by active status
+   * 
+   * @param storeId - Store ID
+   * @returns Array of active products
+   */
+  async getActiveByStore(storeId: string): Promise<ProductWithStock[]> {
+    return this.getByStore(storeId, 'active');
+  }
+
+  /**
+   * Get products by category
+   * Convenience method that filters by category
+   * 
+   * @param storeId - Store ID
+   * @param categoryId - Category ID
+   * @returns Array of products in the category
+   */
+  async getByCategory(
+    storeId: string,
+    categoryId: string
+  ): Promise<ProductWithStock[]> {
+    return this.getByStore(storeId, null, categoryId);
+  }
+}
+
+// Export singleton instance
+export const productsSPRepository = new ProductsSPRepository();

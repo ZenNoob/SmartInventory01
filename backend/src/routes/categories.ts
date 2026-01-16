@@ -1,42 +1,30 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { query, queryOne, insert, update, remove } from '../db';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
+import { categoriesSPRepository } from '../repositories/categories-sp-repository';
 
 const router = Router();
-
-// Database uses snake_case
-interface CategoryRecord {
-  id: string;
-  store_id: string;
-  name: string;
-  description: string | null;
-  parent_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
 
 router.use(authenticate);
 router.use(storeContext);
 
 // GET /api/categories
+// Requirements: 9.4 - Uses sp_Categories_GetByStore
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
 
-    const categories = await query<CategoryRecord>(
-      'SELECT * FROM Categories WHERE store_id = @storeId ORDER BY name',
-      { storeId }
-    );
+    // Use SP Repository instead of inline query
+    const categories = await categoriesSPRepository.getByStore(storeId);
 
     res.json(
       categories.map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
-        parentId: c.parent_id,
-        createdAt: c.created_at,
-        updatedAt: c.updated_at,
+        parentId: c.parentId,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
       }))
     );
   } catch (error) {
@@ -51,10 +39,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    const category = await queryOne<CategoryRecord>(
-      'SELECT * FROM Categories WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const category = await categoriesSPRepository.getById(id, storeId);
 
     if (!category) {
       res.status(404).json({ error: 'Category not found' });
@@ -65,9 +51,9 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       id: category.id,
       name: category.name,
       description: category.description,
-      parentId: category.parent_id,
-      createdAt: category.created_at,
-      updatedAt: category.updated_at,
+      parentId: category.parentId,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
     });
   } catch (error) {
     console.error('Get category error:', error);
@@ -76,6 +62,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/categories
+// Requirements: 9.1 - Uses sp_Categories_Create
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
@@ -86,28 +73,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const result = await insert<CategoryRecord>('Categories', {
+    // Use SP Repository instead of inline query
+    const category = await categoriesSPRepository.create({
       id: uuidv4(),
-      store_id: storeId,
-      name: name,
+      storeId,
+      name,
       description: description || null,
-      parent_id: parentId || null,
-      created_at: new Date(),
-      updated_at: new Date(),
+      parentId: parentId || null,
     });
 
-    if (!result) {
-      res.status(500).json({ error: 'Failed to create category' });
-      return;
-    }
-
     res.status(201).json({
-      id: result.id,
-      name: result.name,
-      description: result.description,
-      parentId: result.parent_id,
-      createdAt: result.created_at,
-      updatedAt: result.updated_at,
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      parentId: category.parentId,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
     });
   } catch (error) {
     console.error('Create category error:', error);
@@ -116,41 +97,32 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /api/categories/:id
+// Requirements: 9.2 - Uses sp_Categories_Update
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const storeId = req.storeId!;
     const { name, description, parentId } = req.body;
 
-    const existing = await queryOne<CategoryRecord>(
-      'SELECT * FROM Categories WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const category = await categoriesSPRepository.update(id, storeId, {
+      name: name !== undefined ? name : undefined,
+      description: description !== undefined ? description : undefined,
+      parentId: parentId !== undefined ? parentId : undefined,
+    });
 
-    if (!existing) {
+    if (!category) {
       res.status(404).json({ error: 'Category not found' });
       return;
     }
 
-    const result = await update<CategoryRecord>('Categories', id, {
-      name: name || existing.name,
-      description: description !== undefined ? description : existing.description,
-      parent_id: parentId !== undefined ? parentId : existing.parent_id,
-      updated_at: new Date(),
-    });
-
-    if (!result) {
-      res.status(500).json({ error: 'Failed to update category' });
-      return;
-    }
-
     res.json({
-      id: result.id,
-      name: result.name,
-      description: result.description,
-      parentId: result.parent_id,
-      createdAt: result.created_at,
-      updatedAt: result.updated_at,
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      parentId: category.parentId,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
     });
   } catch (error) {
     console.error('Update category error:', error);
@@ -159,22 +131,20 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /api/categories/:id
+// Requirements: 9.3 - Uses sp_Categories_Delete
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    const existing = await queryOne<CategoryRecord>(
-      'SELECT * FROM Categories WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const deleted = await categoriesSPRepository.delete(id, storeId);
 
-    if (!existing) {
+    if (!deleted) {
       res.status(404).json({ error: 'Category not found' });
       return;
     }
 
-    await remove('Categories', id);
     res.json({ success: true });
   } catch (error) {
     console.error('Delete category error:', error);

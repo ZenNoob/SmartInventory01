@@ -257,9 +257,13 @@ export default function UnitsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Đang tải...</TableCell></TableRow>}
-              {!isLoading && sortedUnits?.map((unit, index) => (
-                  <TableRow key={unit.id}>
+              {isLoading ? (
+                <TableRow key="loading">
+                  <TableCell colSpan={5} className="text-center">Đang tải...</TableCell>
+                </TableRow>
+              ) : sortedUnits && sortedUnits.length > 0 ? (
+                sortedUnits.map((unit, index) => (
+                  <TableRow key={unit.id || `unit-${index}`}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       {unit.name}
@@ -294,14 +298,14 @@ export default function UnitsPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
-                {!isLoading && sortedUnits?.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
-                            Không tìm thấy đơn vị tính nào. Hãy thử một từ khóa tìm kiếm khác hoặc thêm một đơn vị mới.
-                        </TableCell>
-                    </TableRow>
-                )}
+                ))
+              ) : (
+                <TableRow key="empty">
+                  <TableCell colSpan={5} className="text-center h-24">
+                    Không tìm thấy đơn vị tính nào. Hãy thử một từ khóa tìm kiếm khác hoặc thêm một đơn vị mới.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

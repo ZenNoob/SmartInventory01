@@ -737,6 +737,109 @@ class ApiClient {
   async getStorefrontOrder(slug: string, orderNumber: string) {
     return this.request<{ order: Record<string, unknown> }>(`/storefront/${slug}/orders/${orderNumber}`);
   }
+
+  // ==================== Unit Conversion ====================
+  
+  // Product Units Configuration
+  async getProductUnits(productId: string) {
+    return this.request<{
+      productUnit: {
+        id: string;
+        productId: string;
+        storeId: string;
+        baseUnitId: string;
+        baseUnitName?: string;
+        conversionUnitId: string;
+        conversionUnitName?: string;
+        conversionRate: number;
+        baseUnitPrice: number;
+        conversionUnitPrice: number;
+        isActive: boolean;
+        createdAt?: string;
+        updatedAt?: string;
+      } | null;
+    }>(`/products/${productId}/units`);
+  }
+
+  async createOrUpdateProductUnits(productId: string, data: {
+    baseUnitId: string;
+    conversionUnitId: string;
+    conversionRate: number;
+    baseUnitPrice: number;
+    conversionUnitPrice: number;
+  }) {
+    return this.request<{
+      success: boolean;
+      productUnit: Record<string, unknown>;
+    }>(`/products/${productId}/units`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async deleteProductUnits(productId: string) {
+    return this.request<{ success: boolean }>(`/products/${productId}/units`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Product Inventory
+  async getProductInventory(productId: string) {
+    return this.request<{
+      conversionUnitStock: number;
+      baseUnitStock: number;
+      displayText: string;
+      totalInBaseUnit: number;
+      conversionUnitName?: string;
+      baseUnitName?: string;
+    }>(`/products/${productId}/inventory`);
+  }
+
+  async getProductAvailableQuantity(productId: string, unitId: string) {
+    return this.request<{
+      quantity: number;
+      unit: {
+        id: string;
+        name: string;
+      } | null;
+    }>(`/products/${productId}/available-quantity?unitId=${unitId}`);
+  }
+
+  // Conversion Logs
+  async getProductConversionLogs(productId: string, params?: {
+    page?: number;
+    pageSize?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
+    const query = searchParams.toString();
+    return this.request<{
+      logs: Array<{
+        id: string;
+        productId: string;
+        productName?: string;
+        storeId: string;
+        salesTransactionId?: string;
+        salesInvoiceNumber?: string;
+        conversionDate: string;
+        conversionType: 'auto_deduct' | 'manual_adjust';
+        conversionUnitChange: number;
+        baseUnitChange: number;
+        beforeConversionUnitStock: number;
+        beforeBaseUnitStock: number;
+        afterConversionUnitStock: number;
+        afterBaseUnitStock: number;
+        baseUnitName?: string;
+        conversionUnitName?: string;
+        notes?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/products/${productId}/conversion-logs${query ? `?${query}` : ''}`);
+  }
 }
 
 export const apiClient = new ApiClient();

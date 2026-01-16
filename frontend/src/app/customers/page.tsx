@@ -16,6 +16,7 @@ import {
   Star,
   Shield,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react"
 
 import {
@@ -64,7 +65,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CustomerForm } from "./components/customer-form"
-import { getCustomers, deleteCustomer, updateCustomerStatus, generateCustomerTemplate, getCustomerDebt, CustomerWithDebt, CustomerDebtHistory } from "./actions"
+import { getCustomers, deleteCustomer, updateCustomerStatus, generateCustomerTemplate, getCustomerDebt, CustomerWithDebt, CustomerDebtHistory, syncCustomerAccounts } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
@@ -167,6 +168,7 @@ export default function CustomersPage() {
   const [paymentHistory, setPaymentHistory] = useState<DebtHistoryItem[]>([]);
   const [isUpdating, startTransition] = useTransition();
   const [isExporting, startExportingTransition] = useTransition();
+  const [isSyncing, startSyncingTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [loyaltyTierFilter, setLoyaltyTierFilter] = useState<LoyaltyTierFilter>('all');
@@ -302,6 +304,29 @@ export default function CustomersPage() {
         toast({ title: "Thành công", description: "Đã tải xuống file mẫu." });
       } else {
         toast({ variant: "destructive", title: "Lỗi", description: result.error });
+      }
+    });
+  }
+
+  const handleSyncAccounts = () => {
+    startSyncingTransition(async () => {
+      const result = await syncCustomerAccounts();
+      if (result.success) {
+        toast({
+          title: "Đồng bộ thành công",
+          description: result.message || `Đã cập nhật ${result.result?.updatedCustomers || 0} khách hàng.`,
+        });
+        // Refresh customers list
+        const refreshResult = await getCustomers(true);
+        if (refreshResult.success && refreshResult.customers) {
+          setCustomers(refreshResult.customers);
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Lỗi đồng bộ",
+          description: result.error,
+        });
       }
     });
   }
@@ -521,6 +546,12 @@ export default function CustomersPage() {
             </DropdownMenu>
             {canAddCustomer && (
             <>
+              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleSyncAccounts} disabled={isSyncing}>
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ tài khoản'}
+                </span>
+              </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExportTemplate} disabled={isExporting}>
                 <File className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">

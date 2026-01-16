@@ -154,7 +154,7 @@ router.post('/:id/close', async (req: AuthRequest, res: Response) => {
       salesCount: number;
     }>(
       `SELECT 
-        ISNULL(SUM(CASE WHEN payment_method = 'cash' THEN final_amount ELSE 0 END), 0) as cashSales,
+        ISNULL(SUM(customer_payment), 0) as cashSales,
         ISNULL(SUM(final_amount), 0) as totalRevenue,
         COUNT(*) as salesCount
        FROM Sales 

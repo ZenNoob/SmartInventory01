@@ -85,6 +85,7 @@ import { CustomerForm } from '@/app/customers/components/customer-form'
 import { StartShiftDialog } from './components/start-shift-dialog'
 import { ShiftControls } from './components/shift-controls'
 import { ThermalReceipt } from '../sales/[id]/components/thermal-receipt'
+import { InvoicePrintDialog } from '@/components/invoice-print-dialog'
 
 // Extended product type with stock info from SQL Server
 interface ProductWithStock extends Product {
@@ -173,6 +174,21 @@ export default function POSPage() {
   const [paymentSuggestions, setPaymentSuggestions] = useState<number[]>([]);
   const [isChangeReturned, setIsChangeReturned] = useState(true);
   const [isCustomerFormOpen, setIsCustomerFormOpen] = useState(false);
+  
+  // Invoice print dialog state
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [lastSaleData, setLastSaleData] = useState<{
+    invoiceNumber: string;
+    transactionDate: Date;
+    items: CartItem[];
+    totalAmount: number;
+    discount: number;
+    vatAmount: number;
+    finalAmount: number;
+    customerPayment: number;
+    customerName?: string;
+    customerPhone?: string;
+  } | null>(null);
 
   // Fetch products from SQL Server
   const fetchProducts = useCallback(async () => {
@@ -496,21 +512,40 @@ export default function POSPage() {
     const result = await upsertSaleTransaction(saleData as Record<string, unknown>)
 
     if (result.success && result.saleData) {
-      toast({
-        title: 'Thành công!',
-        description: `Đã tạo đơn hàng ${result.saleData.invoiceNumber}.`,
+      const invoiceNumber = result.saleData.invoiceNumber;
+
+      // Save sale data for invoice dialog
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      setLastSaleData({
+        invoiceNumber,
+        transactionDate: new Date(),
+        items: [...cart],
+        totalAmount,
+        discount: totalDiscount,
+        vatAmount,
+        finalAmount,
+        customerPayment,
+        customerName: selectedCustomer?.name,
+        customerPhone: selectedCustomer?.phone,
       });
 
-      // Open new window for printing if enabled
+      // Show success toast with print button
+      toast({
+        title: 'Thành công!',
+        description: `Đã tạo đơn hàng ${invoiceNumber}.`,
+        action: (
+          <button
+            onClick={() => setShowInvoiceDialog(true)}
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          >
+            In hóa đơn
+          </button>
+        ),
+      });
+
+      // Auto-open invoice dialog if invoiceFormat is set
       if (settings?.invoiceFormat && settings.invoiceFormat !== 'none') {
-        const printWindow = window.open(`/sales/${result.saleData.id}?print=true`, '_blank', 'width=800,height=600');
-        if (!printWindow) {
-          toast({
-            variant: "destructive",
-            title: "Lỗi in",
-            description: "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt chặn pop-up của trình duyệt.",
-          })
-        }
+        setShowInvoiceDialog(true);
       }
 
       // Reset state for new sale
@@ -1014,6 +1049,31 @@ export default function POSPage() {
         </div>
       </main>
     </div>
+    
+    {/* Invoice Print Dialog */}
+    {lastSaleData && (
+      <InvoicePrintDialog
+        open={showInvoiceDialog}
+        onClose={() => setShowInvoiceDialog(false)}
+        invoiceNumber={lastSaleData.invoiceNumber}
+        transactionDate={lastSaleData.transactionDate}
+        items={lastSaleData.items.map(item => ({
+          id: item.productId,
+          name: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+          unitName: item.saleUnitName,
+        }))}
+        totalAmount={lastSaleData.totalAmount}
+        discount={lastSaleData.discount}
+        vatAmount={lastSaleData.vatAmount}
+        finalAmount={lastSaleData.finalAmount}
+        customerPayment={lastSaleData.customerPayment}
+        customerName={lastSaleData.customerName}
+        customerPhone={lastSaleData.customerPhone}
+        settings={settings}
+      />
+    )}
     </>
   )
 }

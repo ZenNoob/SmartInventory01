@@ -81,3 +81,21 @@ export {
   SAMPLE_CUSTOMERS,
   type SyncDataResult,
 } from './sync-data-service';
+
+// Inventory service (Unit Conversion)
+export {
+  InventoryService,
+  inventoryService,
+  InsufficientStockError as InventoryInsufficientStockError,
+  type DeductInventoryResult,
+  type InventoryDisplayInfo,
+} from './inventory-service';
+
+// Sales service
+export {
+  SalesService,
+  salesService,
+  type CreateSaleItemInput,
+  type CreateSaleInput,
+  type CreateSaleResult,
+} from './sales-service';

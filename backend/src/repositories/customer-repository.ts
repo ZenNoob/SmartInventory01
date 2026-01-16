@@ -1,3 +1,9 @@
+/**
+ * @deprecated This repository uses inline SQL queries.
+ * For new code, use CustomersSPRepository from './customers-sp-repository' which uses stored procedures.
+ * This file is kept for backward compatibility and type exports.
+ * Requirements: 3.1-3.5 - All customer operations should use stored procedures.
+ */
 import { query, queryOne, QueryParams } from '../db';
 
 /**

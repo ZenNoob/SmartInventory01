@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
-import { query, queryOne } from '../db';
+import { query } from '../db';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
+import { salesService, InventoryInsufficientStockError } from '../services';
+import { salesSPRepository } from '../repositories/sales-sp-repository';
 
 const router = Router();
 
@@ -15,90 +17,74 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     
     const pageNum = parseInt(page as string);
     const pageSizeNum = parseInt(pageSize as string);
-    const offset = (pageNum - 1) * pageSizeNum;
 
-    // Build WHERE clause
-    const conditions = ['s.store_id = @storeId'];
-    const params: Record<string, unknown> = { storeId };
+    // Use SP Repository to get sales with filters
+    const filters = {
+      startDate: dateFrom ? new Date(dateFrom as string) : null,
+      endDate: dateTo ? new Date(dateTo as string) : null,
+      customerId: customerId && customerId !== 'all' ? customerId as string : null,
+      status: status && status !== 'all' ? status as string : null,
+    };
 
+    let sales = await salesSPRepository.getByStore(storeId, filters);
+
+    // Apply search filter (client-side since SP doesn't support it)
     if (search) {
-      conditions.push('(s.invoice_number LIKE @search OR c.full_name LIKE @search)');
-      params.search = `%${search}%`;
+      const searchLower = (search as string).toLowerCase();
+      sales = sales.filter(s => 
+        s.invoiceNumber?.toLowerCase().includes(searchLower) ||
+        s.customerName?.toLowerCase().includes(searchLower)
+      );
     }
 
-    if (status && status !== 'all') {
-      conditions.push('s.status = @status');
-      params.status = status;
-    }
-
-    if (customerId && customerId !== 'all') {
-      conditions.push('s.customer_id = @customerId');
-      params.customerId = customerId;
-    }
-
-    if (dateFrom) {
-      conditions.push('s.transaction_date >= @dateFrom');
-      params.dateFrom = dateFrom;
-    }
-
-    if (dateTo) {
-      conditions.push('s.transaction_date <= @dateTo');
-      params.dateTo = dateTo;
-    }
-
-    const whereClause = conditions.join(' AND ');
-
-    // Get total count
-    const countResult = await query(
-      `SELECT COUNT(*) as total
-       FROM Sales s
-       LEFT JOIN Customers c ON s.customer_id = c.id
-       WHERE ${whereClause}`,
-      params
-    );
-    const total = countResult[0]?.total || 0;
+    // Calculate pagination
+    const total = sales.length;
     const totalPages = Math.ceil(total / pageSizeNum);
+    const offset = (pageNum - 1) * pageSizeNum;
+    const paginatedSales = sales.slice(offset, offset + pageSizeNum);
 
-    // Get paginated sales with item count
-    const sales = await query(
-      `SELECT s.*, c.full_name as customer_name,
-              (SELECT COUNT(*) FROM SalesItems si WHERE si.sales_transaction_id = s.id) as item_count
-       FROM Sales s
-       LEFT JOIN Customers c ON s.customer_id = c.id
-       WHERE ${whereClause}
-       ORDER BY s.transaction_date DESC
-       OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`,
-      { ...params, offset, pageSize: pageSizeNum }
+    // Get item counts for paginated sales (still need inline query for this)
+    const salesWithItemCount = await Promise.all(
+      paginatedSales.map(async (s) => {
+        const countResult = await query(
+          `SELECT COUNT(*) as item_count FROM SalesItems WHERE sales_transaction_id = @id`,
+          { id: s.id }
+        );
+        return {
+          ...s,
+          itemCount: countResult[0]?.item_count || 0,
+        };
+      })
     );
 
     res.json({
       success: true,
-      data: sales.map((s: Record<string, unknown>) => ({
+      data: salesWithItemCount.map((s) => ({
         id: s.id,
-        storeId: s.store_id,
-        invoiceNumber: s.invoice_number,
-        customerId: s.customer_id,
-        customerName: s.customer_name,
-        shiftId: s.shift_id,
-        transactionDate: s.transaction_date,
+        storeId: s.storeId,
+        invoiceNumber: s.invoiceNumber,
+        customerId: s.customerId,
+        customerName: s.customerName,
+        shiftId: s.shiftId,
+        transactionDate: s.transactionDate,
         status: s.status,
-        totalAmount: s.total_amount,
-        vatAmount: s.vat_amount,
-        finalAmount: s.final_amount,
+        totalAmount: s.totalAmount,
+        vatAmount: s.vatAmount,
+        finalAmount: s.finalAmount,
         discount: s.discount,
-        discountType: s.discount_type,
-        discountValue: s.discount_value,
-        tierDiscountPercentage: s.tier_discount_percentage,
-        tierDiscountAmount: s.tier_discount_amount,
-        pointsUsed: s.points_used,
-        pointsDiscount: s.points_discount,
-        customerPayment: s.customer_payment,
-        previousDebt: s.previous_debt,
-        remainingDebt: s.remaining_debt,
-        paymentMethod: s.payment_method,
-        itemCount: s.item_count,
-        createdAt: s.created_at,
-        updatedAt: s.updated_at,
+        discountType: s.discountType,
+        discountValue: s.discountValue,
+        tierDiscountPercentage: s.tierDiscountPercentage,
+        tierDiscountAmount: s.tierDiscountAmount,
+        pointsUsed: s.pointsUsed,
+        pointsDiscount: s.pointsDiscount,
+        customerPayment: s.customerPayment,
+        previousDebt: s.previousDebt,
+        remainingDebt: s.remainingDebt,
+        paymentMethod: (s as any).paymentMethod,
+        itemCount: s.itemCount,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
       })),
       total,
       page: pageNum,
@@ -116,6 +102,7 @@ router.get('/items/all', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
 
+    // This query is specific and not covered by SP, keep inline
     const items = await query(
       `SELECT si.id, si.sales_transaction_id, si.product_id, si.quantity, si.price,
               p.name as product_name, s.transaction_date
@@ -150,35 +137,49 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    const sale = await queryOne(
-      `SELECT s.*, c.full_name as customer_name
-       FROM Sales s
-       LEFT JOIN Customers c ON s.customer_id = c.id
-       WHERE s.id = @id AND s.store_id = @storeId`,
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const result = await salesSPRepository.getById(id, storeId);
 
-    if (!sale) {
+    if (!result) {
       res.status(404).json({ error: 'Sale not found' });
       return;
     }
 
+    const { sale, items } = result;
+
     res.json({
-      id: sale.id,
-      storeId: sale.store_id,
-      invoiceNumber: sale.invoice_number,
-      customerId: sale.customer_id,
-      customerName: sale.customer_name,
-      shiftId: sale.shift_id,
-      transactionDate: sale.transaction_date,
-      status: sale.status,
-      totalAmount: sale.total_amount,
-      vatAmount: sale.vat_amount,
-      finalAmount: sale.final_amount,
-      discount: sale.discount,
-      paymentMethod: sale.payment_method,
-      customerPayment: sale.customer_payment,
-      remainingDebt: sale.remaining_debt,
+      sale: {
+        id: sale.id,
+        storeId: sale.storeId,
+        invoiceNumber: sale.invoiceNumber,
+        customerId: sale.customerId,
+        customerName: sale.customerName,
+        shiftId: sale.shiftId,
+        transactionDate: sale.transactionDate,
+        status: sale.status,
+        totalAmount: sale.totalAmount,
+        vatAmount: sale.vatAmount,
+        finalAmount: sale.finalAmount,
+        discount: sale.discount,
+        discountType: sale.discountType,
+        discountValue: sale.discountValue,
+        tierDiscountPercentage: sale.tierDiscountPercentage,
+        tierDiscountAmount: sale.tierDiscountAmount,
+        pointsUsed: sale.pointsUsed,
+        pointsDiscount: sale.pointsDiscount,
+        customerPayment: sale.customerPayment,
+        previousDebt: sale.previousDebt,
+        remainingDebt: sale.remainingDebt,
+        items: items.map((item) => ({
+          id: item.id,
+          salesId: item.salesTransactionId,
+          productId: item.productId,
+          productName: item.productName,
+          unitName: item.unitName,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      },
     });
   } catch (error) {
     console.error('Get sale error:', error);
@@ -192,25 +193,23 @@ router.get('/:id/items', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    const items = await query(
-      `SELECT si.id, si.sales_transaction_id, si.product_id, si.quantity, si.price,
-              p.name as product_name
-       FROM SalesItems si
-       JOIN Products p ON si.product_id = p.id
-       JOIN Sales s ON si.sales_transaction_id = s.id
-       WHERE si.sales_transaction_id = @id AND s.store_id = @storeId`,
-      { id, storeId }
-    );
+    // Use SP Repository to get sale with items
+    const result = await salesSPRepository.getById(id, storeId);
 
-    res.json(items.map((i: Record<string, unknown>) => ({
+    if (!result) {
+      res.status(404).json({ error: 'Sale not found' });
+      return;
+    }
+
+    res.json(result.items.map((i) => ({
       id: i.id,
-      saleId: i.sales_transaction_id,
-      productId: i.product_id,
-      productName: i.product_name,
-      unitName: null,
+      saleId: i.salesTransactionId,
+      productId: i.productId,
+      productName: i.productName,
+      unitName: i.unitName,
       quantity: i.quantity,
       unitPrice: i.price,
-      totalPrice: (i.quantity as number) * (i.price as number),
+      totalPrice: i.quantity * i.price,
     })));
   } catch (error) {
     console.error('Get sale items error:', error);
@@ -231,73 +230,76 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     console.log('[POST /api/sales] Creating sale:', { storeId, customerId, shiftId, itemsCount: items?.length, totalAmount, finalAmount });
 
-    // Generate invoice number
-    const invoiceNumber = `INV-${Date.now()}`;
+    // Validate items
+    if (!items || items.length === 0) {
+      res.status(400).json({ error: 'Đơn hàng phải có ít nhất một sản phẩm' });
+      return;
+    }
 
-    const result = await query(
-      `INSERT INTO Sales (
-        id, store_id, invoice_number, customer_id, shift_id, transaction_date,
-        status, total_amount, vat_amount, final_amount, discount, discount_type,
-        discount_value, tier_discount_percentage, tier_discount_amount,
-        points_used, points_discount, customer_payment, 
-        previous_debt, remaining_debt, created_at, updated_at
-      )
-      OUTPUT INSERTED.*
-      VALUES (
-        NEWID(), @storeId, @invoiceNumber, @customerId, @shiftId, GETDATE(),
-        @status, @totalAmount, @vatAmount, @finalAmount, @discount, @discountType,
-        @discountValue, @tierDiscountPercentage, @tierDiscountAmount,
-        @pointsUsed, @pointsDiscount, @customerPayment, 
-        @previousDebt, @remainingDebt, GETDATE(), GETDATE()
-      )`,
-      { 
-        storeId, invoiceNumber, customerId: customerId || null, shiftId: shiftId || null,
-        status: status || 'completed',
-        totalAmount: totalAmount || 0, vatAmount: vatAmount || 0, finalAmount: finalAmount || 0, 
-        discount: discount || 0, discountType: discountType || null, discountValue: discountValue || 0,
-        tierDiscountPercentage: tierDiscountPercentage || 0, tierDiscountAmount: tierDiscountAmount || 0,
-        pointsUsed: pointsUsed || 0, pointsDiscount: pointsDiscount || 0,
-        customerPayment: customerPayment || finalAmount || 0,
-        previousDebt: previousDebt || 0, remainingDebt: remainingDebt || 0
-      }
+    // Map items to include unitId
+    const mappedItems = items.map((item: any) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.price ?? item.unitPrice,
+      unitId: item.unitId, // Support unitId for unit conversion
+    }));
+
+    // Use SalesService to create sale with inventory management
+    // Note: SalesService handles complex inventory deduction logic
+    const result = await salesService.createSale(
+      {
+        customerId,
+        shiftId,
+        items: mappedItems,
+        discount,
+        discountType,
+        discountValue,
+        tierDiscountPercentage,
+        tierDiscountAmount,
+        pointsUsed,
+        pointsDiscount,
+        customerPayment,
+        previousDebt,
+        vatAmount,
+      },
+      storeId
     );
 
-    const sale = result[0];
-    console.log('[POST /api/sales] Sale created:', sale.id, sale.invoice_number);
-
-    // Insert sale items
-    if (items && items.length > 0) {
-      for (const item of items) {
-        // Accept both 'price' and 'unitPrice' for compatibility
-        const itemPrice = item.price ?? item.unitPrice;
-        await query(
-          `INSERT INTO SalesItems (id, sales_transaction_id, product_id, quantity, price, created_at)
-           VALUES (NEWID(), @saleId, @productId, @quantity, @price, GETDATE())`,
-          { 
-            saleId: sale.id, 
-            productId: item.productId, 
-            quantity: item.quantity,
-            price: itemPrice,
-          }
-        );
-
-        // Update inventory
-        await query(
-          `UPDATE Inventory SET current_stock = current_stock - @quantity, updated_at = GETDATE()
-           WHERE store_id = @storeId AND product_id = @productId`,
-          { storeId, productId: item.productId, quantity: item.quantity }
-        );
-      }
+    console.log('[POST /api/sales] Sale created:', result.sale.id, result.sale.invoiceNumber);
+    if (result.conversions.length > 0) {
+      console.log('[POST /api/sales] Auto conversions:', result.conversions.length);
     }
 
     res.status(201).json({
-      id: sale.id,
-      invoiceNumber: sale.invoice_number,
-      status: sale.status,
-      finalAmount: sale.final_amount,
+      id: result.sale.id,
+      invoiceNumber: result.sale.invoiceNumber,
+      status: result.sale.status,
+      finalAmount: result.sale.finalAmount,
+      conversions: result.conversions.map((c) => ({
+        id: c.id,
+        productId: c.productId,
+        conversionType: c.conversionType,
+        conversionUnitChange: c.conversionUnitChange,
+        baseUnitChange: c.baseUnitChange,
+        notes: c.notes,
+      })),
     });
   } catch (error) {
     console.error('Create sale error:', error);
+    
+    // Handle insufficient stock error
+    if (error instanceof InventoryInsufficientStockError) {
+      res.status(400).json({
+        error: error.message,
+        code: 'INSUFFICIENT_STOCK',
+        productId: error.productId,
+        requestedQuantity: error.requestedQuantity,
+        availableQuantity: error.availableQuantity,
+        unitId: error.unitId,
+      });
+      return;
+    }
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: `Failed to create sale: ${errorMessage}` });
   }
@@ -310,6 +312,18 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const storeId = req.storeId!;
     const { status, customerPayment, remainingDebt } = req.body;
 
+    // Use SP Repository for status update if only status is being updated
+    if (status && !customerPayment && !remainingDebt) {
+      const updated = await salesSPRepository.updateStatus(id, storeId, status);
+      if (!updated) {
+        res.status(404).json({ error: 'Sale not found' });
+        return;
+      }
+      res.json({ success: true });
+      return;
+    }
+
+    // For other updates, use inline query (SP doesn't support partial updates)
     await query(
       `UPDATE Sales SET 
         status = COALESCE(@status, status),

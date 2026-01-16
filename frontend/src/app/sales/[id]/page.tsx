@@ -23,7 +23,7 @@ async function getSaleData(saleId: string) {
     const headers = await getAuthHeaders();
 
     // Fetch sale with details
-    const saleResponse = await fetch(`${API_BASE_URL}/api/sales/${saleId}`, {
+    const saleResponse = await fetch(`${API_BASE_URL}/sales/${saleId}`, {
       method: 'GET',
       headers,
       cache: 'no-store',
@@ -40,7 +40,7 @@ async function getSaleData(saleId: string) {
     // Fetch customer if exists
     let customer: Customer | null = null;
     if (sale?.customerId) {
-      const customerResponse = await fetch(`${API_BASE_URL}/api/customers/${sale.customerId}`, {
+      const customerResponse = await fetch(`${API_BASE_URL}/customers/${sale.customerId}`, {
         method: 'GET',
         headers,
         cache: 'no-store',
@@ -56,7 +56,7 @@ async function getSaleData(saleId: string) {
     const productIds = [...new Set(items.map((item: any) => item.productId))];
     
     for (const productId of productIds) {
-      const productResponse = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
+      const productResponse = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'GET',
         headers,
         cache: 'no-store',
@@ -69,7 +69,7 @@ async function getSaleData(saleId: string) {
 
     // Fetch units
     const unitsMap = new Map<string, Unit>();
-    const unitsResponse = await fetch(`${API_BASE_URL}/api/units`, {
+    const unitsResponse = await fetch(`${API_BASE_URL}/units`, {
       method: 'GET',
       headers,
       cache: 'no-store',
@@ -83,7 +83,7 @@ async function getSaleData(saleId: string) {
 
     // Fetch settings
     let settings: ThemeSettings | null = null;
-    const settingsResponse = await fetch(`${API_BASE_URL}/api/settings`, {
+    const settingsResponse = await fetch(`${API_BASE_URL}/settings`, {
       method: 'GET',
       headers,
       cache: 'no-store',

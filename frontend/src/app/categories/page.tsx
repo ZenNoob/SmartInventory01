@@ -236,9 +236,13 @@ export default function CategoriesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={4} className="text-center">Đang tải...</TableCell></TableRow>}
-              {!isLoading && sortedCategories?.map((category, index) => (
-                  <TableRow key={category.id}>
+              {isLoading ? (
+                <TableRow key="loading">
+                  <TableCell colSpan={4} className="text-center">Đang tải...</TableCell>
+                </TableRow>
+              ) : sortedCategories && sortedCategories.length > 0 ? (
+                sortedCategories.map((category, index) => (
+                  <TableRow key={category.id || `category-${index}`}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       {category.name}
@@ -266,14 +270,14 @@ export default function CategoriesPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
-                {!isLoading && sortedCategories?.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={4} className="text-center h-24">
-                            Không tìm thấy danh mục nào. Hãy thử một từ khóa tìm kiếm khác hoặc thêm một danh mục mới.
-                        </TableCell>
-                    </TableRow>
-                )}
+                ))
+              ) : (
+                <TableRow key="empty">
+                  <TableCell colSpan={4} className="text-center h-24">
+                    Không tìm thấy danh mục nào. Hãy thử một từ khóa tìm kiếm khác hoặc thêm một danh mục mới.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

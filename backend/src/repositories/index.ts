@@ -14,6 +14,15 @@ export {
   type PaginatedResult,
 } from './base-repository';
 
+// Export SP base repository for stored procedure operations
+export {
+  SPBaseRepository,
+  type SPParamValue,
+  type SPParams,
+  type SPMultipleResults,
+  type SPTransactionHelpers,
+} from './sp-base-repository';
+
 // Export Tenant repository (Master DB)
 export {
   TenantRepository,
@@ -35,6 +44,7 @@ export {
 } from './tenant-user-repository';
 
 // Export Category repository
+// @deprecated - Use CategoriesSPRepository for new code
 export {
   CategoryRepository,
   categoryRepository,
@@ -42,6 +52,7 @@ export {
 } from './category-repository';
 
 // Export Unit repository
+// @deprecated - Use UnitsSPRepository for new code
 export {
   UnitRepository,
   unitRepository,
@@ -50,12 +61,62 @@ export {
 } from './unit-repository';
 
 // Export Product repository
+// @deprecated - Use ProductsSPRepository for new code
 export {
   ProductRepository,
   productRepository,
   type Product,
   type ProductWithStock,
 } from './product-repository';
+
+// Export Products SP Repository (stored procedures)
+export {
+  ProductsSPRepository,
+  productsSPRepository,
+  type CreateProductSPInput,
+  type UpdateProductSPInput,
+} from './products-sp-repository';
+
+// Export Inventory SP Repository (stored procedures)
+export {
+  InventorySPRepository,
+  inventorySPRepository,
+  type Inventory,
+} from './inventory-sp-repository';
+
+// Export Customers SP Repository (stored procedures)
+export {
+  CustomersSPRepository,
+  customersSPRepository,
+  type Customer as CustomerSP,
+  type CreateCustomerSPInput,
+  type UpdateCustomerSPInput,
+} from './customers-sp-repository';
+
+// Export Settings SP Repository (stored procedures)
+export {
+  SettingsSPRepository,
+  settingsSPRepository,
+  type Settings,
+} from './settings-sp-repository';
+
+// Export Units SP Repository (stored procedures)
+export {
+  UnitsSPRepository,
+  unitsSPRepository,
+  type Unit as UnitSP,
+  type CreateUnitSPInput,
+  type UpdateUnitSPInput,
+} from './units-sp-repository';
+
+// Export Categories SP Repository (stored procedures)
+export {
+  CategoriesSPRepository,
+  categoriesSPRepository,
+  type Category as CategorySP,
+  type CreateCategorySPInput,
+  type UpdateCategorySPInput,
+} from './categories-sp-repository';
 
 // Export Supplier repository
 export {
@@ -66,6 +127,7 @@ export {
 } from './supplier-repository';
 
 // Export Customer repository
+// @deprecated - Use CustomersSPRepository for new code
 export {
   CustomerRepository,
   customerRepository,
@@ -87,12 +149,25 @@ export {
 } from './purchase-order-repository';
 
 // Export Sales repository
+// @deprecated - Use SalesSPRepository for new code
 export {
   SalesRepository,
   salesRepository,
   type Sale,
   type SalesItem,
 } from './sales-repository';
+
+// Export Sales SP Repository (stored procedures)
+export {
+  SalesSPRepository,
+  salesSPRepository,
+  type SaleWithCustomer,
+  type SalesItemWithDetails,
+  type SaleWithItems,
+  type CreateSaleSPInput,
+  type CreateSalesItemSPInput,
+  type GetSalesByStoreFilters,
+} from './sales-sp-repository';
 
 // Export Payment repository (customer payments)
 export {
@@ -236,6 +311,30 @@ export {
   type CreateInventoryTransferItemInput,
 } from './inventory-transfer-repository';
 
+// Export ProductUnits repository
+export {
+  ProductUnitsRepository,
+  productUnitsRepository,
+  type ProductUnit,
+  type ProductUnitWithNames,
+} from './product-units-repository';
+
+// Export ProductInventory repository
+export {
+  ProductInventoryRepository,
+  productInventoryRepository,
+  type ProductInventory,
+  type ProductInventoryWithDetails,
+} from './product-inventory-repository';
+
+// Export UnitConversionLog repository
+export {
+  UnitConversionLogRepository,
+  unitConversionLogRepository,
+  type UnitConversionLog,
+  type UnitConversionLogWithDetails,
+} from './unit-conversion-log-repository';
+
 /**
  * Repository container interface for dependency injection
  */
@@ -336,6 +435,12 @@ export const REPOSITORY_NAMES = {
   CATEGORY: 'category',
   UNIT: 'unit',
   PRODUCT: 'product',
+  PRODUCT_SP: 'productSP',
+  INVENTORY_SP: 'inventorySP',
+  CUSTOMER_SP: 'customerSP',
+  SETTINGS_SP: 'settingsSP',
+  UNITS_SP: 'unitsSP',
+  CATEGORIES_SP: 'categoriesSP',
   SUPPLIER: 'supplier',
   CUSTOMER: 'customer',
   SALE: 'sale',
@@ -355,6 +460,9 @@ export const REPOSITORY_NAMES = {
   ONLINE_CUSTOMER: 'onlineCustomer',
   SHIPPING_ZONE: 'shippingZone',
   INVENTORY_TRANSFER: 'inventoryTransfer',
+  PRODUCT_UNITS: 'productUnits',
+  PRODUCT_INVENTORY: 'productInventory',
+  UNIT_CONVERSION_LOG: 'unitConversionLog',
 } as const;
 
 export type RepositoryName = typeof REPOSITORY_NAMES[keyof typeof REPOSITORY_NAMES];

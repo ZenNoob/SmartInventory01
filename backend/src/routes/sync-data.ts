@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
 import { inventoryTransferService, InsufficientStockException } from '../services/inventory-transfer-service';
 import { syncDataService } from '../services/sync-data-service';
+import { inventoryService } from '../services/inventory-service';
 
 const router = Router();
 
@@ -22,6 +23,44 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Sync data error:', error);
     res.status(500).json({ error: 'Failed to sync data' });
+  }
+});
+
+// POST /api/sync-data/customers - Đồng bộ tài khoản khách hàng (tính lại công nợ từ Sales)
+router.post('/customers', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    const result = await syncDataService.syncCustomerAccounts(storeId);
+
+    res.json({
+      success: true,
+      message: `Đồng bộ tài khoản khách hàng thành công. Đã cập nhật ${result.updatedCustomers}/${result.totalCustomers} khách hàng.`,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Sync customer accounts error:', error);
+    res.status(500).json({ error: 'Failed to sync customer accounts' });
+  }
+});
+
+// POST /api/sync-data/inventory - Sync inventory from Products to ProductInventory
+// Uses sp_Inventory_Sync stored procedure
+// Requirements: 4.4
+router.post('/inventory', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    
+    // Use SP Repository for inventory sync
+    const syncedCount = await inventoryService.syncAllInventory(storeId);
+
+    res.json({
+      success: true,
+      message: `Đồng bộ tồn kho thành công`,
+      syncedCount,
+    });
+  } catch (error) {
+    console.error('Sync inventory error:', error);
+    res.status(500).json({ error: 'Failed to sync inventory' });
   }
 });
 

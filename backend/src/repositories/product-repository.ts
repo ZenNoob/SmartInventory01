@@ -1,4 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * @deprecated This repository uses inline SQL queries. 
+ * For new code, use ProductsSPRepository from './products-sp-repository' which uses stored procedures.
+ * This file is kept for backward compatibility and type exports.
+ * Requirements: 1.1-1.5 - All product operations should use stored procedures.
+ */
 import {
   BaseRepository,
   QueryOptions,

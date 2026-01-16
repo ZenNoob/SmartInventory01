@@ -1,3 +1,9 @@
+/**
+ * @deprecated This repository uses inline SQL queries.
+ * For new code, use UnitsSPRepository from './units-sp-repository' which uses stored procedures.
+ * This file is kept for backward compatibility and type exports.
+ * Requirements: 8.1-8.4 - All unit operations should use stored procedures.
+ */
 import { BaseRepository, QueryOptions } from './base-repository';
 import { query, queryOne } from '../db';
 

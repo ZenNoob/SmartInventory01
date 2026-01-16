@@ -1,3 +1,9 @@
+/**
+ * @deprecated This repository uses inline SQL queries.
+ * For new code, use SalesSPRepository from './sales-sp-repository' which uses stored procedures.
+ * This file is kept for backward compatibility and type exports.
+ * Requirements: 2.1-2.5 - All sales operations should use stored procedures.
+ */
 import {
   BaseRepository,
   QueryOptions,

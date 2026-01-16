@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { query, queryOne } from '../db';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
+import { customersSPRepository } from '../repositories/customers-sp-repository';
 
 const router = Router();
 
@@ -9,58 +9,34 @@ router.use(authenticate);
 router.use(storeContext);
 
 // GET /api/customers
+// Requirements: 3.4 - Uses sp_Customers_GetByStore
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
     
-    // Get customers with debt from Customers table columns
-    // Also try to calculate from Sales/Payments if available
-    const customers = await query(
-      `SELECT c.*,
-        COALESCE(c.total_debt, 0) as customer_total_debt,
-        COALESCE(c.total_paid, 0) as customer_total_paid,
-        COALESCE((
-          SELECT SUM(s.remaining_debt) 
-          FROM Sales s 
-          WHERE s.customer_id = c.id AND s.remaining_debt > 0
-        ), 0) as sales_debt,
-        COALESCE((
-          SELECT SUM(p.amount) 
-          FROM Payments p 
-          WHERE p.customer_id = c.id
-        ), 0) as payments_total
-       FROM Customers c
-       WHERE c.store_id = @storeId 
-       ORDER BY c.full_name`,
-      { storeId }
-    );
+    // Use SP Repository instead of inline query
+    const customers = await customersSPRepository.getByStore(storeId);
 
-    res.json(customers.map((c: Record<string, unknown>) => {
-      // Use customer table values if available, otherwise use calculated values
-      const totalDebt = (c.customer_total_debt as number) || (c.sales_debt as number) || 0;
-      const totalPaid = (c.customer_total_paid as number) || (c.payments_total as number) || 0;
-      
-      return {
-        id: c.id,
-        storeId: c.store_id,
-        email: c.email,
-        name: c.full_name,
-        phone: c.phone,
-        address: c.address,
-        status: c.status,
-        loyaltyTier: c.loyalty_tier,
-        customerType: c.customer_type,
-        customerGroup: c.customer_group,
-        lifetimePoints: c.lifetime_points,
-        notes: c.notes,
-        totalDebt,
-        totalPaid,
-        calculatedDebt: totalDebt,
-        totalPayments: totalPaid,
-        createdAt: c.created_at,
-        updatedAt: c.updated_at,
-      };
-    }));
+    res.json(customers.map((c) => ({
+      id: c.id,
+      storeId: c.storeId,
+      email: c.email,
+      name: c.name,
+      phone: c.phone,
+      address: c.address,
+      status: c.status,
+      loyaltyTier: c.loyaltyTier,
+      customerType: c.customerType,
+      customerGroup: c.customerGroup,
+      lifetimePoints: c.lifetimePoints,
+      notes: c.notes,
+      totalDebt: c.totalDebt ?? 0,
+      totalPaid: c.totalPaid ?? 0,
+      calculatedDebt: c.totalDebt ?? 0,
+      totalPayments: c.totalPaid ?? 0,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    })));
   } catch (error) {
     console.error('Get customers error:', error);
     res.status(500).json({ error: 'Failed to get customers' });
@@ -73,31 +49,34 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    const c = await queryOne(
-      'SELECT * FROM Customers WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const customer = await customersSPRepository.getById(id, storeId);
 
-    if (!c) {
+    if (!customer) {
       res.status(404).json({ error: 'Customer not found' });
       return;
     }
 
     res.json({
-      id: c.id,
-      storeId: c.store_id,
-      email: c.email,
-      name: c.full_name,
-      phone: c.phone,
-      address: c.address,
-      status: c.status,
-      loyaltyTier: c.loyalty_tier,
-      customerType: c.customer_type,
-      customerGroup: c.customer_group,
-      lifetimePoints: c.lifetime_points,
-      notes: c.notes,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
+      id: customer.id,
+      storeId: customer.storeId,
+      email: customer.email,
+      name: customer.name,
+      phone: customer.phone,
+      address: customer.address,
+      status: customer.status,
+      loyaltyTier: customer.loyaltyTier,
+      customerType: customer.customerType,
+      customerGroup: customer.customerGroup,
+      lifetimePoints: customer.lifetimePoints ?? 0,
+      loyaltyPoints: customer.lifetimePoints ?? 0, // Same as lifetimePoints for now
+      notes: customer.notes,
+      totalDebt: customer.totalDebt ?? 0,
+      currentDebt: customer.totalDebt ?? 0, // Alias for frontend
+      totalPaid: customer.totalPaid ?? 0,
+      creditLimit: 0, // Default credit limit
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
     });
   } catch (error) {
     console.error('Get customer error:', error);
@@ -105,9 +84,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// TODO: Implement POST, PUT, DELETE
-
 // POST /api/customers
+// Requirements: 3.1 - Uses sp_Customers_Create
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
@@ -117,42 +95,24 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       phone,
       address,
       customerType,
-      customerGroup,
-      status,
-      lifetimePoints,
       loyaltyTier,
-      notes,
     } = req.body;
 
     const customerId = uuidv4();
 
-    await query(
-      `INSERT INTO Customers (
-        id, store_id, full_name, email, phone, address, customer_type, customer_group,
-        status, lifetime_points, loyalty_tier, notes,
-        created_at, updated_at
-      ) VALUES (
-        @id, @storeId, @name, @email, @phone, @address, @customerType, @customerGroup,
-        @status, @lifetimePoints, @loyaltyTier, @notes,
-        GETDATE(), GETDATE()
-      )`,
-      {
-        id: customerId,
-        storeId,
-        name,
-        email: email || null,
-        phone: phone || null,
-        address: address || null,
-        customerType: customerType || 'personal',
-        customerGroup: customerGroup || null,
-        status: status || 'active',
-        lifetimePoints: lifetimePoints || 0,
-        loyaltyTier: loyaltyTier || null,
-        notes: notes || null,
-      }
-    );
+    // Use SP Repository instead of inline query
+    const customer = await customersSPRepository.create({
+      id: customerId,
+      storeId,
+      name,
+      email: email || null,
+      phone: phone || null,
+      address: address || null,
+      customerType: customerType || 'retail',
+      loyaltyTier: loyaltyTier || 'bronze',
+    });
 
-    res.status(201).json({ id: customerId, success: true });
+    res.status(201).json({ id: customer.id, success: true });
   } catch (error) {
     console.error('Create customer error:', error);
     res.status(500).json({ error: 'Failed to create customer' });
@@ -160,6 +120,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /api/customers/:id
+// Requirements: 3.2 - Uses sp_Customers_Update
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -170,53 +131,23 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       phone,
       address,
       customerType,
-      customerGroup,
-      status,
-      lifetimePoints,
       loyaltyTier,
-      notes,
     } = req.body;
 
-    // Check if customer exists
-    const existing = await queryOne(
-      'SELECT id FROM Customers WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const customer = await customersSPRepository.update(id, storeId, {
+      name,
+      email: email !== undefined ? email : undefined,
+      phone: phone !== undefined ? phone : undefined,
+      address: address !== undefined ? address : undefined,
+      customerType: customerType !== undefined ? customerType : undefined,
+      loyaltyTier: loyaltyTier !== undefined ? loyaltyTier : undefined,
+    });
 
-    if (!existing) {
+    if (!customer) {
       res.status(404).json({ error: 'Customer not found' });
       return;
     }
-
-    await query(
-      `UPDATE Customers SET
-        full_name = @name,
-        email = @email,
-        phone = @phone,
-        address = @address,
-        customer_type = @customerType,
-        customer_group = @customerGroup,
-        status = @status,
-        lifetime_points = @lifetimePoints,
-        loyalty_tier = @loyaltyTier,
-        notes = @notes,
-        updated_at = GETDATE()
-      WHERE id = @id AND store_id = @storeId`,
-      {
-        id,
-        storeId,
-        name,
-        email: email || null,
-        phone: phone || null,
-        address: address || null,
-        customerType: customerType || 'personal',
-        customerGroup: customerGroup || null,
-        status: status || 'active',
-        lifetimePoints: lifetimePoints || 0,
-        loyaltyTier: loyaltyTier || null,
-        notes: notes || null,
-      }
-    );
 
     res.json({ success: true });
   } catch (error) {
@@ -226,20 +157,47 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /api/customers/:id
+// Requirements: 3.3 - Uses sp_Customers_Delete
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const storeId = req.storeId!;
 
-    await query(
-      'DELETE FROM Customers WHERE id = @id AND store_id = @storeId',
-      { id, storeId }
-    );
+    // Use SP Repository instead of inline query
+    const deleted = await customersSPRepository.delete(id, storeId);
+
+    if (!deleted) {
+      res.status(404).json({ error: 'Customer not found' });
+      return;
+    }
 
     res.json({ success: true });
   } catch (error) {
     console.error('Delete customer error:', error);
     res.status(500).json({ error: 'Failed to delete customer' });
+  }
+});
+
+// PUT /api/customers/:id/debt
+// Requirements: 3.5 - Uses sp_Customers_UpdateDebt
+router.put('/:id/debt', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+    const { spentAmount, paidAmount } = req.body;
+
+    // Use SP Repository for debt update
+    const newDebt = await customersSPRepository.updateDebt(
+      id,
+      storeId,
+      spentAmount || 0,
+      paidAmount || 0
+    );
+
+    res.json({ success: true, totalDebt: newDebt });
+  } catch (error) {
+    console.error('Update customer debt error:', error);
+    res.status(500).json({ error: 'Failed to update customer debt' });
   }
 });
 

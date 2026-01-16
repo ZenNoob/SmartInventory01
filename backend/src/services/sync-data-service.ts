@@ -152,7 +152,100 @@ interface InsertedRecord {
   Id: string;
 }
 
+interface CustomerAccountRecord {
+  id: string;
+  name: string;
+}
+
+interface CustomerSalesAggregation {
+  customer_id: string;
+  total_sales_amount: number;
+  total_customer_payment: number;
+  total_remaining_debt: number;
+}
+
+export interface SyncCustomerAccountsResult {
+  totalCustomers: number;
+  updatedCustomers: number;
+  details: Array<{
+    customerId: string;
+    customerName: string;
+    oldValues: { totalSpent: number; totalPaid: number; totalDebt: number };
+    newValues: { totalSpent: number; totalPaid: number; totalDebt: number };
+  }>;
+}
+
 export class SyncDataService {
+  /**
+   * Sync all customer accounts - recalculate total_spent, total_paid, total_debt from Sales data
+   * This calculates debt from Sales table and returns the results
+   */
+  async syncCustomerAccounts(storeId: string): Promise<SyncCustomerAccountsResult> {
+    const result: SyncCustomerAccountsResult = {
+      totalCustomers: 0,
+      updatedCustomers: 0,
+      details: [],
+    };
+
+    // Get all customers for the store
+    const customers = await query<CustomerAccountRecord>(
+      `SELECT id, full_name as name FROM Customers WHERE store_id = @storeId`,
+      { storeId }
+    );
+
+    result.totalCustomers = customers.length;
+
+    // Get aggregated sales data for all customers
+    const salesAggregation = await query<CustomerSalesAggregation>(
+      `SELECT 
+          customer_id,
+          COALESCE(SUM(final_amount), 0) as total_sales_amount,
+          COALESCE(SUM(customer_payment), 0) as total_customer_payment,
+          COALESCE(SUM(remaining_debt), 0) as total_remaining_debt
+       FROM Sales 
+       WHERE store_id = @storeId 
+         AND customer_id IS NOT NULL
+         AND status IN ('completed', 'printed', 'unprinted')
+       GROUP BY customer_id`,
+      { storeId }
+    );
+
+    // Create a map for quick lookup
+    const salesMap = new Map<string, CustomerSalesAggregation>();
+    for (const agg of salesAggregation) {
+      salesMap.set(agg.customer_id, agg);
+    }
+
+    // Process each customer
+    for (const customer of customers) {
+      const salesData = salesMap.get(customer.id);
+      
+      if (salesData) {
+        const newTotalSpent = salesData.total_sales_amount ?? 0;
+        const newTotalPaid = salesData.total_customer_payment ?? 0;
+        const newTotalDebt = newTotalSpent - newTotalPaid;
+
+        result.updatedCustomers++;
+        result.details.push({
+          customerId: customer.id,
+          customerName: customer.name,
+          oldValues: {
+            totalSpent: 0,
+            totalPaid: 0,
+            totalDebt: 0,
+          },
+          newValues: {
+            totalSpent: newTotalSpent,
+            totalPaid: newTotalPaid,
+            totalDebt: newTotalDebt,
+          },
+        });
+      }
+    }
+
+    return result;
+  }
+
   /**
    * Generate a unique order number
    */
