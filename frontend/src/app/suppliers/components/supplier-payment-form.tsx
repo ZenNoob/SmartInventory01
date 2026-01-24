@@ -32,6 +32,12 @@ const paymentFormSchema = z.object({
   amount: z.coerce.number().min(1, "Số tiền phải lớn hơn 0."),
   paymentDate: z.string().min(1, "Ngày thanh toán là bắt buộc."),
   notes: z.string().optional(),
+}).refine((data) => {
+  // This will be validated in the component with supplier context
+  return true;
+}, {
+  message: "Số tiền thanh toán không được vượt quá số nợ",
+  path: ["amount"],
 });
 
 type PaymentFormValues = z.infer<typeof paymentFormSchema>;
@@ -95,24 +101,45 @@ export function SupplierPaymentForm({ isOpen, onOpenChange, supplier }: Supplier
   const onSubmit = async (data: PaymentFormValues) => {
     if(!supplier) return;
     
-    const result = await addSupplierPayment({
-      supplierId: supplier.supplierId,
-      amount: data.amount,
-      paymentDate: new Date(data.paymentDate).toISOString(),
-      notes: data.notes,
-    });
-
-    if (result.success) {
+    // Validate amount doesn't exceed debt
+    if (data.amount > supplier.finalDebt) {
       toast({
-        title: "Thành công!",
-        description: "Đã ghi nhận thanh toán thành công.",
+        variant: "destructive",
+        title: "Lỗi",
+        description: `Số tiền thanh toán (${formatCurrency(data.amount)}) không được vượt quá số nợ (${formatCurrency(supplier.finalDebt)})`,
       });
-      onOpenChange(false);
-    } else {
+      return;
+    }
+    
+    try {
+      const result = await addSupplierPayment({
+        supplierId: supplier.supplierId,
+        amount: data.amount,
+        paymentDate: new Date(data.paymentDate).toISOString(),
+        notes: data.notes,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Thành công!",
+          description: "Đã ghi nhận thanh toán thành công.",
+        });
+        form.reset();
+        onOpenChange(false);
+        // Trigger page refresh to update data
+        window.location.reload();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Ôi! Đã có lỗi xảy ra.",
+          description: result.error,
+        });
+      }
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Ôi! Đã có lỗi xảy ra.",
-        description: result.error,
+        description: "Không thể thêm thanh toán",
       });
     }
   };

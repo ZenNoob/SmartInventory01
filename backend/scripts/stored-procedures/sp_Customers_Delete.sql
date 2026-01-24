@@ -22,8 +22,9 @@ BEGIN
         RETURN;
     END
     
-    -- Delete the customer
-    DELETE FROM Customers 
+    -- Soft delete by setting status to 'deleted'
+    UPDATE Customers 
+    SET status = 'deleted', updated_at = GETDATE()
     WHERE id = @id AND store_id = @storeId;
     
     -- Return affected rows count

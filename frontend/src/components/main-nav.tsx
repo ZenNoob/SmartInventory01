@@ -219,29 +219,7 @@ export function MainNav() {
             </SidebarMenuItem>
           )}
 
-          {/* Online Stores Menu */}
-          <Collapsible asChild>
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton className="w-full justify-start" isActive={isActive('/online-stores')} tooltip="Bán hàng Online">
-                  <div className="flex items-center gap-2 flex-1">
-                    <Globe />
-                    {state === 'expanded' && <span>Bán hàng Online</span>}
-                  </div>
-                  {state === 'expanded' && <ChevronDown className="h-4 w-4 ml-auto shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />}
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent asChild>
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild isActive={pathname === '/online-stores'}>
-                      <Link href="/online-stores" className='flex items-center gap-2'><Store className="h-4 w-4" />Cửa hàng</Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
+          {/* Removed Online Stores Menu - Physical stores only */}
           
           {showReportsMenu && (
             <Collapsible asChild>
@@ -369,6 +347,13 @@ export function MainNav() {
                                 <SidebarMenuSubItem>
                                     <SidebarMenuSubButton asChild isActive={isActive('/stores')}>
                                         <Link href="/stores" className='flex items-center gap-2'><Store className="h-4 w-4" />Quản lý cửa hàng</Link>
+                                    </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                            )}
+                            {isOwner && (
+                                <SidebarMenuSubItem>
+                                    <SidebarMenuSubButton asChild isActive={isActive('/subscription')}>
+                                        <Link href="/subscription" className='flex items-center gap-2'><Sparkles className="h-4 w-4 text-yellow-500" />Gói dịch vụ</Link>
                                     </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
                             )}

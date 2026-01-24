@@ -44,9 +44,11 @@ interface Product {
   description?: string;
   categoryId: string;
   unitId: string;
+  costPrice?: number; // Added costPrice field
   sellingPrice?: number;
   status: 'active' | 'draft' | 'archived';
   lowStockThreshold?: number;
+  purchaseLots?: PurchaseLot[]; // Added purchaseLots field
 }
 
 interface PurchaseLot {
@@ -104,6 +106,7 @@ const productFormSchema = z.object({
   description: z.string().optional(),
   categoryId: z.string().min(1, "Danh mục là bắt buộc."),
   unitId: z.string().min(1, "Đơn vị tính là bắt buộc."),
+  costPrice: z.coerce.number().optional(),
   sellingPrice: z.coerce.number().optional(),
   status: z.enum(['active', 'draft', 'archived']),
   lowStockThreshold: z.coerce.number().optional(),
@@ -155,14 +158,15 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
         name: product.name, 
         barcode: product.barcode,
         description: product.description,
-        categoryId: product.categoryId,
-        unitId: product.unitId,
+        categoryId: product.categoryId || '',
+        unitId: product.unitId || '',
+        costPrice: product.costPrice,
         sellingPrice: product.sellingPrice,
         status: product.status,
         lowStockThreshold: product.lowStockThreshold,
-        purchaseLots: ((product as Record<string, unknown>).purchaseLots as Array<{ importDate: string; [key: string]: unknown }> || []).map((lot: { importDate: string; [key: string]: unknown }) => ({
+        purchaseLots: (product.purchaseLots || []).map((lot) => ({
           ...lot,
-          importDate: lot.importDate.split('T')[0], // Format date for input
+          importDate: lot.importDate ? (typeof lot.importDate === 'string' ? lot.importDate.split('T')[0] : new Date(lot.importDate).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0], // Format date for input
         }))
       }
     : { 
@@ -171,6 +175,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
         description: '',
         categoryId: '',
         unitId: '',
+        costPrice: 0,
         sellingPrice: 0,
         status: 'draft',
         purchaseLots: []
@@ -194,15 +199,15 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
 
   useEffect(() => {
     if (isOpen) {
-        form.reset(
-            product
+        const formData = product
                 ? {
                     name: product.name,
                     barcode: product.barcode || '',
                     description: product.description || '',
-                    categoryId: product.categoryId,
-                    unitId: product.unitId,
-                    sellingPrice: product.sellingPrice,
+                    categoryId: product.categoryId || '',
+                    unitId: product.unitId || '',
+                    costPrice: product.costPrice || 0,
+                    sellingPrice: product.sellingPrice || 0,
                     status: product.status,
                     lowStockThreshold: product.lowStockThreshold,
                     purchaseLots: product.purchaseLots && product.purchaseLots.length > 0 
@@ -215,11 +220,13 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                     description: '',
                     categoryId: '',
                     unitId: '',
+                    costPrice: 0,
                     sellingPrice: 0,
                     status: 'draft',
                     purchaseLots: []
-                  }
-        );
+                  };
+        
+        form.reset(formData);
     }
   }, [product, isOpen, form, units]);
 
@@ -365,7 +372,7 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Danh mục</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Chọn một danh mục" />
@@ -414,12 +421,43 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
 
                <div className="grid grid-cols-2 gap-4">
                  <FormField
+                  control={form.control}
+                  name="costPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Giá nhập (trên 1 {mainProductBaseUnit?.name || 'đơn vị'})</FormLabel>
+                      <FormControl>
+                        <FormattedNumberInput {...field} />
+                      </FormControl>
+                      <FormDescription>Giá nhập trung bình cho sản phẩm này.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                    control={form.control}
+                    name="sellingPrice"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Giá bán (trên 1 {mainProductBaseUnit?.name || 'đơn vị'})</FormLabel>
+                            <FormControl>
+                                <FormattedNumberInput {...field} />
+                            </FormControl>
+                             <FormDescription>Giá bán đề xuất khi tạo đơn hàng.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <FormField
                     control={form.control}
                     name="status"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Trạng thái</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Chọn trạng thái" />
@@ -450,20 +488,6 @@ export function ProductForm({ isOpen, onOpenChange, product, categories, units }
                   )}
                 />
                </div>
-                <FormField
-                    control={form.control}
-                    name="sellingPrice"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Giá bán đề xuất (trên 1 {mainProductBaseUnit?.name || 'đơn vị cơ sở'})</FormLabel>
-                            <FormControl>
-                                <FormattedNumberInput {...field} />
-                            </FormControl>
-                             <FormDescription>Giá này sẽ được tự động điền khi tạo đơn hàng mới.</FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
 
               <Separator className='my-6'/>
               

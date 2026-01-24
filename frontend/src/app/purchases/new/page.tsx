@@ -65,8 +65,8 @@ export default function NewPurchasePage() {
                 if (unitsResponse.ok) {
                     const unitsResult = await unitsResponse.json();
                     console.log('Units response:', unitsResult);
-                    // Backend returns object with units property
-                    const unitsList = unitsResult.units || [];
+                    // Backend returns array directly
+                    const unitsList = Array.isArray(unitsResult) ? unitsResult : (unitsResult.units || []);
                     console.log('Setting units:', unitsList.length, 'items');
                     setUnits(unitsList);
                 } else {

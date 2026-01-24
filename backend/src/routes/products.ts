@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { queryOne } from '../db';
+import { query, queryOne } from '../db';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
 import {
   productUnitsRepository,
@@ -23,25 +23,38 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     // Use SP Repository instead of inline query
     const products = await productsSPRepository.getByStore(storeId);
 
-    res.json(products.map((p) => ({
-      id: p.id,
-      storeId: p.storeId,
-      categoryId: p.categoryId,
-      categoryName: p.categoryName,
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      costPrice: p.costPrice,
-      sku: p.sku,
-      barcode: p.sku, // Use sku as barcode for now
-      stockQuantity: p.currentStock ?? p.stockQuantity ?? 0, // Use ProductInventory first, fallback to Products
-      unitId: (p as { unitId?: string | null }).unitId,
-      images: p.images,
-      status: p.status,
-      purchaseLots: [], // Empty array for now
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    })));
+    res.json(products.map((p) => {
+      // Parse avgCostByUnit JSON if exists
+      let avgCostByUnit = [];
+      if ((p as any).avgCostByUnit) {
+        try {
+          avgCostByUnit = JSON.parse((p as any).avgCostByUnit);
+        } catch (e) {
+          console.error('Failed to parse avgCostByUnit:', e);
+        }
+      }
+      
+      return {
+        id: p.id,
+        storeId: p.storeId,
+        categoryId: p.categoryId,
+        categoryName: p.categoryName,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        costPrice: p.costPrice,
+        sku: p.sku,
+        barcode: p.sku, // Use sku as barcode for now
+        stockQuantity: p.currentStock ?? p.stockQuantity ?? 0, // Use ProductInventory first, fallback to Products
+        unitId: (p as any).unitId,
+        images: p.images,
+        status: p.status,
+        purchaseLots: [], // Empty array for now
+        avgCostByUnit, // Add average cost by unit
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+    }));
   } catch (error) {
     console.error('Get products error:', error);
     res.status(500).json({ error: 'Failed to get products' });
@@ -62,6 +75,39 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // Get purchase lots for this product
+    const lotsQuery = `
+      SELECT 
+        pl.id,
+        pl.import_date,
+        pl.quantity,
+        pl.remaining_quantity,
+        pl.cost,
+        pl.unit_id,
+        u.name as unit_name,
+        pl.purchase_order_id,
+        po.order_number
+      FROM PurchaseLots pl
+      LEFT JOIN Units u ON pl.unit_id = u.id
+      LEFT JOIN PurchaseOrders po ON pl.purchase_order_id = po.id
+      WHERE pl.product_id = @productId AND pl.store_id = @storeId AND pl.remaining_quantity > 0
+      ORDER BY pl.import_date DESC
+    `;
+    const lotsResult = await query(lotsQuery, { productId: id, storeId });
+    
+    // Map to camelCase for frontend
+    const lots = lotsResult.map((lot: any) => ({
+      id: lot.id,
+      importDate: lot.import_date,
+      quantity: lot.quantity,
+      remainingQuantity: lot.remaining_quantity,
+      cost: lot.cost,
+      unitId: lot.unit_id,
+      unitName: lot.unit_name,
+      purchaseOrderId: lot.purchase_order_id,
+      orderNumber: lot.order_number,
+    }));
+
     res.json({
       id: product.id,
       storeId: product.storeId,
@@ -73,11 +119,12 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       costPrice: product.costPrice,
       sku: product.sku,
       stockQuantity: product.currentStock ?? product.stockQuantity,
-      unitId: (product as { unitId?: string | null }).unitId,
+      unitId: (product as any).unitId,
       images: product.images,
       status: product.status,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      purchaseLots: lots || [],
     });
   } catch (error) {
     console.error('Get product error:', error);

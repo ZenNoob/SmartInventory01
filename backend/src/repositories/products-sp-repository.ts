@@ -30,6 +30,7 @@ interface ProductSPRecord {
   categoryName?: string;
   currentStock?: number;
   unitName?: string;
+  avgCostByUnit?: string; // JSON string from SP
 }
 
 /**
@@ -74,7 +75,7 @@ export class ProductsSPRepository extends SPBaseRepository<Product> {
   /**
    * Map database record to Product entity
    */
-  private mapToEntity(record: ProductSPRecord): ProductWithStock & { unitId?: string | null } {
+  private mapToEntity(record: ProductSPRecord): ProductWithStock & { unitId?: string | null; avgCostByUnit?: string } {
     return {
       id: record.id,
       storeId: record.storeId,
@@ -103,6 +104,7 @@ export class ProductsSPRepository extends SPBaseRepository<Product> {
       categoryName: record.categoryName,
       unitName: record.unitName,
       unitId: record.unitId,
+      avgCostByUnit: record.avgCostByUnit, // Pass through JSON string
     };
   }
 

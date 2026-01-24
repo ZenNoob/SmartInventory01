@@ -65,6 +65,7 @@ export default function SuppliersPage() {
   const [sortKey, setSortKey] = useState<SortKey | null>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [supplierForPayment, setSupplierForPayment] = useState<SupplierWithDebt | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const [suppliers, setSuppliers] = useState<SupplierWithDebt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -176,10 +177,11 @@ export default function SuppliersPage() {
     if (!open) fetchSuppliers();
   }
 
-  const handlePaymentFormClose = (open: boolean) => {
+  const handlePaymentFormClose = async (open: boolean) => {
     if (!open) {
       setSupplierForPayment(null);
-      fetchSuppliers();
+      // Force refresh by incrementing refreshKey
+      setRefreshKey(prev => prev + 1);
     }
   }
   

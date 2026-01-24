@@ -73,6 +73,7 @@ import { useRouter } from "next/navigation"
 import { Calendar } from "@/components/ui/calendar"
 import { useStore } from "@/contexts/store-context"
 import { PurchaseOrder, Supplier } from "@/lib/types"
+import { EditPurchaseDialog } from "./components/edit-purchase-dialog"
 
 type SortKey = 'orderNumber' | 'importDate' | 'totalAmount' | 'itemCount' | 'notes' | 'supplier';
 
@@ -89,6 +90,8 @@ interface Pagination {
 }
 
 export default function PurchasesPage() {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>('importDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -363,6 +366,23 @@ export default function PurchasesPage() {
 
   return (
     <>
+      {selectedPurchaseId && (
+        <EditPurchaseDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          purchaseOrderId={selectedPurchaseId}
+          onSuccess={() => {
+            // Reset to page 1 to show updated purchase at top
+            setPagination(prev => ({ ...prev, page: 1 }));
+            fetchPurchases(1, pagination.pageSize);
+            toast({
+              title: "Thành công!",
+              description: "Đã cập nhật đơn nhập hàng thành công.",
+            });
+          }}
+        />
+      )}
+      
       <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -437,6 +457,7 @@ export default function PurchasesPage() {
                           selected={dateRange}
                           onSelect={setDateRange}
                           initialFocus
+                          enableOutsideDaysClick
                       />
                         <div className="p-2 border-t grid grid-cols-3 gap-1">
                           <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_week')}>Tuần này</Button>
@@ -456,6 +477,8 @@ export default function PurchasesPage() {
                 <TableHead className="w-16 hidden md:table-cell">STT</TableHead>
                 <SortableHeader sortKey="orderNumber">Mã đơn</SortableHeader>
                 <SortableHeader sortKey="importDate">Ngày nhập</SortableHeader>
+                <TableHead>Sản phẩm</TableHead>
+                <TableHead>Đơn vị tính</TableHead>
                 <SortableHeader sortKey="supplier">Nhà cung cấp</SortableHeader>
                 <SortableHeader sortKey="itemCount" className="text-right">Số SP</SortableHeader>
                 <SortableHeader sortKey="totalAmount" className="text-right">Tổng tiền</SortableHeader>
@@ -466,10 +489,21 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Đang tải...</TableCell></TableRow>}
-              {!isLoading && sortedPurchases?.map((order, index) => (
+              {isLoading && <TableRow><TableCell colSpan={10} className="text-center">Đang tải...</TableCell></TableRow>}
+              {!isLoading && sortedPurchases?.map((order, index) => {
+                  // Get product names for this order
+                  const productNames = order.items?.map(item => item.productName).filter(Boolean).join(', ') || 'N/A';
+                  const displayProducts = productNames.length > 50 ? productNames.substring(0, 50) + '...' : productNames;
+                  
+                  // Get unit names for this order - if all same, show once
+                  const unitNamesArray = order.items?.map(item => item.unitName).filter(Boolean) || [];
+                  const uniqueUnits = [...new Set(unitNamesArray)]; // Remove duplicates
+                  const unitNames = uniqueUnits.length > 0 ? uniqueUnits.join(', ') : 'N/A';
+                  const displayUnits = unitNames.length > 30 ? unitNames.substring(0, 30) + '...' : unitNames;
+                  
+                  return (
                   <TableRow key={order.id}>
-                    <TableCell className="font-medium hidden md:table-cell">{index + 1}</TableCell>
+                    <TableCell className="font-medium hidden md:table-cell">{(pagination.page - 1) * pagination.pageSize + index + 1}</TableCell>
                     <TableCell className="font-medium">
                         <Link href={`/purchases/${order.id}`} className="hover:underline">
                             {order.orderNumber}
@@ -477,6 +511,16 @@ export default function PurchasesPage() {
                     </TableCell>
                     <TableCell>
                       {new Date(order.importDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span className="text-sm" title={productNames}>
+                        {displayProducts}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[150px]">
+                      <span className="text-sm" title={unitNames}>
+                        {displayUnits}
+                      </span>
                     </TableCell>
                      <TableCell>
                       {order.supplierName || suppliersMap.get(order.supplierId || '') || 'N/A'}
@@ -507,8 +551,11 @@ export default function PurchasesPage() {
                           <DropdownMenuItem asChild>
                             <Link href={`/purchases/${order.id}`}>Xem chi tiết</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                             <Link href={`/purchases/${order.id}/edit`}>Sửa</Link>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedPurchaseId(order.id);
+                            setEditDialogOpen(true);
+                          }}>
+                            Sửa
                           </DropdownMenuItem>
                            <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => setOrderToDelete(order)}>Xóa</DropdownMenuItem>
@@ -516,10 +563,10 @@ export default function PurchasesPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
                 {!isLoading && sortedPurchases?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={8} className="text-center h-24">
+                        <TableCell colSpan={10} className="text-center h-24">
                            Chưa có đơn nhập hàng nào.
                         </TableCell>
                     </TableRow>

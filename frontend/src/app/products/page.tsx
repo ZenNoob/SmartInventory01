@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback, useEffect } from "react"
+import { useState, useTransition, useMemo, useCallback, useEffect, useRef } from "react"
 import {
   File,
   ListFilter,
@@ -12,6 +12,7 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  Zap,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -70,12 +72,13 @@ import { PredictShortageForm } from "./components/predict-shortage-form"
 import { ProductForm } from "./components/product-form"
 import { Category, Unit, ThemeSettings } from "@/lib/types"
 import { Input } from "@/components/ui/input"
-import { getProducts, updateProductStatus, deleteProduct, generateProductTemplate } from "./actions"
+import { getProducts, getProduct, updateProductStatus, deleteProduct, generateProductTemplate } from "./actions"
 import { getCategories } from "@/app/categories/actions"
 import { getUnits } from "@/app/units/actions"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { ImportProducts } from "./components/import-products"
+import { QuickPurchaseDialog } from "./components/quick-purchase-dialog"
 import { useUserRole } from "@/hooks/use-user-role"
 
 
@@ -97,6 +100,12 @@ interface ProductWithStock {
   averageCost: number;
   categoryName?: string;
   unitName?: string;
+  avgCostByUnit?: Array<{
+    unitId: string;
+    unitName: string;
+    avgCost: number;
+    totalQty: number;
+  }>;
 }
 
 type ProductStatus = 'active' | 'draft' | 'archived' | 'all';
@@ -104,15 +113,19 @@ type SortKey = 'name' | 'status' | 'category' | 'avgCost' | 'stock' | 'totalValu
 
 export default function ProductsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isQuickPurchaseOpen, setIsQuickPurchaseOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductWithStock | undefined>(undefined);
+  const [selectedProductForQuickPurchase, setSelectedProductForQuickPurchase] = useState<string | undefined>(undefined);
   const [productToDelete, setProductToDelete] = useState<ProductWithStock | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<ProductStatus>('all');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [isUpdating, startTransition] = useTransition();
   const [isExporting, startExportingTransition] = useTransition();
+  const [isFetching, startFetchTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
@@ -132,15 +145,18 @@ export default function ProductsPage() {
   const router = useRouter();
   const { permissions, isLoading: isRoleLoading } = useUserRole();
 
+  // Track previous filter values to detect changes
+  const prevFiltersRef = useRef({ debouncedSearchTerm, categoryFilter: categoryFilter.join(','), statusFilter });
+
   // Fetch products from SQL Server API
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = async () => {
     setIsLoading(true);
     try {
       const result = await getProducts({
         page: currentPage,
         pageSize,
-        search: searchTerm || undefined,
-        categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
+        search: debouncedSearchTerm || undefined,
+        categoryId: categoryFilter.length > 0 ? categoryFilter.join(',') : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       });
       
@@ -160,42 +176,66 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, pageSize, searchTerm, categoryFilter, statusFilter, toast]);
+  };
 
-  // Fetch categories and units
-  const fetchCategoriesAndUnits = useCallback(async () => {
-    try {
-      const [categoriesResult, unitsResult] = await Promise.all([
-        getCategories(),
-        getUnits(),
-      ]);
-      
-      if (categoriesResult.success && categoriesResult.categories) {
-        setCategories(categoriesResult.categories);
-      }
-      
-      if (unitsResult.success && unitsResult.units) {
-        setUnits(unitsResult.units);
-      }
-    } catch (error) {
-      console.error('Error fetching categories/units:', error);
-    }
-  }, []);
-
-  // Initial data fetch
+  // Debounce search term
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Wait 500ms after user stops typing
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch categories and units - only once on mount
+  useEffect(() => {
+    const fetchCategoriesAndUnits = async () => {
+      try {
+        const [categoriesResult, unitsResult] = await Promise.all([
+          getCategories(),
+          getUnits(),
+        ]);
+        
+        if (categoriesResult.success && categoriesResult.categories) {
+          setCategories(categoriesResult.categories);
+        }
+        
+        if (unitsResult.success && unitsResult.units) {
+          setUnits(unitsResult.units);
+        }
+      } catch (error) {
+        console.error('Error fetching categories/units:', error);
+      }
+    };
+    
     fetchCategoriesAndUnits();
-  }, [fetchCategoriesAndUnits]);
+  }, []); // Only run once on mount
 
-  // Fetch products when filters change
+  // Fetch products and handle page reset
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    const prevFilters = prevFiltersRef.current;
+    const categoryFilterStr = categoryFilter.join(',');
+    const filtersChanged = 
+      prevFilters.debouncedSearchTerm !== debouncedSearchTerm ||
+      prevFilters.categoryFilter !== categoryFilterStr ||
+      prevFilters.statusFilter !== statusFilter;
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, categoryFilter, statusFilter]);
+    if (filtersChanged) {
+      // Filters changed - reset to page 1
+      prevFiltersRef.current = { debouncedSearchTerm, categoryFilter: categoryFilterStr, statusFilter };
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        // Don't fetch here - will fetch when currentPage updates to 1
+        return;
+      }
+    }
+
+    // Fetch products (either filters changed and already on page 1, or just page changed)
+    // Use startTransition to make this low-priority and not block user input
+    startFetchTransition(() => {
+      fetchProducts();
+    });
+  }, [debouncedSearchTerm, categoryFilter, statusFilter, currentPage]);
 
   const unitsMap = useMemo(() => {
     const map = new Map<string, Unit>();
@@ -209,8 +249,17 @@ export default function ProductsPage() {
     setIsFormOpen(true);
   }
 
-  const handleEditProduct = (product: ProductWithStock) => {
-    setSelectedProduct(product);
+  const handleEditProduct = async (product: ProductWithStock) => {
+    // Fetch full product details including purchase lots
+    const result = await getProduct(product.id);
+    if (result.success && result.product) {
+      setSelectedProduct({
+        ...product,
+        purchaseLots: (result.product as any).purchaseLots || [],
+      } as any);
+    } else {
+      setSelectedProduct(product);
+    }
     setIsFormOpen(true);
   }
 
@@ -351,7 +400,7 @@ export default function ProductsPage() {
   const canDelete = permissions?.products?.includes('delete');
   const canView = permissions?.products?.includes('view');
 
-  if (isLoading || isRoleLoading) {
+  if (isLoading && !products.length) {
     return <p>Đang tải...</p>;
   }
 
@@ -376,10 +425,11 @@ export default function ProductsPage() {
     description: selectedProduct.description,
     categoryId: selectedProduct.categoryId,
     unitId: selectedProduct.unitId,
+    costPrice: selectedProduct.averageCost, // Preserve cost price from averageCost
     sellingPrice: selectedProduct.sellingPrice,
     status: selectedProduct.status,
     lowStockThreshold: selectedProduct.lowStockThreshold,
-    purchaseLots: [], // Purchase lots are managed separately in SQL Server
+    purchaseLots: (selectedProduct as any).purchaseLots || [], // Include purchase lots from API
   } : undefined;
 
   return (
@@ -389,6 +439,10 @@ export default function ProductsPage() {
         onOpenChange={(open) => {
           setIsFormOpen(open);
           if (!open) {
+            // Reset to page 1 and clear sorting when form closes
+            setCurrentPage(1);
+            setSortKey(null);
+            setSortDirection('asc');
             fetchProducts(); // Refresh after form closes
           }
         }}
@@ -414,7 +468,7 @@ export default function ProductsPage() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <Tabs defaultValue="all" onValueChange={(value) => setStatusFilter(value as ProductStatus)}>
+      <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as ProductStatus)}>
         <div className="flex items-center">
           <TabsList>
             <TabsTrigger value="all">Tất cả</TabsTrigger>
@@ -432,23 +486,45 @@ export default function ProductsPage() {
                   <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                     Lọc
                   </span>
+                  {categoryFilter.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                      {categoryFilter.length}
+                    </Badge>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Lọc theo loại</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <DropdownMenuRadioItem value="all">Tất cả các loại</DropdownMenuRadioItem>
-                  {categories?.map((category) => (
-                    <DropdownMenuRadioItem key={category.id} value={category.id}>
-                      {category.name}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
+                {categories?.map((category) => (
+                  <DropdownMenuCheckboxItem
+                    key={category.id}
+                    checked={categoryFilter.includes(category.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setCategoryFilter([...categoryFilter, category.id]);
+                      } else {
+                        setCategoryFilter(categoryFilter.filter(id => id !== category.id));
+                      }
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {category.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                {categoryFilter.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setCategoryFilter([])}>
+                      Xóa bộ lọc
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
                   checked={showLowStockOnly}
                   onCheckedChange={setShowLowStockOnly}
+                  onSelect={(e) => e.preventDefault()}
                 >
                   Chỉ hiển thị sản phẩm dưới ngưỡng tồn
                 </DropdownMenuCheckboxItem>
@@ -467,64 +543,93 @@ export default function ProductsPage() {
             )}
             {permissions?.ai_forecast?.includes('view') && <PredictShortageForm />}
             {canAdd && (
-              <Button size="sm" className="h-8 gap-1" onClick={handleAddProduct}>
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Thêm sản phẩm
-                </span>
-              </Button>
+              <>
+                <Button size="sm" className="h-8 gap-1" variant="outline" onClick={() => setIsQuickPurchaseOpen(true)}>
+                  <Zap className="h-3.5 w-3.5 text-yellow-500" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Nhập nhanh
+                  </span>
+                </Button>
+                <Button size="sm" className="h-8 gap-1" onClick={handleAddProduct}>
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Thêm sản phẩm
+                  </span>
+                </Button>
+              </>
             )}
           </div>
         </div>
 
-        <TabsContent value={statusFilter}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Sản phẩm</CardTitle>
-              <CardDescription>
-                Quản lý sản phẩm của bạn và xem hiệu suất bán hàng của chúng.
-              </CardDescription>
-              <div className="relative mt-4">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Tìm kiếm theo tên, mã vạch..."
-                  className="w-full rounded-lg bg-background pl-8 md:w-1/3"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">STT</TableHead>
-                    <SortableHeader sortKey="name">Tên</SortableHeader>
-                    <SortableHeader sortKey="status">Trạng thái</SortableHeader>
-                    <SortableHeader sortKey="category">Loại</SortableHeader>
-                    <SortableHeader sortKey="avgCost" className="hidden md:table-cell">Giá nhập TB</SortableHeader>
-                    <TableHead className="hidden md:table-cell">Giá bán</TableHead>
-                    <SortableHeader sortKey="stock">Tồn kho</SortableHeader>
-                    <SortableHeader sortKey="totalValue">Thành tiền</SortableHeader>
-                    <TableHead>
-                      <span className="sr-only">Hành động</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center">Đang tải...</TableCell>
-                    </TableRow>
-                  )}
-                  {!isLoading && sortedProducts?.map((product, index) => {
+        {/* Render same content for all tabs - filter is handled by statusFilter state */}
+        {['all', 'active', 'draft', 'archived'].map((tabValue) => (
+          <TabsContent key={tabValue} value={tabValue}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Sản phẩm</CardTitle>
+                <CardDescription>
+                  Quản lý sản phẩm của bạn và xem hiệu suất bán hàng của chúng.
+                </CardDescription>
+                <div className="relative mt-4">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Tìm kiếm theo tên, mã vạch..."
+                    className="w-full rounded-lg bg-background pl-8 md:w-1/3"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <TooltipProvider>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">STT</TableHead>
+                        <SortableHeader sortKey="name">Tên</SortableHeader>
+                        <SortableHeader sortKey="status">Trạng thái</SortableHeader>
+                        <SortableHeader sortKey="category">Loại</SortableHeader>
+                        <SortableHeader sortKey="avgCost" className="hidden md:table-cell">Giá nhập TB</SortableHeader>
+                        <TableHead className="hidden md:table-cell">Giá bán</TableHead>
+                        <SortableHeader sortKey="stock">Tồn kho</SortableHeader>
+                        <SortableHeader sortKey="totalValue">Thành tiền</SortableHeader>
+                        <TableHead>
+                          <span className="sr-only">Hành động</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                  <TableBody>
+                    {isLoading && (
+                      <>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={i}>
+                            <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
+                    {!isLoading && sortedProducts?.map((product, index) => {
                     const lowStockThreshold = product.lowStockThreshold ?? 10;
                     const currentStock = product.currentStock ?? 0;
                     const averageCost = product.averageCost ?? 0;
                     const isLowStock = currentStock <= lowStockThreshold;
                     const totalValue = currentStock * averageCost;
                     const unit = unitsMap.get(product.unitId);
+                    
+                    // Debug: log avgCostByUnit for first product
+                    if (index === 0) {
+                      console.log('Product:', product.name);
+                      console.log('avgCostByUnit:', product.avgCostByUnit);
+                    }
 
                     return (
                       <TableRow key={product.id}>
@@ -534,16 +639,14 @@ export default function ProductsPage() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             {isLowStock && lowStockThreshold > 0 && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                                </TooltipTrigger>
+                                <TooltipContent>
                                     <p>Tồn kho dưới ngưỡng ({lowStockThreshold} {unit?.name || ''})</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
                             )}
                             <div>
                               <div>{product.name}</div>
@@ -562,7 +665,27 @@ export default function ProductsPage() {
                           <Badge variant="outline">{product.categoryName || 'N/A'}</Badge>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {formatCurrency(product.averageCost)} / {unit?.name || ''}
+                          <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help inline-block">
+                                {formatCurrency(product.averageCost)} / {unit?.name || ''}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="text-sm space-y-1">
+                                <p className="font-semibold">Giá nhập theo đơn vị:</p>
+                                {product.avgCostByUnit && product.avgCostByUnit.length > 0 ? (
+                                  product.avgCostByUnit.map((unitCost, idx) => (
+                                    <p key={idx}>
+                                      {formatCurrency(unitCost.avgCost)} / {unitCost.unitName}
+                                    </p>
+                                  ))
+                                ) : (
+                                  <p>{formatCurrency(product.averageCost)} / {unit?.name || 'đơn vị'}</p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           {product.sellingPrice ? formatCurrency(product.sellingPrice) : '-'}
@@ -639,6 +762,7 @@ export default function ProductsPage() {
                   )}
                 </TableBody>
               </Table>
+            </TooltipProvider>
             </CardContent>
 
             <CardFooter className="flex items-center justify-between">
@@ -674,7 +798,33 @@ export default function ProductsPage() {
             </CardFooter>
           </Card>
         </TabsContent>
+        ))}
       </Tabs>
+
+      <QuickPurchaseDialog
+        isOpen={isQuickPurchaseOpen}
+        onOpenChange={(open) => {
+          setIsQuickPurchaseOpen(open);
+          if (!open) {
+            // Reset to page 1 and clear sorting when dialog closes
+            setCurrentPage(1);
+            setSortKey(null);
+            setSortDirection('asc');
+          }
+        }}
+        products={products.map(p => ({ 
+          id: p.id, 
+          name: p.name, 
+          unitId: p.unitId,
+          costPrice: p.averageCost 
+        }))}
+        units={units}
+        preselectedProductId={selectedProductForQuickPurchase}
+        onSuccess={() => {
+          // Refresh products list after successful purchase
+          fetchProducts();
+        }}
+      />
     </>
   )
 }

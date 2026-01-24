@@ -40,6 +40,7 @@ BEGIN
         price = COALESCE(@price, price),
         cost_price = COALESCE(@costPrice, cost_price),
         sku = COALESCE(@sku, sku),
+        unit_id = COALESCE(@unitId, unit_id),
         stock_quantity = COALESCE(@stockQuantity, stock_quantity),
         status = COALESCE(@status, status),
         images = COALESCE(@images, images),

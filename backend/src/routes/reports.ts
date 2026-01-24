@@ -85,7 +85,7 @@ router.get('/inventory', async (req: AuthRequest, res: Response) => {
         p.name as productName,
         p.sku as barcode,
         c.name as categoryName,
-        NULL as unitName,
+        u.name as unitName,
         p.stock_quantity as closingStock,
         p.cost_price as averageCost,
         0 as lowStockThreshold,
@@ -100,23 +100,23 @@ router.get('/inventory', async (req: AuthRequest, res: Response) => {
                   AND (@dateFrom IS NULL OR s.transaction_date >= @dateFrom)
                   AND (@dateTo IS NULL OR s.transaction_date <= DATEADD(day, 1, @dateTo))
                ), 0) -
-        ISNULL((SELECT SUM(pi.quantity) 
-                FROM PurchaseItems pi 
-                JOIN Purchases pur ON pi.purchase_id = pur.id 
-                WHERE pi.product_id = p.id 
-                  AND pur.store_id = @storeId
-                  AND (@dateFrom IS NULL OR pur.purchase_date >= @dateFrom)
-                  AND (@dateTo IS NULL OR pur.purchase_date <= DATEADD(day, 1, @dateTo))
+        ISNULL((SELECT SUM(poi.quantity) 
+                FROM PurchaseOrderItems poi 
+                JOIN PurchaseOrders po ON poi.purchase_order_id = po.id 
+                WHERE poi.product_id = p.id 
+                  AND po.store_id = @storeId
+                  AND (@dateFrom IS NULL OR po.import_date >= @dateFrom)
+                  AND (@dateTo IS NULL OR po.import_date <= DATEADD(day, 1, @dateTo))
                ), 0) as openingStock,
         
         -- Import stock (purchases in period)
-        ISNULL((SELECT SUM(pi.quantity) 
-                FROM PurchaseItems pi 
-                JOIN Purchases pur ON pi.purchase_id = pur.id 
-                WHERE pi.product_id = p.id 
-                  AND pur.store_id = @storeId
-                  AND (@dateFrom IS NULL OR pur.purchase_date >= @dateFrom)
-                  AND (@dateTo IS NULL OR pur.purchase_date <= DATEADD(day, 1, @dateTo))
+        ISNULL((SELECT SUM(poi.quantity) 
+                FROM PurchaseOrderItems poi 
+                JOIN PurchaseOrders po ON poi.purchase_order_id = po.id 
+                WHERE poi.product_id = p.id 
+                  AND po.store_id = @storeId
+                  AND (@dateFrom IS NULL OR po.import_date >= @dateFrom)
+                  AND (@dateTo IS NULL OR po.import_date <= DATEADD(day, 1, @dateTo))
                ), 0) as importStock,
         
         -- Export stock (sales in period)
@@ -134,6 +134,7 @@ router.get('/inventory', async (req: AuthRequest, res: Response) => {
         
        FROM Products p
        LEFT JOIN Categories c ON p.category_id = c.id
+       LEFT JOIN Units u ON p.unit_id = u.id
        ${whereClause}
        ORDER BY p.name`;
 

@@ -59,20 +59,90 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const storeId = req.storeId!;
 
+    console.log('GET /api/purchases/:id - ID:', id, 'Store:', storeId);
+
     const purchase = await purchaseOrderRepository.findByIdWithDetails(id, storeId);
 
     if (!purchase) {
+      console.log('Purchase order not found');
       res.status(404).json({ error: 'Purchase order not found', code: 'PURCHASE_NOT_FOUND' });
       return;
     }
 
-    res.json(purchase);
+    console.log('Purchase order found:', {
+      id: purchase.id,
+      orderNumber: purchase.orderNumber,
+      itemsCount: purchase.items?.length || 0,
+      items: purchase.items
+    });
+
+    res.json({ purchaseOrder: purchase });
   } catch (error) {
     console.error('Get purchase error:', error);
     res.status(500).json({ error: 'Failed to get purchase', code: 'INTERNAL_ERROR' });
   }
 });
 
+
+/**
+ * POST /api/purchases/quick
+ * Nhập hàng nhanh - Tạo đơn nhập hàng với 1 sản phẩm
+ * Requirements: Quick purchase feature
+ */
+router.post('/quick', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    const userId = req.user?.id;
+    const { productId, quantity, cost, unitId, importDate, baseQuantity, baseCost, baseUnitId } = req.body;
+
+    // Validate required fields
+    if (!productId || !quantity || cost === undefined || !unitId || !importDate) {
+      res.status(400).json({ error: 'All fields are required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    if (quantity <= 0) {
+      res.status(400).json({ error: 'Quantity must be greater than 0', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    if (cost < 0) {
+      res.status(400).json({ error: 'Cost cannot be negative', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    // Use base values if provided, otherwise use original values
+    const finalBaseQuantity = baseQuantity || quantity;
+    const finalBaseCost = baseCost || cost;
+    const finalBaseUnitId = baseUnitId || unitId;
+
+    // Calculate total amount using base values
+    const totalAmount = finalBaseQuantity * finalBaseCost;
+
+    const input: CreatePurchaseOrderInput = {
+      importDate,
+      notes: 'Nhập hàng nhanh',
+      totalAmount,
+      createdBy: userId,
+      items: [{
+        productId,
+        quantity,
+        cost,
+        unitId,
+        baseQuantity: finalBaseQuantity,
+        baseCost: finalBaseCost,
+        baseUnitId: finalBaseUnitId,
+      }],
+    };
+
+    const purchase = await purchaseOrderRepository.createWithItems(input, storeId);
+
+    res.status(201).json(purchase);
+  } catch (error) {
+    console.error('Quick purchase error:', error);
+    res.status(500).json({ error: 'Failed to create quick purchase', code: 'INTERNAL_ERROR' });
+  }
+});
 
 /**
  * POST /api/purchases
@@ -96,9 +166,16 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Calculate total amount
-    const totalAmount = items.reduce((sum: number, item: { quantity: number; cost: number }) => {
-      return sum + (item.quantity * item.cost);
+    // Calculate total amount using base values
+    const totalAmount = items.reduce((sum: number, item: { 
+      quantity: number; 
+      cost: number; 
+      baseQuantity?: number; 
+      baseCost?: number; 
+    }) => {
+      const baseQty = item.baseQuantity || item.quantity;
+      const baseCst = item.baseCost || item.cost;
+      return sum + (baseQty * baseCst);
     }, 0);
 
     const input: CreatePurchaseOrderInput = {
@@ -107,11 +184,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       notes,
       totalAmount,
       createdBy: userId,
-      items: items.map((item: { productId: string; quantity: number; cost: number; unitId: string }) => ({
+      items: items.map((item: { 
+        productId: string; 
+        quantity: number; 
+        cost: number; 
+        unitId: string;
+        baseQuantity?: number;
+        baseCost?: number;
+        baseUnitId?: string;
+      }) => ({
         productId: item.productId,
         quantity: item.quantity,
         cost: item.cost,
         unitId: item.unitId,
+        baseQuantity: item.baseQuantity,
+        baseCost: item.baseCost,
+        baseUnitId: item.baseUnitId,
       })),
     };
 
@@ -146,9 +234,16 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Calculate total amount
-    const totalAmount = items.reduce((sum: number, item: { quantity: number; cost: number }) => {
-      return sum + (item.quantity * item.cost);
+    // Calculate total amount using base values
+    const totalAmount = items.reduce((sum: number, item: { 
+      quantity: number; 
+      cost: number; 
+      baseQuantity?: number; 
+      baseCost?: number; 
+    }) => {
+      const baseQty = item.baseQuantity || item.quantity;
+      const baseCst = item.baseCost || item.cost;
+      return sum + (baseQty * baseCst);
     }, 0);
 
     const input = {
@@ -156,11 +251,22 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       importDate,
       notes,
       totalAmount,
-      items: items.map((item: { productId: string; quantity: number; cost: number; unitId: string }) => ({
+      items: items.map((item: { 
+        productId: string; 
+        quantity: number; 
+        cost: number; 
+        unitId: string;
+        baseQuantity?: number;
+        baseCost?: number;
+        baseUnitId?: string;
+      }) => ({
         productId: item.productId,
         quantity: item.quantity,
         cost: item.cost,
         unitId: item.unitId,
+        baseQuantity: item.baseQuantity,
+        baseCost: item.baseCost,
+        baseUnitId: item.baseUnitId,
       })),
     };
 

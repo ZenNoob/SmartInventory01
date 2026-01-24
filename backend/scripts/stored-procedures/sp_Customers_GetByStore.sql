@@ -20,7 +20,7 @@ BEGIN
     SELECT 
         c.id,
         c.store_id AS storeId,
-        COALESCE(c.full_name, c.name) AS name,
+        c.full_name AS name,
         c.email,
         c.phone,
         c.address,
@@ -52,9 +52,10 @@ BEGIN
         c.updated_at AS updatedAt
     FROM Customers c
     WHERE c.store_id = @storeId
+        AND c.status != 'deleted'
         AND (@status IS NULL OR c.status = @status)
         AND (@customerType IS NULL OR c.customer_type = @customerType)
-        AND (@searchTerm IS NULL OR COALESCE(c.full_name, c.name) LIKE '%' + @searchTerm + '%' OR c.phone LIKE '%' + @searchTerm + '%' OR c.email LIKE '%' + @searchTerm + '%')
-    ORDER BY COALESCE(c.full_name, c.name) ASC;
+        AND (@searchTerm IS NULL OR c.full_name LIKE '%' + @searchTerm + '%' OR c.phone LIKE '%' + @searchTerm + '%' OR c.email LIKE '%' + @searchTerm + '%')
+    ORDER BY c.full_name ASC;
 END
 GO

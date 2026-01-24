@@ -16,6 +16,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     
     // Use SP Repository instead of inline query
     const units = await unitsSPRepository.getByStore(storeId);
+    
+    console.log('[Units API] Store:', storeId, 'Units count:', units.length);
+    console.log('[Units API] Units:', JSON.stringify(units, null, 2));
 
     res.json(units.map(u => ({
       id: u.id,

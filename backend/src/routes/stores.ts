@@ -78,6 +78,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const userEmail = req.user!.email;
+    const tenantId = req.user!.tenantId;
     const { name, description, address, phone, businessType } = req.body;
 
     // Validate required fields
@@ -89,6 +90,33 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     if (name.length > 255) {
       res.status(400).json({ error: 'Tên cửa hàng không được quá 255 ký tự' });
       return;
+    }
+
+    // Check store limit for this user
+    // First check if StoreOwner exists and get their max_stores limit
+    const storeOwnerLimit = await queryOne<{ id: string; max_stores: number }>(
+      'SELECT id, max_stores FROM StoreOwners WHERE email = @email',
+      { email: userEmail }
+    );
+
+    // If StoreOwner exists, check their store limit
+    if (storeOwnerLimit) {
+      const currentStoreCount = await queryOne<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Stores WHERE owner_id = @ownerId AND status = @status',
+        { ownerId: storeOwnerLimit.id, status: 'active' }
+      );
+
+      const maxStores = storeOwnerLimit.max_stores || 3; // Default to 3 if not set
+
+      if (currentStoreCount && currentStoreCount.count >= maxStores) {
+        res.status(403).json({ 
+          error: `Bạn đã đạt giới hạn ${maxStores} cửa hàng. Vui lòng nâng cấp gói để tạo thêm cửa hàng.`,
+          errorCode: 'STORE_LIMIT_REACHED',
+          maxStores: maxStores,
+          currentStores: currentStoreCount.count
+        });
+        return;
+      }
     }
 
     // Find or create StoreOwner for this user
@@ -210,9 +238,10 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    const userRole = req.user!.role;
     const { name, description, address, phone, businessType, status } = req.body;
 
-    // Check if user is the owner of the store
+    // Check if store exists
     const store = await queryOne<Record<string, unknown>>(
       'SELECT * FROM Stores WHERE id = @id',
       { id }
@@ -223,7 +252,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (store.owner_id !== userId) {
+    // Check permission: admin can edit all stores, others must be owner
+    const isAdmin = userRole === 'admin' || userRole === 'owner';
+    if (!isAdmin && store.owner_id !== userId) {
       res.status(403).json({ error: 'Bạn không có quyền quản lý cửa hàng này' });
       return;
     }

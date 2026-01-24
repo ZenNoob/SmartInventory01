@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "setup:master-db": "tsx scripts/setup-master-database.ts",
     "migrate:inventory-transfer": "tsx scripts/migrate-inventory-transfer.ts",
-    "seed:sample-data": "tsx scripts/seed-sample-data.ts"
+    "seed:sample-data": "tsx scripts/seed-sample-data.ts",
+    "migrate": "tsx scripts/run-migration.ts",
+    "migrate:base-units": "tsx scripts/run-migration.ts add-base-unit-columns.sql"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

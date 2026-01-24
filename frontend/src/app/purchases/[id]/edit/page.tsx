@@ -5,6 +5,7 @@ import { Product, Unit, SalesItem, PurchaseOrder, Supplier } from "@/lib/types";
 import { PurchaseOrderForm } from "../../components/purchase-order-form";
 import { notFound } from "next/navigation";
 import { useStore } from "@/contexts/store-context";
+import { Button } from "@/components/ui/button";
 
 export default function EditPurchasePage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
@@ -47,6 +48,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 }
                 
                 const orderResult = await orderResponse.json();
+                console.log('Purchase order data:', orderResult);
                 setPurchaseOrder(orderResult.purchaseOrder);
                 
                 // Fetch products
@@ -55,6 +57,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 });
                 if (productsResponse.ok) {
                     const productsResult = await productsResponse.json();
+                    console.log('Products data:', productsResult);
                     setProducts(productsResult.data || []);
                 }
                 
@@ -73,7 +76,11 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 });
                 if (unitsResponse.ok) {
                     const unitsResult = await unitsResponse.json();
-                    setUnits(unitsResult.units || []);
+                    console.log('Units data:', unitsResult);
+                    // Backend returns array directly
+                    const unitsList = Array.isArray(unitsResult) ? unitsResult : (unitsResult.units || []);
+                    console.log('Units list:', unitsList);
+                    setUnits(unitsList);
                 }
                 
                 // Sales items are not needed for edit, set empty array
@@ -89,20 +96,29 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
         fetchData();
     }, [currentStore?.id, resolvedParams.id]);
 
-    if (notFoundState) {
-        notFound();
-    }
-
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <p>Đang tải dữ liệu...</p>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+                </div>
             </div>
         );
     }
 
-    if (!purchaseOrder) {
-        notFound();
+    if (notFoundState || !purchaseOrder) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-2">Không tìm thấy đơn nhập hàng</h2>
+                    <p className="text-muted-foreground mb-4">Đơn nhập hàng này không tồn tại hoặc đã bị xóa.</p>
+                    <Button onClick={() => window.location.href = '/purchases'}>
+                        Quay lại danh sách
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     return (

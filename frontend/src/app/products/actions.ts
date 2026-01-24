@@ -27,6 +27,12 @@ interface ProductWithStock {
   averageCost: number;
   categoryName?: string;
   unitName?: string;
+  avgCostByUnit?: Array<{
+    unitId: string;
+    unitName: string;
+    avgCost: number;
+    totalQty: number;
+  }>;
 }
 
 /**
@@ -57,7 +63,14 @@ export async function getProducts(params?: GetProductsParams): Promise<{
       updatedAt: string;
     }>;
     
+    // Debug: log first product to check avgCostByUnit
+    if (rawProducts.length > 0) {
+      console.log('First product from API:', rawProducts[0]);
+      console.log('avgCostByUnit:', (rawProducts[0] as any).avgCostByUnit);
+    }
+    
     // Map API response to ProductWithStock format
+    // Backend already returns products sorted by updated_at DESC, created_at DESC
     const products: ProductWithStock[] = rawProducts.map(p => ({
       id: p.id,
       storeId: p.storeId,
@@ -66,7 +79,7 @@ export async function getProducts(params?: GetProductsParams): Promise<{
       description: p.description,
       categoryId: p.categoryId,
       categoryName: p.categoryName,
-      unitId: '',
+      unitId: (p as any).unitId || '',
       sellingPrice: p.price || 0,
       status: p.status,
       lowStockThreshold: 10,
@@ -74,10 +87,11 @@ export async function getProducts(params?: GetProductsParams): Promise<{
       updatedAt: p.updatedAt,
       currentStock: p.stockQuantity || 0,
       averageCost: p.costPrice || 0,
+      avgCostByUnit: (p as any).avgCostByUnit || [],
     }));
     
-    // Apply client-side filtering since backend doesn't support query params yet
-    let filtered = [...products];
+    // Apply client-side filtering - preserve order from backend
+    let filtered = products;
     
     if (params?.search) {
       const searchLower = params.search.toLowerCase();
@@ -88,7 +102,10 @@ export async function getProducts(params?: GetProductsParams): Promise<{
     }
     
     if (params?.categoryId) {
-      filtered = filtered.filter(p => p.categoryId === params.categoryId);
+      const categoryIds = params.categoryId.split(',').filter(id => id.trim());
+      if (categoryIds.length > 0) {
+        filtered = filtered.filter(p => categoryIds.includes(p.categoryId));
+      }
     }
     
     if (params?.status) {
@@ -145,10 +162,20 @@ export async function getProduct(productId: string): Promise<{
 export async function upsertProduct(product: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
   try {
     const id = product.id as string | undefined;
+    
+    // Map frontend field names to backend field names
+    const productData = {
+      ...product,
+      price: product.sellingPrice, // Map sellingPrice -> price
+      costPrice: product.costPrice,
+      // Remove frontend-only fields
+      sellingPrice: undefined,
+    };
+    
     if (id) {
-      await apiClient.updateProduct(id, product);
+      await apiClient.updateProduct(id, productData);
     } else {
-      await apiClient.createProduct(product);
+      await apiClient.createProduct(productData);
     }
     return { success: true };
   } catch (error: unknown) {

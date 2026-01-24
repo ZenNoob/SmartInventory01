@@ -88,12 +88,32 @@ export function CreateStoreDialog({
       setErrors({});
       onOpenChange(false);
       onStoreCreated?.(newStore);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Lỗi',
-        description: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tạo cửa hàng',
-      });
+    } catch (error: any) {
+      // Check if it's a store limit error
+      if (error.errorCode === 'STORE_LIMIT_REACHED') {
+        toast({
+          variant: 'destructive',
+          title: 'Đã đạt giới hạn cửa hàng',
+          description: error.message || 'Bạn đã đạt giới hạn số lượng cửa hàng',
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                window.location.href = '/subscription';
+              }}
+            >
+              Nâng cấp ngay
+            </Button>
+          ),
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Lỗi',
+          description: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tạo cửa hàng',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

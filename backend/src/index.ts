@@ -27,6 +27,8 @@ import storefrontRoutes from './routes/storefront';
 import tenantsRoutes from './routes/tenants';
 import syncDataRoutes from './routes/sync-data';
 import loyaltyPointsRoutes from './routes/loyalty-points';
+import subscriptionRoutes from './routes/subscription';
+import unitConversionRoutes from './routes/unit-conversion';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -85,6 +87,8 @@ app.use('/api/storefront', storefrontRoutes);
 app.use('/api/tenants', tenantsRoutes);
 app.use('/api/sync-data', syncDataRoutes);
 app.use('/api/loyalty-points', loyaltyPointsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api', unitConversionRoutes);
 
 // Error handling middleware
 app.use(

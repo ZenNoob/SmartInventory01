@@ -123,6 +123,17 @@ class ApiClient {
       const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
       const error: ApiError = new Error(errorData.error || 'Request failed');
       error.status = response.status;
+      // Add errorCode if present in response
+      if (errorData.errorCode) {
+        (error as any).errorCode = errorData.errorCode;
+      }
+      // Add additional error details
+      if (errorData.maxStores) {
+        (error as any).maxStores = errorData.maxStores;
+      }
+      if (errorData.currentStores) {
+        (error as any).currentStores = errorData.currentStores;
+      }
       throw error;
     }
 
@@ -839,6 +850,64 @@ class ApiClient {
       pageSize: number;
       totalPages: number;
     }>(`/products/${productId}/conversion-logs${query ? `?${query}` : ''}`);
+  }
+
+  // ==================== Unit Conversion ====================
+  async getProductUnits(productId: string) {
+    return this.request<{
+      success: boolean;
+      baseUnit: {
+        id: string;
+        name: string;
+        isBase: boolean;
+        conversionFactor: number;
+      };
+      availableUnits: Array<{
+        id: string;
+        name: string;
+        isBase: boolean;
+        conversionFactor: number;
+      }>;
+    }>(`/products/${productId}/units`);
+  }
+
+  async convertQuantity(data: {
+    productId: string;
+    fromUnitId: string;
+    toUnitId: string;
+    quantity: number;
+  }) {
+    return this.request<{
+      success: boolean;
+      fromUnitId: string;
+      fromUnitName: string;
+      toUnitId: string;
+      toUnitName: string;
+      conversionFactor: number;
+      fromQuantity: number;
+      toQuantity: number;
+    }>('/units/convert', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async calculatePrice(productId: string, data: {
+    unitId: string;
+    quantity: number;
+    priceType: 'cost' | 'selling';
+  }) {
+    return this.request<{
+      success: boolean;
+      unitPrice: number;
+      baseUnitPrice: number;
+      quantity: number;
+      baseQuantity: number;
+      totalAmount: number;
+    }>(`/products/${productId}/calculate-price`, {
+      method: 'POST',
+      body: data,
+    });
   }
 }
 

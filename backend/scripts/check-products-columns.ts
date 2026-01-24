@@ -35,10 +35,19 @@ async function check() {
   // Also check raw data from Products table
   const rawProducts = await pool.request()
     .input('storeId', storeId)
-    .query('SELECT TOP 1 id, name, stock_quantity, cost_price, selling_price FROM Products WHERE store_id = @storeId');
+    .query('SELECT TOP 1 id, name, stock_quantity, cost_price, selling_price, unit_id FROM Products WHERE store_id = @storeId');
   
   console.log('\nRaw product from table:');
   console.log(JSON.stringify(rawProducts.recordset[0], null, 2));
+  
+  // Check if unit_id column exists
+  const columns = await pool.request()
+    .query(`SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'Products' AND COLUMN_NAME LIKE '%unit%'`);
+  
+  console.log('\nUnit-related columns in Products table:');
+  console.log(columns.recordset);
   
   await pool.close();
 }

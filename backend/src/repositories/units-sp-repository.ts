@@ -12,14 +12,20 @@ import { SPBaseRepository, SPParams } from './sp-base-repository';
  * Database record interface for Units from stored procedures (snake_case)
  */
 interface UnitSPRecord {
-  Id: string;
+  id: string; // SP returns lowercase
+  Id?: string; // Fallback for PascalCase
   store_id: string;
+  storeId?: string; // Fallback
   name: string;
   description: string | null;
   base_unit_id: string | null;
+  baseUnitId?: string; // Fallback
   conversion_factor: number;
+  conversionFactor?: number; // Fallback
   created_at: Date;
+  createdAt?: Date; // Fallback
   updated_at: Date;
+  updatedAt?: Date; // Fallback
 }
 
 /**
@@ -83,21 +89,21 @@ export class UnitsSPRepository extends SPBaseRepository<Unit> {
    */
   private mapToEntity(record: UnitSPRecord): Unit {
     return {
-      id: record.Id,
-      storeId: record.store_id,
+      id: record.id || record.Id,
+      storeId: record.store_id || record.storeId || '',
       name: record.name,
       description: record.description || undefined,
-      baseUnitId: record.base_unit_id || undefined,
-      conversionFactor: record.conversion_factor ?? 1,
-      createdAt: record.created_at
-        ? record.created_at instanceof Date
-          ? record.created_at.toISOString()
-          : String(record.created_at)
+      baseUnitId: record.base_unit_id || record.baseUnitId || undefined,
+      conversionFactor: record.conversion_factor ?? record.conversionFactor ?? 1,
+      createdAt: (record.created_at || record.createdAt)
+        ? (record.created_at || record.createdAt) instanceof Date
+          ? (record.created_at || record.createdAt).toISOString()
+          : String(record.created_at || record.createdAt)
         : undefined,
-      updatedAt: record.updated_at
-        ? record.updated_at instanceof Date
-          ? record.updated_at.toISOString()
-          : String(record.updated_at)
+      updatedAt: (record.updated_at || record.updatedAt)
+        ? (record.updated_at || record.updatedAt) instanceof Date
+          ? (record.updated_at || record.updatedAt).toISOString()
+          : String(record.updated_at || record.updatedAt)
         : undefined,
     };
   }

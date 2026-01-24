@@ -24,6 +24,7 @@ BEGIN
         p.price,
         p.cost_price AS costPrice,
         p.sku,
+        p.unit_id AS unitId,
         p.stock_quantity AS stockQuantity,
         p.images,
         p.status,

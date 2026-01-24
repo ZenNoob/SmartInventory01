@@ -21,6 +21,9 @@ export interface PurchaseOrderItem {
   quantity: number;
   cost: number;
   unitId: string;
+  baseQuantity?: number;
+  baseCost?: number;
+  baseUnitId?: string;
 }
 
 export interface PurchaseLot {
@@ -59,6 +62,9 @@ export interface CreatePurchaseOrderItemInput {
   quantity: number;
   cost: number;
   unitId: string;
+  baseQuantity?: number;
+  baseCost?: number;
+  baseUnitId?: string;
 }
 
 interface PurchaseOrderRecord {
@@ -81,6 +87,9 @@ interface PurchaseOrderItemRecord {
   quantity: number;
   cost: number;
   unit_id: string;
+  base_quantity?: number;
+  base_cost?: number;
+  base_unit_id?: string;
   [key: string]: SqlValue;
 }
 
@@ -138,6 +147,9 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
       quantity: record.quantity,
       cost: record.cost,
       unitId: record.unit_id,
+      baseQuantity: record.base_quantity,
+      baseCost: record.base_cost,
+      baseUnitId: record.base_unit_id,
     };
   }
 
@@ -185,16 +197,60 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
       for (const item of input.items) {
         const itemId = crypto.randomUUID();
         const lotId = crypto.randomUUID();
+        
+        // Use base values if provided, otherwise use original values
+        const baseQuantity = item.baseQuantity || item.quantity;
+        const baseCost = item.baseCost || item.cost;
+        const baseUnitId = item.baseUnitId || item.unitId;
+        
         const itemRecord = await transactionInsert<PurchaseOrderItemRecord>(transaction, 'PurchaseOrderItems', {
           id: itemId, purchase_order_id: purchaseOrderId, product_id: item.productId,
           quantity: item.quantity, cost: item.cost, unit_id: item.unitId,
+          base_quantity: baseQuantity, base_cost: baseCost, base_unit_id: baseUnitId,
         });
         if (!itemRecord) throw new Error('Failed to create purchase order item');
+        
+        // PurchaseLots always use base unit values for inventory tracking
         await transactionInsert<PurchaseLotRecord>(transaction, 'PurchaseLots', {
           id: lotId, product_id: item.productId, store_id: storeId, import_date: new Date(input.importDate),
-          quantity: item.quantity, remaining_quantity: item.quantity, cost: item.cost, unit_id: item.unitId,
+          quantity: baseQuantity, remaining_quantity: baseQuantity, cost: baseCost, unit_id: baseUnitId,
           purchase_order_id: purchaseOrderId,
         });
+        
+        // Update ProductInventory
+        const existingInventory = await transactionQueryOne<{ Id: string; Quantity: number }>(
+          transaction,
+          `SELECT Id, Quantity FROM ProductInventory WHERE ProductId = @productId AND StoreId = @storeId`,
+          { productId: item.productId, storeId }
+        );
+        
+        if (existingInventory) {
+          // Update existing inventory
+          await transactionQuery(
+            transaction,
+            `UPDATE ProductInventory SET Quantity = Quantity + @quantity, UpdatedAt = GETDATE() WHERE Id = @id`,
+            { id: existingInventory.Id, quantity: baseQuantity }
+          );
+        } else {
+          // Create new inventory record
+          await transactionInsert(transaction, 'ProductInventory', {
+            Id: crypto.randomUUID(),
+            ProductId: item.productId,
+            StoreId: storeId,
+            UnitId: baseUnitId,
+            Quantity: baseQuantity,
+            CreatedAt: now,
+            UpdatedAt: now,
+          });
+        }
+        
+        // Update product's updated_at to move it to top of list
+        await transactionQuery(
+          transaction,
+          `UPDATE Products SET updated_at = GETDATE() WHERE id = @productId AND store_id = @storeId`,
+          { productId: item.productId, storeId }
+        );
+        
         items.push(this.mapItemToEntity(itemRecord));
       }
       return { ...this.mapToEntity(orderRecord as unknown as Record<string, unknown>), items };
@@ -214,7 +270,7 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
     };
   }
 
-  async findAllWithSupplier(storeId: string, options?: PaginationOptions & { search?: string; supplierId?: string; dateFrom?: string; dateTo?: string; }): Promise<PaginatedResult<PurchaseOrder & { supplierName?: string; itemCount: number }>> {
+  async findAllWithSupplier(storeId: string, options?: PaginationOptions & { search?: string; supplierId?: string; dateFrom?: string; dateTo?: string; }): Promise<PaginatedResult<PurchaseOrder & { supplierName?: string; itemCount: number; items?: PurchaseOrderItemWithProduct[] }>> {
     const page = options?.page || 1;
     const pageSize = options?.pageSize || 20;
     const offset = (page - 1) * pageSize;
@@ -228,11 +284,24 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
     const countQuery = `SELECT COUNT(*) as total FROM PurchaseOrders po LEFT JOIN Suppliers s ON po.supplier_id = s.id WHERE ${whereClause}`;
     const countResult = await queryOne<{ total: number }>(countQuery, params);
     const total = countResult?.total ?? 0;
-    const orderBy = options?.orderBy || 'po.import_date';
+    const orderBy = options?.orderBy || 'po.updated_at';
     const direction = options?.orderDirection || 'DESC';
     const dataQuery = `SELECT po.*, s.name as supplier_name, (SELECT COUNT(*) FROM PurchaseOrderItems WHERE purchase_order_id = po.id) as item_count FROM PurchaseOrders po LEFT JOIN Suppliers s ON po.supplier_id = s.id WHERE ${whereClause} ORDER BY ${orderBy} ${direction} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`;
     const results = await query<PurchaseOrderRecord & { supplier_name: string | null; item_count: number }>(dataQuery, { ...params, offset, pageSize });
-    return { data: results.map(r => ({ ...this.mapToEntity(r as unknown as Record<string, unknown>), supplierName: r.supplier_name || undefined, itemCount: r.item_count })), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    
+    // Fetch items for each purchase order
+    const purchaseOrdersWithItems = await Promise.all(results.map(async (r) => {
+      const itemsQuery = `SELECT poi.*, p.name as product_name, u.name as unit_name FROM PurchaseOrderItems poi LEFT JOIN Products p ON poi.product_id = p.id LEFT JOIN Units u ON poi.unit_id = u.id WHERE poi.purchase_order_id = @purchaseOrderId`;
+      const items = await query<PurchaseOrderItemRecord & { product_name: string | null; unit_name: string | null }>(itemsQuery, { purchaseOrderId: r.id });
+      return {
+        ...this.mapToEntity(r as unknown as Record<string, unknown>),
+        supplierName: r.supplier_name || undefined,
+        itemCount: r.item_count,
+        items: items.map(item => ({ ...this.mapItemToEntity(item), productName: item.product_name || undefined, unitName: item.unit_name || undefined }))
+      };
+    }));
+    
+    return { data: purchaseOrdersWithItems, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   async updateWithItems(purchaseOrderId: string, input: Omit<CreatePurchaseOrderInput, 'createdBy'>, storeId: string): Promise<PurchaseOrderWithDetails> {
@@ -241,16 +310,32 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
       if (!existingOrder) throw new Error('Purchase order not found or access denied');
       await transactionQuery(transaction, `DELETE FROM PurchaseLots WHERE purchase_order_id = @purchaseOrderId`, { purchaseOrderId });
       await transactionQuery(transaction, `DELETE FROM PurchaseOrderItems WHERE purchase_order_id = @purchaseOrderId`, { purchaseOrderId });
-      const updateQuery = `UPDATE PurchaseOrders SET supplier_id = @supplierId, import_date = @importDate, total_amount = @totalAmount, notes = @notes OUTPUT INSERTED.* WHERE id = @purchaseOrderId AND store_id = @storeId`;
+      const updateQuery = `UPDATE PurchaseOrders SET supplier_id = @supplierId, import_date = @importDate, total_amount = @totalAmount, notes = @notes, updated_at = GETDATE() OUTPUT INSERTED.* WHERE id = @purchaseOrderId AND store_id = @storeId`;
       const updatedOrder = await transactionQueryOne<PurchaseOrderRecord>(transaction, updateQuery, { purchaseOrderId, storeId, supplierId: input.supplierId || null, importDate: new Date(input.importDate), totalAmount: input.totalAmount, notes: input.notes || null });
       if (!updatedOrder) throw new Error('Failed to update purchase order');
       const items: PurchaseOrderItemWithProduct[] = [];
       for (const item of input.items) {
         const itemId = crypto.randomUUID();
         const lotId = crypto.randomUUID();
-        const itemRecord = await transactionInsert<PurchaseOrderItemRecord>(transaction, 'PurchaseOrderItems', { id: itemId, purchase_order_id: purchaseOrderId, product_id: item.productId, quantity: item.quantity, cost: item.cost, unit_id: item.unitId });
+        
+        // Use base values if provided, otherwise use original values
+        const baseQuantity = item.baseQuantity || item.quantity;
+        const baseCost = item.baseCost || item.cost;
+        const baseUnitId = item.baseUnitId || item.unitId;
+        
+        const itemRecord = await transactionInsert<PurchaseOrderItemRecord>(transaction, 'PurchaseOrderItems', { 
+          id: itemId, purchase_order_id: purchaseOrderId, product_id: item.productId, 
+          quantity: item.quantity, cost: item.cost, unit_id: item.unitId,
+          base_quantity: baseQuantity, base_cost: baseCost, base_unit_id: baseUnitId,
+        });
         if (!itemRecord) throw new Error('Failed to create purchase order item');
-        await transactionInsert<PurchaseLotRecord>(transaction, 'PurchaseLots', { id: lotId, product_id: item.productId, store_id: storeId, import_date: new Date(input.importDate), quantity: item.quantity, remaining_quantity: item.quantity, cost: item.cost, unit_id: item.unitId, purchase_order_id: purchaseOrderId });
+        
+        // PurchaseLots always use base unit values for inventory tracking
+        await transactionInsert<PurchaseLotRecord>(transaction, 'PurchaseLots', { 
+          id: lotId, product_id: item.productId, store_id: storeId, import_date: new Date(input.importDate), 
+          quantity: baseQuantity, remaining_quantity: baseQuantity, cost: baseCost, unit_id: baseUnitId, 
+          purchase_order_id: purchaseOrderId 
+        });
         items.push(this.mapItemToEntity(itemRecord));
       }
       return { ...this.mapToEntity(updatedOrder as unknown as Record<string, unknown>), items };
@@ -261,11 +346,38 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
     return withTransaction(async (transaction) => {
       const existingOrder = await transactionQueryOne<PurchaseOrderRecord>(transaction, `SELECT * FROM PurchaseOrders WHERE id = @purchaseOrderId AND store_id = @storeId`, { purchaseOrderId, storeId });
       if (!existingOrder) throw new Error('Purchase order not found or access denied');
+      
+      // Check if any lots have been used
       const usedLots = await transactionQueryOne<{ count: number }>(transaction, `SELECT COUNT(*) as count FROM PurchaseLots WHERE purchase_order_id = @purchaseOrderId AND remaining_quantity < quantity`, { purchaseOrderId });
       if (usedLots && usedLots.count > 0) throw new Error('Cannot delete purchase order with used inventory');
+      
+      // Get all lots to update inventory
+      const lots = await transactionQuery<{ product_id: string; quantity: number; unit_id: string }>(
+        transaction,
+        `SELECT product_id, quantity, unit_id FROM PurchaseLots WHERE purchase_order_id = @purchaseOrderId`,
+        { purchaseOrderId }
+      );
+      
+      // Update ProductInventory - subtract quantities
+      for (const lot of lots) {
+        await transactionQuery(
+          transaction,
+          `UPDATE ProductInventory 
+           SET Quantity = Quantity - @quantity, UpdatedAt = GETDATE() 
+           WHERE ProductId = @productId AND StoreId = @storeId`,
+          { productId: lot.product_id, storeId, quantity: lot.quantity }
+        );
+      }
+      
+      // Delete purchase lots
       await transactionQuery(transaction, `DELETE FROM PurchaseLots WHERE purchase_order_id = @purchaseOrderId`, { purchaseOrderId });
+      
+      // Delete purchase order items
       await transactionQuery(transaction, `DELETE FROM PurchaseOrderItems WHERE purchase_order_id = @purchaseOrderId`, { purchaseOrderId });
+      
+      // Delete purchase order
       await transactionQuery(transaction, `DELETE FROM PurchaseOrders WHERE id = @purchaseOrderId AND store_id = @storeId`, { purchaseOrderId, storeId });
+      
       return true;
     });
   }
