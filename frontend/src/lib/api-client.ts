@@ -79,17 +79,25 @@ class ApiClient {
   }
 
   getToken(): string | null {
-    if (this.token) return this.token;
+    // Always check localStorage if we don't have a cached token
+    // This ensures we pick up tokens set after the client was initialized
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token');
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        this.token = storedToken;
+      }
     }
     return this.token;
   }
 
   getStoreId(): string | null {
-    if (this.storeId) return this.storeId;
+    // Always check localStorage if we don't have a cached storeId
+    // This ensures we pick up storeIds set after the client was initialized
     if (typeof window !== 'undefined') {
-      this.storeId = localStorage.getItem('store_id');
+      const storedStoreId = localStorage.getItem('store_id');
+      if (storedStoreId) {
+        this.storeId = storedStoreId;
+      }
     }
     return this.storeId;
   }
