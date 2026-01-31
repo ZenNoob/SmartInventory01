@@ -3,6 +3,7 @@ import { query, queryOne } from '../db';
 import { inventoryService, InsufficientStockError } from './inventory-service';
 import { Sale, SalesItem } from '../repositories/sales-repository';
 import { UnitConversionLog } from '../repositories/unit-conversion-log-repository';
+import { loyaltyPointsService } from './loyalty-points-service';
 
 /**
  * Input for creating a sale item
@@ -239,6 +240,28 @@ export class SalesService {
             updatedAt: now,
           }
         );
+      }
+
+      // Earn loyalty points for the customer (if applicable)
+      // Points are earned on the amount after discounts (excluding VAT)
+      if (saleData.customerId) {
+        try {
+          const amountForPoints = totalAmount - discount - tierDiscountAmount - pointsDiscount;
+          if (amountForPoints > 0) {
+            const earnResult = await loyaltyPointsService.earnPoints(
+              saleData.customerId,
+              storeId,
+              amountForPoints,
+              saleId
+            );
+            if (earnResult.points > 0) {
+              console.log(`[SalesService] Customer ${saleData.customerId} earned ${earnResult.points} points. New balance: ${earnResult.newBalance}`);
+            }
+          }
+        } catch (earnError) {
+          // Log but don't fail the sale if loyalty points fails
+          console.error('[SalesService] Failed to earn loyalty points:', earnError);
+        }
       }
 
       // Fetch created sale

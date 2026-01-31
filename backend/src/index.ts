@@ -4,6 +4,7 @@ dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -29,6 +30,17 @@ import syncDataRoutes from './routes/sync-data';
 import loyaltyPointsRoutes from './routes/loyalty-points';
 import subscriptionRoutes from './routes/subscription';
 import unitConversionRoutes from './routes/unit-conversion';
+import uploadRoutes from './routes/upload';
+import bulkImportRoutes from './routes/bulk-import';
+import refundsRoutes from './routes/refunds';
+import notificationsRoutes from './routes/notifications';
+import paymentGatewayRoutes from './routes/payment-gateway';
+import shippingRoutes from './routes/shipping';
+import mpcOptimizerRoutes from './routes/mpc-optimizer';
+import promotionRoutes from './routes/promotions';
+import voucherRoutes from './routes/vouchers';
+import printingRoutes from './routes/printing';
+import devicesRoutes from './routes/devices';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,6 +61,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Static files - serve uploaded images
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -89,6 +104,17 @@ app.use('/api/sync-data', syncDataRoutes);
 app.use('/api/loyalty-points', loyaltyPointsRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api', unitConversionRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/bulk', bulkImportRoutes);
+app.use('/api/refunds', refundsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/payment-gateway', paymentGatewayRoutes);
+app.use('/api/shipping', shippingRoutes);
+app.use('/api/mpc', mpcOptimizerRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/vouchers', voucherRoutes);
+app.use('/api/printing', printingRoutes);
+app.use('/api/devices', devicesRoutes);
 
 // Error handling middleware
 app.use(

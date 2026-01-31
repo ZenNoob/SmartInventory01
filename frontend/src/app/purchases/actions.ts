@@ -12,8 +12,10 @@ export async function getPurchases(): Promise<{
   error?: string;
 }> {
   try {
-    const purchases = await apiClient.getPurchases();
-    return { success: true, purchases };
+    const response = await apiClient.getPurchases();
+    // Extract data array from paginated response - backend returns { data: [...], pagination: {...} }
+    const purchases = (response as { data?: unknown[] }).data || (Array.isArray(response) ? response : []);
+    return { success: true, purchases: purchases as Array<Record<string, unknown>> };
   } catch (error: unknown) {
     console.error('Error fetching purchases:', error);
     return { 

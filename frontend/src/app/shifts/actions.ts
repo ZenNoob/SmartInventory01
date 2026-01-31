@@ -166,9 +166,14 @@ export async function getShiftSales(
   error?: string;
 }> {
   try {
-    const sales = await apiClient.getSales();
-    const shiftSales = sales.filter(
-      (s: Record<string, unknown>) => s.shiftId === shiftId
+    const response = await apiClient.getSales({ pageSize: 1000 });
+    // API returns { success, data: [...] }, need to access .data
+    const salesList = response.data || [];
+    // Compare shiftId case-insensitively
+    const shiftIdLower = shiftId.toLowerCase();
+    const shiftSales = salesList.filter(
+      (s: Record<string, unknown>) =>
+        (s.shiftId as string)?.toLowerCase() === shiftIdLower
     );
     return { success: true, sales: shiftSales, data: shiftSales };
   } catch (error: unknown) {

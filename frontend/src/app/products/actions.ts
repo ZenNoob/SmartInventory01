@@ -46,7 +46,8 @@ export async function getProducts(params?: GetProductsParams): Promise<{
   error?: string;
 }> {
   try {
-    const rawProducts = await apiClient.getProducts() as Array<{
+    const response = await apiClient.getProducts();
+    const rawProducts = ((response as any).data || response || []) as Array<{
       id: string;
       storeId: string;
       name: string;

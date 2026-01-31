@@ -98,23 +98,25 @@ export default function SupplierDebtReportPage() {
   }, [currentStore]);
 
   const supplierDebtData = useMemo((): SupplierDebtInfo[] => {
-    if (!suppliers || !purchases || !payments) return [];
+    if (!suppliers || !purchases) return [];
 
     return suppliers.map(supplier => {
-      const supplierPurchases = purchases.filter(p => p.supplierId === supplier.id).reduce((sum, p) => sum + p.totalAmount, 0);
-      const supplierPayments = payments.filter(p => p.supplierId === supplier.id).reduce((sum, p) => sum + p.amount, 0);
-      const debt = supplierPurchases - supplierPayments;
-      
+      const supplierPurchasesList = purchases.filter(p => p.supplierId === supplier.id);
+      const totalPurchases = supplierPurchasesList.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+      const totalPaid = supplierPurchasesList.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+      // Use remaining_debt from purchases - this is the source of truth
+      const finalDebt = supplierPurchasesList.reduce((sum, p) => sum + (p.remainingDebt || 0), 0);
+
       return {
         supplierId: supplier.id,
         supplierName: supplier.name,
         supplierPhone: supplier.phone,
-        totalPurchases: supplierPurchases,
-        totalPayments: supplierPayments,
-        finalDebt: debt,
+        totalPurchases: totalPurchases,
+        totalPayments: totalPaid,
+        finalDebt: finalDebt,
       };
-    }).filter(data => data.totalPurchases > 0 || data.totalPayments > 0 || data.finalDebt !== 0);
-  }, [suppliers, purchases, payments]);
+    }).filter(data => data.totalPurchases > 0 || data.finalDebt !== 0);
+  }, [suppliers, purchases]);
 
   const filteredDebtData = useMemo(() => {
     let filtered = supplierDebtData;
@@ -161,6 +163,30 @@ export default function SupplierDebtReportPage() {
     setSelectedSupplier(supplier);
     setIsPaymentFormOpen(true);
   }
+
+  const handlePaymentSuccess = async () => {
+    // Refetch payments data after successful payment
+    try {
+      setPaymentsLoading(true);
+      const paymentsRes = await fetchWithAuth('/api/supplier-payments');
+      if (paymentsRes.ok) {
+        const data = await paymentsRes.json();
+        setPayments(Array.isArray(data) ? data : (data.data || []));
+      }
+      // Also refetch purchases as remaining_debt has been updated
+      setPurchasesLoading(true);
+      const purchasesRes = await fetchWithAuth('/api/purchases');
+      if (purchasesRes.ok) {
+        const data = await purchasesRes.json();
+        setPurchases(Array.isArray(data) ? data : (data.data || []));
+      }
+    } catch (error) {
+      console.error('Error refetching data:', error);
+    } finally {
+      setPaymentsLoading(false);
+      setPurchasesLoading(false);
+    }
+  };
 
   const SortableHeader = ({ sortKey: key, children, className }: { sortKey: SortKey; children: React.ReactNode; className?: string }) => (
     <TableHead className={className}>
@@ -232,6 +258,7 @@ export default function SupplierDebtReportPage() {
           isOpen={isPaymentFormOpen}
           onOpenChange={setIsPaymentFormOpen}
           supplier={selectedSupplier}
+          onSuccess={handlePaymentSuccess}
         />
       )}
       <Card>

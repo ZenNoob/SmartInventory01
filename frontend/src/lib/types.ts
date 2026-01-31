@@ -132,6 +132,7 @@ export type Sale = {
   customerPayment?: number;
   previousDebt?: number;
   remainingDebt?: number;
+  paymentMethod?: 'cash' | 'qr' | 'card' | 'transfer'; // Payment method
 }
 
 export type Payment = {
@@ -273,6 +274,8 @@ export type PurchaseOrder = {
   importDate: string; // ISO date string
   items: PurchaseOrderItem[];
   totalAmount: number;
+  paidAmount?: number;
+  remainingDebt?: number;
   notes?: string;
   createdAt: any; // server timestamp
 }

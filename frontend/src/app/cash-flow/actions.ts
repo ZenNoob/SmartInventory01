@@ -133,9 +133,18 @@ export async function upsertCashTransaction(transaction: Record<string, unknown>
  * Delete a cash transaction
  */
 export async function deleteCashTransaction(transactionId: string): Promise<{ success: boolean; error?: string }> {
-  // Note: This would need a backend endpoint to be implemented
-  console.warn('deleteCashTransaction: Backend endpoint not implemented');
-  return { success: false, error: 'Chức năng xóa phiếu thu chi chưa được triển khai' };
+  try {
+    await apiClient.request<{ success: boolean }>(`/cash-flow/${transactionId}`, {
+      method: 'DELETE',
+    });
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error deleting cash transaction:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể xóa phiếu thu chi',
+    };
+  }
 }
 
 /**

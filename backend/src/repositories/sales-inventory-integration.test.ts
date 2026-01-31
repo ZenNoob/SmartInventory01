@@ -48,7 +48,7 @@ describe('Sales with Inventory Deduction Integration', () => {
       request: vi.fn().mockReturnValue(mockRequest),
     };
 
-    const { getConnection } = await import('../db/connection');
+    const { getConnection } = await import('../db/connection.js');
     (getConnection as ReturnType<typeof vi.fn>).mockResolvedValue(mockConnection);
 
     salesRepository = new SalesSPRepository();

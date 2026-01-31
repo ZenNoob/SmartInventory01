@@ -52,8 +52,8 @@ export default function NewPurchasePage() {
                 if (suppliersResponse.ok) {
                     const suppliersResult = await suppliersResponse.json();
                     console.log('Suppliers response:', suppliersResult);
-                    // Backend returns array directly, not wrapped in suppliers property
-                    const suppliersList = Array.isArray(suppliersResult) ? suppliersResult : (suppliersResult.suppliers || []);
+                    // Backend returns { success: true, data: [...] }
+                    const suppliersList = Array.isArray(suppliersResult) ? suppliersResult : (suppliersResult.data || suppliersResult.suppliers || []);
                     console.log('Setting suppliers:', suppliersList.length, 'items');
                     setSuppliers(suppliersList);
                 } else {

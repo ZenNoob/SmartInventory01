@@ -14,6 +14,8 @@ import {
   PanelLeft,
   UserPlus,
   Lock,
+  QrCode,
+  Banknote,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -31,17 +33,20 @@ import {
   Shift,
 } from '@/lib/types'
 import { upsertSaleTransaction, updateSaleStatus } from '@/app/sales/actions'
-import { 
-  getProducts, 
-  getProductByBarcode, 
-  getCustomers, 
-  getUnits, 
+import {
+  getProducts,
+  getProductByBarcode,
+  getCustomers,
+  getUnits,
   getStoreSettings,
   getActiveShift,
+  getProductUnits,
+  ProductUnitInfo,
 } from './actions'
 import { useToast } from '@/hooks/use-toast'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useUserRole } from '@/hooks/use-user-role'
+import { apiClient } from '@/lib/api-client'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -81,11 +86,22 @@ import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useSidebar } from '@/components/ui/sidebar'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { CustomerForm } from '@/app/customers/components/customer-form'
 import { StartShiftDialog } from './components/start-shift-dialog'
 import { ShiftControls } from './components/shift-controls'
 import { ThermalReceipt } from '../sales/[id]/components/thermal-receipt'
 import { InvoicePrintDialog } from '@/components/invoice-print-dialog'
+import { VoucherInput } from './components/voucher-input'
+import { PaymentMethodSelector, PaymentMethod } from './components/payment-method-selector'
+import { QRPaymentDialog } from './components/qr-payment-dialog'
+import { PaymentGatewayDialog } from './components/payment-gateway-dialog'
 
 // Extended product type with stock info from SQL Server
 interface ProductWithStock extends Product {
@@ -103,13 +119,15 @@ interface CustomerWithDebt extends Customer {
 type CartItem = {
   productId: string
   productName: string
-  quantity: number // This is in the MAIN sale unit of the product
+  quantity: number // This is in the selected sale unit
   price: number // This is the price per BASE unit
+  saleUnitId: string // ID of selected unit
   saleUnitName: string
+  availableUnits: ProductUnitInfo[] // All available units for this product
   stockInfo: {
     stockInBaseUnit: number
     baseUnitName: string
-    conversionFactor: number
+    conversionFactor: number // Conversion factor of selected unit
   }
 }
 
@@ -170,10 +188,16 @@ export default function POSPage() {
   const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('amount');
   const [discountValue, setDiscountValue] = useState(0);
+  const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
   const [pointsUsed, setPointsUsed] = useState(0);
   const [paymentSuggestions, setPaymentSuggestions] = useState<number[]>([]);
   const [isChangeReturned, setIsChangeReturned] = useState(true);
   const [isCustomerFormOpen, setIsCustomerFormOpen] = useState(false);
+  const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
+  const [showQRPaymentDialog, setShowQRPaymentDialog] = useState(false);
+  const [showPaymentGatewayDialog, setShowPaymentGatewayDialog] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   
   // Invoice print dialog state
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
@@ -196,6 +220,7 @@ export default function POSPage() {
     try {
       const result = await getProducts({ pageSize: 1000 }); // Get all active products
       if (result.success && result.data) {
+        console.log('[fetchProducts] First 3 products:', result.data.slice(0, 3));
         setProducts(result.data as unknown as ProductWithStock[]);
       } else {
         toast({
@@ -335,23 +360,68 @@ export default function POSPage() {
   // Get stock from SQL Server (already calculated in ProductWithStock)
   const getStockInBaseUnit = useCallback((productId: string): number => {
     const product = productsMap.get(productId)
-    if (!product) return 0
-    return (product as ProductWithStock).currentStock || 0
+    if (!product) {
+      console.log('[getStockInBaseUnit] Product not found:', productId)
+      return 0
+    }
+    // API returns 'stockQuantity', not 'currentStock'
+    const stock = (product as any).stockQuantity || (product as ProductWithStock).currentStock || 0
+    console.log('[getStockInBaseUnit]', product.name, 'stock:', stock)
+    return stock
   }, [productsMap])
 
   // Cart Management
-  const addProductToCart = useCallback((product: ProductWithStock) => {
+  const addProductToCart = useCallback(async (product: ProductWithStock) => {
     const existingItemIndex = cart.findIndex((item) => item.productId === product.id)
-    const { name: saleUnitName, baseUnit, conversionFactor } = getUnitInfo(product.unitId)
 
     if (existingItemIndex > -1) {
       const newCart = [...cart]
-      newCart[existingItemIndex].quantity += 1
-      setCart(newCart)
+      const currentItem = newCart[existingItemIndex]
+      const stockInBaseUnit = getStockInBaseUnit(product.id)
+      const maxQuantity = Math.floor(stockInBaseUnit / (currentItem.stockInfo?.conversionFactor || 1))
+      
+      // Only increment if we haven't reached max stock
+      if (currentItem.quantity < maxQuantity) {
+        newCart[existingItemIndex].quantity += 1
+        setCart(newCart)
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Không đủ hàng",
+          description: `Chỉ còn ${maxQuantity} ${currentItem.saleUnitName || 'đơn vị'} trong kho`,
+        })
+      }
     } else {
+      // Fetch available units for this product
+      const unitsResult = await getProductUnits(product.id);
+      let availableUnits: ProductUnitInfo[] = [];
+      let baseUnitInfo: ProductUnitInfo | undefined;
+
+      if (unitsResult.success && unitsResult.availableUnits) {
+        availableUnits = unitsResult.availableUnits;
+        baseUnitInfo = unitsResult.baseUnit;
+      }
+
+      // If no units from API, create default from product's unit
+      if (availableUnits.length === 0) {
+        const { name: saleUnitName, baseUnit, conversionFactor } = getUnitInfo(product.unitId)
+        const displayUnitName = product.unitName || saleUnitName || 'Cái';
+        availableUnits = [{
+          id: product.unitId,
+          name: displayUnitName,
+          isBase: true,
+          conversionFactor: 1
+        }];
+        baseUnitInfo = availableUnits[0];
+      }
+
       const stockInBaseUnit = getStockInBaseUnit(product.id)
       // Use 'price' from API (not 'sellingPrice' from old type)
       const productPrice = (product as unknown as { price?: number }).price || product.sellingPrice || 0;
+
+      // Default to base unit
+      const defaultUnit = baseUnitInfo || availableUnits[0];
+
       setCart([
         ...cart,
         {
@@ -359,21 +429,62 @@ export default function POSPage() {
           productName: product.name,
           quantity: 1,
           price: productPrice,
-          saleUnitName: saleUnitName,
+          saleUnitId: defaultUnit.id,
+          saleUnitName: defaultUnit.name,
+          availableUnits: availableUnits,
           stockInfo: {
             stockInBaseUnit: stockInBaseUnit,
-            baseUnitName: baseUnit?.name || 'N/A',
-            conversionFactor: conversionFactor,
+            baseUnitName: baseUnitInfo?.name || defaultUnit.name,
+            conversionFactor: defaultUnit.conversionFactor,
           },
         },
       ])
     }
   }, [cart, getStockInBaseUnit, getUnitInfo])
 
+  // Update cart item unit
+  const updateCartItemUnit = (productId: string, newUnitId: string) => {
+    setCart(prevCart => prevCart.map((item) => {
+      if (item.productId !== productId) return item;
+
+      const newUnit = item.availableUnits.find(u => u.id === newUnitId);
+      if (!newUnit) return item;
+
+      return {
+        ...item,
+        saleUnitId: newUnitId,
+        saleUnitName: newUnit.name,
+        stockInfo: {
+          ...item.stockInfo,
+          conversionFactor: newUnit.conversionFactor,
+        },
+      };
+    }));
+  }
+
   const updateCartItem = (productId: string, newQuantity: number) => {
-    const newCart = cart.map((item) =>
-      item.productId === productId ? { ...item, quantity: newQuantity } : item
-    )
+    const newCart = cart.map((item) => {
+      if (item.productId !== productId) return item;
+      
+      // Check stock limit
+      const stockInBaseUnit = item.stockInfo?.stockInBaseUnit || 0;
+      const conversionFactor = item.stockInfo?.conversionFactor || 1;
+      const maxQuantity = Math.floor(stockInBaseUnit / conversionFactor);
+      
+      // Limit quantity to available stock
+      const limitedQuantity = Math.min(Math.max(0, newQuantity), maxQuantity);
+      
+      // Show toast if user tried to exceed stock
+      if (newQuantity > maxQuantity && maxQuantity > 0) {
+        toast({
+          variant: "destructive",
+          title: "Không đủ hàng",
+          description: `Chỉ còn ${maxQuantity} ${item.saleUnitName || 'đơn vị'} trong kho`,
+        })
+      }
+      
+      return { ...item, quantity: limitedQuantity };
+    })
     setCart(newCart.filter((item) => item.quantity > 0))
   }
 
@@ -440,10 +551,72 @@ export default function POSPage() {
     [totalAmount, discountType, discountValue]
   );
   
+  // Voucher handlers
+  const handleVoucherApplied = useCallback((voucher: any, discount: number) => {
+    setAppliedVoucher(voucher);
+    setVoucherDiscount(discount);
+  }, []);
+
+  const handleVoucherRemoved = useCallback(() => {
+    setAppliedVoucher(null);
+    setVoucherDiscount(0);
+  }, []);
+  
   const pointsToVndRate = settings?.loyalty?.pointsToVndRate || 0;
   const pointsDiscount = pointsUsed * pointsToVndRate;
 
-  const totalDiscount = tierDiscountAmount + calculatedDiscount + pointsDiscount;
+  // Auto-apply promotions
+  const [autoPromotionDiscount, setAutoPromotionDiscount] = useState(0);
+  const [appliedPromotions, setAppliedPromotions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const calculateAutoPromotions = async () => {
+      if (cart.length === 0 || totalAmount === 0) {
+        setAutoPromotionDiscount(0);
+        setAppliedPromotions([]);
+        return;
+      }
+
+      try {
+        const items = cart.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+        }));
+
+        const response = await apiClient.request('/promotions/calculate', {
+          method: 'POST',
+          body: {
+            items,
+            customerId: selectedCustomerId !== WALK_IN_CUSTOMER_ID ? selectedCustomerId : undefined,
+            subtotal: totalAmount,
+          },
+        });
+
+        if (response.success) {
+          setAutoPromotionDiscount(response.totalDiscount || 0);
+          setAppliedPromotions(response.appliedPromotions || []);
+        }
+      } catch (error) {
+        console.error('Calculate promotions error:', error);
+      }
+    };
+
+    calculateAutoPromotions();
+  }, [cart, totalAmount, selectedCustomerId]);
+
+  // Calculate points that will be earned from this purchase
+  const pointsPerAmount = settings?.loyalty?.pointsPerAmount || 0;
+  const earnedPoints = useMemo(() => {
+    // Only calculate for registered customers (not walk-in)
+    if (!selectedCustomerId || selectedCustomerId === WALK_IN_CUSTOMER_ID) return 0;
+    if (!settings?.loyalty?.enabled || pointsPerAmount <= 0) return 0;
+    // Points are calculated on final amount (after discounts, before VAT)
+    const amountForPoints = totalAmount - tierDiscountAmount - calculatedDiscount - pointsDiscount - autoPromotionDiscount;
+    return Math.floor(amountForPoints / pointsPerAmount);
+  }, [selectedCustomerId, settings?.loyalty?.enabled, pointsPerAmount, totalAmount, tierDiscountAmount, calculatedDiscount, pointsDiscount, autoPromotionDiscount]);
+
+  const totalDiscount = tierDiscountAmount + calculatedDiscount + pointsDiscount + voucherDiscount + autoPromotionDiscount;
   const amountAfterDiscount = totalAmount - totalDiscount;
 
   const vatRate = settings?.vatRate || 0;
@@ -480,11 +653,36 @@ export default function POSPage() {
       return
     }
 
+    // Show payment method selector
+    setShowPaymentMethodDialog(true);
+  }
+
+  const handlePaymentMethodSelected = (method: PaymentMethod) => {
+    setSelectedPaymentMethod(method);
+    
+    if (method === 'qr') {
+      // Show QR payment dialog
+      setShowQRPaymentDialog(true);
+    } else if (method === 'gateway') {
+      // Show payment gateway dialog (VNPay, MoMo, ZaloPay, Installment)
+      setShowPaymentGatewayDialog(true);
+    } else if (method === 'cash') {
+      // Process cash payment directly
+      processSale('cash');
+    } else {
+      // For card and transfer, process directly for now
+      processSale(method);
+    }
+  }
+
+  const processSale = async (paymentMethod: PaymentMethod = 'cash') => {
+
     setIsSubmitting(true)
     const itemsData = cart.map((item) => ({
       productId: item.productId,
       quantity: item.quantity * item.stockInfo.conversionFactor, // Store in base unit
       price: item.price,
+      unitId: item.saleUnitId, // Include the selected unit ID
     }))
 
     const saleData: Partial<Sale> & { isChangeReturned?: boolean; items?: typeof itemsData } = {
@@ -504,6 +702,7 @@ export default function POSPage() {
       customerPayment: customerPayment,
       previousDebt: previousDebt, 
       remainingDebt: remainingDebt,
+      paymentMethod: paymentMethod,
       status: settings?.invoiceFormat === 'none' ? 'printed' : 'unprinted',
       isChangeReturned: isChangeReturned,
       items: itemsData,
@@ -512,7 +711,7 @@ export default function POSPage() {
     const result = await upsertSaleTransaction(saleData as Record<string, unknown>)
 
     if (result.success && result.saleData) {
-      const invoiceNumber = result.saleData.invoiceNumber;
+      const invoiceNumber = result.saleData.invoiceNumber as string;
 
       // Save sale data for invoice dialog
       const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
@@ -554,7 +753,10 @@ export default function POSPage() {
       setSelectedCustomerId(WALK_IN_CUSTOMER_ID)
       setDiscountValue(0)
       setDiscountType('amount')
+      setAppliedVoucher(null)
+      setVoucherDiscount(0)
       setPointsUsed(0);
+      setSelectedPaymentMethod(null);
       
       // Refresh data to get updated stock and customer debt
       fetchProducts();
@@ -821,7 +1023,11 @@ export default function POSPage() {
                 ) : (
                   cart.map((item, index) => {
                     const lineTotal = item.quantity * item.stockInfo.conversionFactor * item.price;
-                    const showConversion = item.saleUnitName !== item.stockInfo.baseUnitName;
+                    // Only show conversion if both unit names exist and are different
+                    const showConversion = item.saleUnitName && item.stockInfo.baseUnitName &&
+                      item.saleUnitName !== item.stockInfo.baseUnitName &&
+                      item.stockInfo.baseUnitName !== 'N/A' &&
+                      item.stockInfo.conversionFactor > 1;
                     return (
                       <TableRow key={item.productId}>
                         <TableCell className="font-medium text-center">{index + 1}</TableCell>
@@ -829,26 +1035,53 @@ export default function POSPage() {
                           {item.productName}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(item.price)}
+                          {formatCurrency(item.price * item.stockInfo.conversionFactor)}
                         </TableCell>
                         <TableCell className="text-center">
                            <div className="flex items-center justify-center gap-1">
                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => updateCartItem(item.productId, item.quantity - 1)}>
                                <MinusCircle className="h-5 w-5" />
                              </Button>
-                             <div className='relative w-full'>
-                               <Input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                      const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                                      updateCartItem(item.productId, isNaN(val) ? 0 : val);
-                                  }}
-                                  className="w-full text-center font-bold text-lg h-10 px-1"
-                               />
-                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{item.saleUnitName}</span>
-                             </div>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => updateCartItem(item.productId, item.quantity + 1)}>
+                             <Input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                    updateCartItem(item.productId, isNaN(val) ? 0 : val);
+                                }}
+                                className="w-16 text-center font-bold text-lg h-10 px-1"
+                             />
+                             {item.availableUnits.length > 1 ? (
+                               <Select
+                                 value={item.saleUnitId}
+                                 onValueChange={(value) => updateCartItemUnit(item.productId, value)}
+                               >
+                                 <SelectTrigger className="w-20 h-10">
+                                   <SelectValue placeholder="Đơn vị" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                   {item.availableUnits.map((unit) => (
+                                     <SelectItem key={unit.id} value={unit.id}>
+                                       {unit.name}
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
+                             ) : (
+                               <span className="text-sm text-muted-foreground w-12">{item.saleUnitName}</span>
+                             )}
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-7 w-7 shrink-0" 
+                               onClick={() => updateCartItem(item.productId, item.quantity + 1)}
+                               disabled={(() => {
+                                 const stockInBaseUnit = item.stockInfo?.stockInBaseUnit || 0;
+                                 const conversionFactor = item.stockInfo?.conversionFactor || 1;
+                                 const maxQuantity = Math.floor(stockInBaseUnit / conversionFactor);
+                                 return item.quantity >= maxQuantity;
+                               })()}
+                             >
                                <PlusCircle className="h-5 w-5" />
                              </Button>
                            </div>
@@ -857,6 +1090,25 @@ export default function POSPage() {
                               (1 {item.saleUnitName} = {item.stockInfo.conversionFactor} {item.stockInfo.baseUnitName})
                             </p>
                           )}
+                          {/* Show available stock */}
+                          {(() => {
+                            const stockInBaseUnit = item.stockInfo?.stockInBaseUnit || 0;
+                            const conversionFactor = item.stockInfo?.conversionFactor || 1;
+                            const maxQuantity = Math.floor(stockInBaseUnit / conversionFactor);
+                            const isLowStock = maxQuantity <= 5;
+                            const isOutOfStock = maxQuantity === 0;
+                            
+                            return (
+                              <p className={cn(
+                                "text-xs mt-1",
+                                isOutOfStock ? "text-destructive font-semibold" : 
+                                isLowStock ? "text-orange-500 font-medium" : 
+                                "text-muted-foreground"
+                              )}>
+                                Tồn kho: {maxQuantity} {item.saleUnitName || 'đơn vị'}
+                              </p>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right font-bold text-lg">
                           {formatCurrency(lineTotal)}
@@ -914,6 +1166,24 @@ export default function POSPage() {
                 </div>
               )}
               
+              {/* Voucher Input */}
+              <div className="space-y-2 pt-2">
+                <Label>Mã giảm giá</Label>
+                <VoucherInput
+                  subtotal={totalAmount}
+                  customerId={selectedCustomerId !== WALK_IN_CUSTOMER_ID ? selectedCustomerId : undefined}
+                  onVoucherApplied={handleVoucherApplied}
+                  onVoucherRemoved={handleVoucherRemoved}
+                  appliedVoucher={appliedVoucher}
+                />
+                {voucherDiscount > 0 && (
+                  <div className="flex justify-between items-center text-xs text-green-600">
+                    <span>Giảm từ voucher:</span>
+                    <span className="font-semibold">-{formatCurrency(voucherDiscount)}</span>
+                  </div>
+                )}
+              </div>
+              
               {selectedCustomer && selectedCustomer.id !== 'walk-in-customer' && settings?.loyalty?.enabled && (
                 <div className="space-y-2 pt-2">
                     <Label htmlFor="pointsUsed">Sử dụng điểm ({selectedCustomer.loyaltyPoints || 0} điểm khả dụng)</Label>
@@ -932,6 +1202,19 @@ export default function POSPage() {
                             <span className="font-semibold">-{formatCurrency(pointsDiscount)}</span>
                         </div>
                     )}
+                </div>
+              )}
+
+              {/* Auto-applied promotions */}
+              {appliedPromotions.length > 0 && (
+                <div className="space-y-1 pt-2 bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                  <Label className="text-green-700 dark:text-green-400">Khuyến mãi tự động</Label>
+                  {appliedPromotions.map((promo, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs text-green-600">
+                      <span>• {promo.name}</span>
+                      <span className="font-semibold">-{formatCurrency(promo.discount)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -955,6 +1238,14 @@ export default function POSPage() {
                   <Label className="font-bold">Khách cần trả</Label>
                   <p className="font-bold text-base text-primary">{formatCurrency(finalAmount)}</p>
               </div>
+
+              {/* Display points that will be earned */}
+              {earnedPoints > 0 && (
+                <div className="flex justify-between items-center text-sm text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded">
+                  <Label className="text-green-600">Điểm sẽ nhận được</Label>
+                  <p className="font-semibold">+{earnedPoints.toLocaleString()} điểm</p>
+                </div>
+              )}
 
                {previousDebt > 0 && (
                 <div className="flex justify-between items-center text-sm text-destructive">
@@ -1031,6 +1322,8 @@ export default function POSPage() {
                     setCart([])
                     setCustomerPayment(0)
                     setDiscountValue(0)
+                    setAppliedVoucher(null)
+                    setVoucherDiscount(0)
                     setPointsUsed(0);
                     }}
                     disabled={isSubmitting || isLocked}
@@ -1043,7 +1336,13 @@ export default function POSPage() {
                     onClick={handleCreateSale}
                     disabled={isSubmitting || cart.length === 0 || isLocked}
                 >
-                    Thanh toán
+                    {selectedPaymentMethod === 'qr' && <QrCode className="mr-2 h-5 w-5" />}
+                    {selectedPaymentMethod === 'cash' && <Banknote className="mr-2 h-5 w-5" />}
+                    {!selectedPaymentMethod && 'Thanh toán'}
+                    {selectedPaymentMethod === 'qr' && 'QR Code'}
+                    {selectedPaymentMethod === 'cash' && 'Tiền mặt'}
+                    {selectedPaymentMethod === 'card' && 'Thẻ'}
+                    {selectedPaymentMethod === 'transfer' && 'Chuyển khoản'}
                 </Button>
             </div>
         </div>
@@ -1074,6 +1373,39 @@ export default function POSPage() {
         settings={settings}
       />
     )}
+    
+    {/* Payment Method Selector */}
+    <PaymentMethodSelector
+      open={showPaymentMethodDialog}
+      onClose={() => setShowPaymentMethodDialog(false)}
+      onSelectMethod={handlePaymentMethodSelected}
+      amount={finalAmount}
+    />
+    
+    {/* QR Payment Dialog */}
+    <QRPaymentDialog
+      open={showQRPaymentDialog}
+      onClose={() => setShowQRPaymentDialog(false)}
+      onSuccess={() => processSale('qr')}
+      amount={finalAmount}
+      orderInfo={`Thanh toán đơn hàng - ${new Date().toLocaleString('vi-VN')}`}
+    />
+    
+    {/* Payment Gateway Dialog */}
+    <PaymentGatewayDialog
+      open={showPaymentGatewayDialog}
+      onClose={() => setShowPaymentGatewayDialog(false)}
+      onSuccess={(gateway, transactionId) => {
+        toast({
+          title: 'Thanh toán thành công',
+          description: `Đã thanh toán qua ${gateway}`,
+        });
+        processSale('gateway');
+      }}
+      amount={finalAmount}
+      orderId={`ORDER-${Date.now()}`}
+      orderInfo={`Thanh toán đơn hàng - ${new Date().toLocaleString('vi-VN')}`}
+    />
     </>
   )
 }

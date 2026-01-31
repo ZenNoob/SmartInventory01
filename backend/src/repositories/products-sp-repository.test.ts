@@ -37,7 +37,7 @@ describe('ProductsSPRepository', () => {
     };
 
     // Setup getConnection mock
-    const { getConnection } = await import('../db/connection');
+    const { getConnection } = await import('../db/connection.js');
     (getConnection as ReturnType<typeof vi.fn>).mockResolvedValue(mockConnection);
 
     repository = new ProductsSPRepository();

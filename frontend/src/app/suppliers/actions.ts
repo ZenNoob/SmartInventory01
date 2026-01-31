@@ -28,8 +28,11 @@ export async function getSuppliers(withDebt: boolean = false): Promise<{
   error?: string;
 }> {
   try {
-    const rawSuppliers = await apiClient.getSuppliers();
-    
+    const response = await apiClient.getSuppliers();
+
+    // Extract data array from paginated response - backend returns { success, data: [...], total, page, pageSize, totalPages }
+    const rawSuppliers = (response as { data?: unknown[] }).data || (Array.isArray(response) ? response : []);
+
     // Map backend fields to frontend expected fields
     const suppliers: SupplierWithDebt[] = rawSuppliers.map((s: Record<string, unknown>) => ({
       id: s.id as string,

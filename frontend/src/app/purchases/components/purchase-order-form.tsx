@@ -388,10 +388,10 @@ export function PurchaseOrderForm({ products, suppliers, units, allSalesItems, p
               </Button>
               <div className="flex-1">
                   <h1 className="text-2xl font-semibold tracking-tight">
-                      {isEditMode ? 'Chỉnh sửa đơn nhập hàng' : 'Tạo đơn nhập hàng mới'}
+                      {isEditMode ? 'Chỉnh sửa đơn nhập hàng' : 'Nhập hàng theo đơn'}
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                      Điền thông tin để tạo một đợt nhập hàng mới cho nhiều sản phẩm.
+                      {isEditMode ? 'Cập nhật thông tin đơn nhập hàng.' : 'Tạo đơn nhập hàng mới với nhiều sản phẩm cùng lúc.'}
                   </p>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -514,6 +514,9 @@ export function PurchaseOrderForm({ products, suppliers, units, allSalesItems, p
                 <Card>
                     <CardHeader>
                         <CardTitle>Chi tiết đơn nhập</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Thêm nhiều sản phẩm vào đơn nhập hàng. Quét mã vạch hoặc thêm thủ công.
+                        </p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <div className="flex items-center gap-4">

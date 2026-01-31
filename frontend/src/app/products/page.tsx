@@ -544,12 +544,19 @@ export default function ProductsPage() {
             {permissions?.ai_forecast?.includes('view') && <PredictShortageForm />}
             {canAdd && (
               <>
-                <Button size="sm" className="h-8 gap-1" variant="outline" onClick={() => setIsQuickPurchaseOpen(true)}>
-                  <Zap className="h-3.5 w-3.5 text-yellow-500" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Nhập nhanh
-                  </span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" className="h-8 gap-1" variant="outline" onClick={() => setIsQuickPurchaseOpen(true)}>
+                      <Zap className="h-3.5 w-3.5 text-yellow-500" />
+                      <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                        Nhập nhanh
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Nhập hàng nhanh cho 1 sản phẩm</p>
+                  </TooltipContent>
+                </Tooltip>
                 <Button size="sm" className="h-8 gap-1" onClick={handleAddProduct}>
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -709,6 +716,16 @@ export default function ProductsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                              {canAdd && (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedProductForQuickPurchase(product.id);
+                                  setIsQuickPurchaseOpen(true);
+                                }} disabled={isUpdating}>
+                                  <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+                                  Nhập hàng nhanh
+                                </DropdownMenuItem>
+                              )}
+                              {canAdd && <DropdownMenuSeparator />}
                               {canEdit && (
                                 <DropdownMenuItem onClick={() => handleEditProduct(product)} disabled={isUpdating}>
                                   Chỉnh sửa
@@ -806,7 +823,8 @@ export default function ProductsPage() {
         onOpenChange={(open) => {
           setIsQuickPurchaseOpen(open);
           if (!open) {
-            // Reset to page 1 and clear sorting when dialog closes
+            // Reset selected product and clear sorting when dialog closes
+            setSelectedProductForQuickPurchase(undefined);
             setCurrentPage(1);
             setSortKey(null);
             setSortDirection('asc');

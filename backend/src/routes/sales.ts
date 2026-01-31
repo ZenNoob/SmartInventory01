@@ -3,6 +3,7 @@ import { query } from '../db';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
 import { salesService, InventoryInsufficientStockError } from '../services';
 import { salesSPRepository } from '../repositories/sales-sp-repository';
+import * as pdfInvoiceService from '../services/pdf-invoice-service';
 
 const router = Router();
 
@@ -43,19 +44,31 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const offset = (pageNum - 1) * pageSizeNum;
     const paginatedSales = sales.slice(offset, offset + pageSizeNum);
 
-    // Get item counts for paginated sales (still need inline query for this)
-    const salesWithItemCount = await Promise.all(
-      paginatedSales.map(async (s) => {
-        const countResult = await query(
-          `SELECT COUNT(*) as item_count FROM SalesItems WHERE sales_transaction_id = @id`,
-          { id: s.id }
-        );
-        return {
-          ...s,
-          itemCount: countResult[0]?.item_count || 0,
-        };
-      })
-    );
+    // Get item counts for all paginated sales in a single query (fix N+1)
+    let itemCountMap: Record<string, number> = {};
+    if (paginatedSales.length > 0) {
+      const saleIds = paginatedSales.map(s => s.id);
+      const placeholders = saleIds.map((_, i) => `@id${i}`).join(',');
+      const params: Record<string, string> = {};
+      saleIds.forEach((id, i) => { params[`id${i}`] = id; });
+
+      const countResults = await query(
+        `SELECT sales_transaction_id, COUNT(*) as item_count
+         FROM SalesItems
+         WHERE sales_transaction_id IN (${placeholders})
+         GROUP BY sales_transaction_id`,
+        params
+      );
+
+      (countResults as Array<{ sales_transaction_id: string; item_count: number }>).forEach(r => {
+        itemCountMap[r.sales_transaction_id] = r.item_count;
+      });
+    }
+
+    const salesWithItemCount = paginatedSales.map(s => ({
+      ...s,
+      itemCount: itemCountMap[s.id] || 0,
+    }));
 
     res.json({
       success: true,
@@ -101,6 +114,19 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 router.get('/items/all', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
+    const { dateFrom, dateTo } = req.query;
+
+    let dateFilter = '';
+    const params: Record<string, unknown> = { storeId };
+
+    if (dateFrom) {
+      dateFilter += ' AND s.transaction_date >= @dateFrom';
+      params.dateFrom = new Date(dateFrom as string);
+    }
+    if (dateTo) {
+      dateFilter += ' AND s.transaction_date <= @dateTo';
+      params.dateTo = new Date(dateTo as string);
+    }
 
     // This query is specific and not covered by SP, keep inline
     const items = await query(
@@ -109,22 +135,25 @@ router.get('/items/all', async (req: AuthRequest, res: Response) => {
        FROM SalesItems si
        JOIN Products p ON si.product_id = p.id
        JOIN Sales s ON si.sales_transaction_id = s.id
-       WHERE s.store_id = @storeId
+       WHERE s.store_id = @storeId${dateFilter}
        ORDER BY s.transaction_date DESC`,
-      { storeId }
+      params
     );
 
-    res.json(items.map((i: Record<string, unknown>) => ({
-      id: i.id,
-      salesTransactionId: i.sales_transaction_id,
-      productId: i.product_id,
-      productName: i.product_name,
-      unitName: null,
-      quantity: i.quantity,
-      price: i.price,
-      totalPrice: (i.quantity as number) * (i.price as number),
-      transactionDate: i.transaction_date,
-    })));
+    res.json({
+      success: true,
+      data: items.map((i: Record<string, unknown>) => ({
+        id: i.id,
+        salesTransactionId: i.sales_transaction_id,
+        productId: i.product_id,
+        productName: i.product_name,
+        unitName: null,
+        quantity: i.quantity,
+        price: i.price,
+        totalPrice: (i.quantity as number) * (i.price as number),
+        transactionDate: i.transaction_date,
+      })),
+    });
   } catch (error) {
     console.error('Get all sale items error:', error);
     res.status(500).json({ error: 'Failed to get sale items' });
@@ -201,16 +230,20 @@ router.get('/:id/items', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json(result.items.map((i) => ({
-      id: i.id,
-      saleId: i.salesTransactionId,
-      productId: i.productId,
-      productName: i.productName,
-      unitName: i.unitName,
-      quantity: i.quantity,
-      unitPrice: i.price,
-      totalPrice: i.quantity * i.price,
-    })));
+    res.json({
+      success: true,
+      data: result.items.map((i) => ({
+        id: i.id,
+        saleId: i.salesTransactionId,
+        productId: i.productId,
+        productName: i.productName,
+        unitName: i.unitName,
+        quantity: i.quantity,
+        price: i.price,
+        unitPrice: i.price,
+        totalPrice: i.quantity * i.price,
+      })),
+    });
   } catch (error) {
     console.error('Get sale items error:', error);
     res.status(500).json({ error: 'Failed to get sale items' });
@@ -349,7 +382,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 
     // Delete sale items first
     await query('DELETE FROM SalesItems WHERE sales_transaction_id = @id', { id });
-    
+
     // Delete sale
     await query('DELETE FROM Sales WHERE id = @id AND store_id = @storeId', { id, storeId });
 
@@ -357,6 +390,44 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Delete sale error:', error);
     res.status(500).json({ error: 'Failed to delete sale' });
+  }
+});
+
+// GET /api/sales/:id/invoice-pdf - Generate PDF invoice
+router.get('/:id/invoice-pdf', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.storeId!;
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant context required' });
+    }
+
+    // Get invoice data
+    const invoiceData = await pdfInvoiceService.getSaleForInvoice(
+      parseInt(id),
+      storeId,
+      tenantId
+    );
+
+    if (!invoiceData) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    // Generate PDF
+    const pdfBuffer = await pdfInvoiceService.generateInvoicePDF(invoiceData);
+
+    // Send PDF response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=invoice-${invoiceData.invoiceNumber}.pdf`
+    );
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Generate invoice PDF error:', error);
+    res.status(500).json({ error: 'Failed to generate invoice PDF' });
   }
 });
 

@@ -111,13 +111,13 @@ export class ProductsSPRepository extends SPBaseRepository<Product> {
   /**
    * Create a new product using sp_Products_Create
    * Requirements: 1.1
-   * 
+   *
    * @param input - Product data to create
    * @returns Created product
    */
   async create(input: CreateProductSPInput): Promise<ProductWithStock> {
     const id = input.id || crypto.randomUUID();
-    
+
     const params: SPParams = {
       id,
       storeId: input.storeId,
@@ -133,9 +133,14 @@ export class ProductsSPRepository extends SPBaseRepository<Product> {
       images: input.images || null,
     };
 
-    await this.executeSP('sp_Products_Create', params);
-    
-    // Fetch and return the created product
+    // sp_Products_Create returns the created product directly
+    const result = await this.executeSPSingle<ProductSPRecord>('sp_Products_Create', params);
+
+    if (result) {
+      return this.mapToEntity(result);
+    }
+
+    // Fallback: fetch by id
     const product = await this.getById(id, input.storeId);
     if (!product) {
       throw new Error('Failed to create product');
@@ -171,16 +176,17 @@ export class ProductsSPRepository extends SPBaseRepository<Product> {
       images: data.images,
     };
 
-    const result = await this.executeSPSingle<{ AffectedRows: number }>(
+    // sp_Products_Update returns the updated product, not AffectedRows
+    const result = await this.executeSPSingle<ProductSPRecord>(
       'sp_Products_Update',
       params
     );
 
-    if (!result || result.AffectedRows === 0) {
+    if (!result) {
       return null;
     }
 
-    return this.getById(id, storeId);
+    return this.mapToEntity(result);
   }
 
   /**

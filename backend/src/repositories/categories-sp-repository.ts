@@ -100,7 +100,7 @@ export class CategoriesSPRepository extends SPBaseRepository<Category> {
   /**
    * Create a new category using sp_Categories_Create
    * Requirements: 9.1
-   * 
+   *
    * @param input - Category data to create
    * @returns Created category
    */
@@ -115,9 +115,14 @@ export class CategoriesSPRepository extends SPBaseRepository<Category> {
       parentId: input.parentId || null,
     };
 
-    await this.executeSP<CreateResult>('sp_Categories_Create', params);
+    // sp_Categories_Create returns the created category directly
+    const result = await this.executeSPSingle<CategorySPRecord>('sp_Categories_Create', params);
 
-    // Fetch and return the created category
+    if (result) {
+      return this.mapToEntity(result);
+    }
+
+    // Fallback: fetch by id (case-insensitive comparison)
     const category = await this.getById(id, input.storeId);
     if (!category) {
       throw new Error('Failed to create category');
@@ -205,7 +210,8 @@ export class CategoriesSPRepository extends SPBaseRepository<Category> {
    */
   async getById(id: string, storeId: string): Promise<Category | null> {
     const categories = await this.getByStore(storeId);
-    return categories.find((c) => c.id === id) || null;
+    // Case-insensitive comparison since SQL Server returns UUIDs in uppercase
+    return categories.find((c) => c.id.toLowerCase() === id.toLowerCase()) || null;
   }
 
   /**

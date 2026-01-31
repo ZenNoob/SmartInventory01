@@ -12,11 +12,11 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Units_Creat
 GO
 
 CREATE PROCEDURE sp_Units_Create
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36),
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER,
     @name NVARCHAR(255),
     @description NVARCHAR(500) = NULL,
-    @baseUnitId NVARCHAR(36) = NULL,
+    @baseUnitId UNIQUEIDENTIFIER = NULL,
     @conversionFactor DECIMAL(18,6) = NULL
 AS
 BEGIN
@@ -73,11 +73,11 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Units_Updat
 GO
 
 CREATE PROCEDURE sp_Units_Update
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36),
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER,
     @name NVARCHAR(255) = NULL,
     @description NVARCHAR(500) = NULL,
-    @baseUnitId NVARCHAR(36) = NULL,
+    @baseUnitId UNIQUEIDENTIFIER = NULL,
     @conversionFactor DECIMAL(18,6) = NULL
 AS
 BEGIN
@@ -128,8 +128,8 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Units_Delet
 GO
 
 CREATE PROCEDURE sp_Units_Delete
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36)
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -164,7 +164,7 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Units_GetBy
 GO
 
 CREATE PROCEDURE sp_Units_GetByStore
-    @storeId NVARCHAR(36)
+    @storeId UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;

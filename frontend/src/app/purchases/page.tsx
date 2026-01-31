@@ -57,6 +57,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Select,
   SelectContent,
@@ -69,7 +70,6 @@ import { Input } from "@/components/ui/input"
 import { formatCurrency, cn } from "@/lib/utils"
 import { deletePurchaseOrder, generatePurchaseOrdersExcel } from "./actions"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 import { Calendar } from "@/components/ui/calendar"
 import { useStore } from "@/contexts/store-context"
 import { PurchaseOrder, Supplier } from "@/lib/types"
@@ -112,7 +112,6 @@ export default function PurchasesPage() {
   
   const { currentStore } = useStore();
   const { toast } = useToast();
-  const router = useRouter();
 
   // Fetch purchase orders with server-side pagination
   const fetchPurchases = useCallback(async (page = 1, pageSize = 20) => {
@@ -409,6 +408,11 @@ export default function PurchasesPage() {
               <CardDescription>
                   Tạo và quản lý các đợt nhập hàng của bạn.
               </CardDescription>
+              <Alert className="mt-3 bg-blue-50 border-blue-200">
+                <AlertDescription className="text-sm text-blue-900">
+                  <strong>2 cách nhập hàng:</strong> (1) Nhập theo đơn - nhập nhiều sản phẩm cùng lúc, (2) Nhập nhanh - nhập từng sản phẩm riêng lẻ từ trang Sản phẩm.
+                </AlertDescription>
+              </Alert>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport} disabled={isExporting}>
@@ -417,14 +421,36 @@ export default function PurchasesPage() {
                     {isExporting ? "Đang xuất..." : "Xuất Excel"}
                   </span>
                 </Button>
-              <Button size="sm" className="h-8 gap-1" asChild>
-                <Link href="/purchases/new">
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Tạo đơn nhập
-                  </span>
-                </Link>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="h-8 gap-1">
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Nhập hàng
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Chọn cách nhập hàng</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/purchases/new" className="cursor-pointer">
+                      <div className="flex flex-col gap-1">
+                        <div className="font-medium">Nhập theo đơn hàng</div>
+                        <div className="text-xs text-muted-foreground">Nhập nhiều sản phẩm cùng lúc</div>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/products" className="cursor-pointer">
+                      <div className="flex flex-col gap-1">
+                        <div className="font-medium">Nhập nhanh từng sản phẩm</div>
+                        <div className="text-xs text-muted-foreground">Nhập từng sản phẩm riêng lẻ</div>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
            <div className="flex flex-wrap items-center gap-4 pt-4">
@@ -457,7 +483,6 @@ export default function PurchasesPage() {
                           selected={dateRange}
                           onSelect={setDateRange}
                           initialFocus
-                          enableOutsideDaysClick
                       />
                         <div className="p-2 border-t grid grid-cols-3 gap-1">
                           <Button variant="ghost" size="sm" onClick={() => setDatePreset('this_week')}>Tuần này</Button>
@@ -478,7 +503,6 @@ export default function PurchasesPage() {
                 <SortableHeader sortKey="orderNumber">Mã đơn</SortableHeader>
                 <SortableHeader sortKey="importDate">Ngày nhập</SortableHeader>
                 <TableHead>Sản phẩm</TableHead>
-                <TableHead>Đơn vị tính</TableHead>
                 <SortableHeader sortKey="supplier">Nhà cung cấp</SortableHeader>
                 <SortableHeader sortKey="itemCount" className="text-right">Số SP</SortableHeader>
                 <SortableHeader sortKey="totalAmount" className="text-right">Tổng tiền</SortableHeader>
@@ -495,12 +519,6 @@ export default function PurchasesPage() {
                   const productNames = order.items?.map(item => item.productName).filter(Boolean).join(', ') || 'N/A';
                   const displayProducts = productNames.length > 50 ? productNames.substring(0, 50) + '...' : productNames;
                   
-                  // Get unit names for this order - if all same, show once
-                  const unitNamesArray = order.items?.map(item => item.unitName).filter(Boolean) || [];
-                  const uniqueUnits = [...new Set(unitNamesArray)]; // Remove duplicates
-                  const unitNames = uniqueUnits.length > 0 ? uniqueUnits.join(', ') : 'N/A';
-                  const displayUnits = unitNames.length > 30 ? unitNames.substring(0, 30) + '...' : unitNames;
-                  
                   return (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium hidden md:table-cell">{(pagination.page - 1) * pagination.pageSize + index + 1}</TableCell>
@@ -515,11 +533,6 @@ export default function PurchasesPage() {
                     <TableCell className="max-w-[200px]">
                       <span className="text-sm" title={productNames}>
                         {displayProducts}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-[150px]">
-                      <span className="text-sm" title={unitNames}>
-                        {displayUnits}
                       </span>
                     </TableCell>
                      <TableCell>

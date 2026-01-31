@@ -12,11 +12,11 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Categories_
 GO
 
 CREATE PROCEDURE sp_Categories_Create
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36),
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER,
     @name NVARCHAR(255),
     @description NVARCHAR(500) = NULL,
-    @parentId NVARCHAR(36) = NULL
+    @parentId UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -69,11 +69,11 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Categories_
 GO
 
 CREATE PROCEDURE sp_Categories_Update
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36),
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER,
     @name NVARCHAR(255) = NULL,
     @description NVARCHAR(500) = NULL,
-    @parentId NVARCHAR(36) = NULL
+    @parentId UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -121,8 +121,8 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Categories_
 GO
 
 CREATE PROCEDURE sp_Categories_Delete
-    @id NVARCHAR(36),
-    @storeId NVARCHAR(36)
+    @id UNIQUEIDENTIFIER,
+    @storeId UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -157,7 +157,7 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_Categories_
 GO
 
 CREATE PROCEDURE sp_Categories_GetByStore
-    @storeId NVARCHAR(36)
+    @storeId UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;

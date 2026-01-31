@@ -8,6 +8,7 @@ import { DateRange } from "react-day-picker"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from "date-fns"
 import * as React from "react"
 import { apiClient } from "@/lib/api-client"
+import { fetchWithAuth } from "@/lib/fetch-with-auth"
 
 import {
   Card,
@@ -131,40 +132,42 @@ export default function SoldProductsReportPage() {
 
   useEffect(() => {
     async function fetchAllSalesItems() {
-      if (!sales || sales.length === 0) {
-        if (!salesLoading) setSalesItemsLoading(false);
+      if (!currentStore) {
+        setSalesItemsLoading(false);
         return;
       }
 
       setSalesItemsLoading(true);
-      const items: SalesItem[] = [];
       try {
-        const salesToFetch = sales.filter(sale => {
-          if (!dateRange || !dateRange.from) return true; // Fetch all if no date range
-          const saleDate = new Date(sale.transactionDate);
-          const toDate = dateRange.to || dateRange.from;
-          return saleDate >= dateRange.from && saleDate <= toDate;
-        });
-
-        for (const sale of salesToFetch) {
-          const response = await fetch(`/api/sales/${sale.id}/items`);
-          if (response.ok) {
-            const data = await response.json();
-            const saleItems = data.data || [];
-            saleItems.forEach((item: any) => {
-              items.push({ ...item, salesTransactionId: sale.id } as SalesItem);
-            });
-          }
+        // Build query params for date range
+        const params = new URLSearchParams();
+        if (dateRange?.from) {
+          params.set('dateFrom', dateRange.from.toISOString());
         }
-        setAllSalesItems(items);
+        if (dateRange?.to) {
+          params.set('dateTo', dateRange.to.toISOString());
+        }
+        const queryString = params.toString();
+
+        // Use the optimized endpoint that fetches all items in one request
+        const response = await fetchWithAuth(`/api/sales/items/all${queryString ? `?${queryString}` : ''}`);
+        if (response.ok) {
+          const data = await response.json();
+          const items = data.data || [];
+          setAllSalesItems(items);
+        } else {
+          console.error('Failed to fetch sales items:', response.status);
+          setAllSalesItems([]);
+        }
       } catch (error) {
         console.error("Error fetching sales items:", error);
+        setAllSalesItems([]);
       } finally {
         setSalesItemsLoading(false);
       }
     }
     fetchAllSalesItems();
-  }, [sales, salesLoading, dateRange]);
+  }, [currentStore, dateRange]);
 
 
   const soldProductsData = useMemo((): SoldProductInfo[] => {

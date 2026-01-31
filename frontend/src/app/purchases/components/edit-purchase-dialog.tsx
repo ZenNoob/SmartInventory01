@@ -88,24 +88,30 @@ export function EditPurchaseDialog({
       console.log('Items:', purchaseData.purchaseOrder?.items)
       
       // Backend returns arrays directly, not wrapped in objects
-      const productsData = productsRes.ok ? await productsRes.json() : []
-      const suppliersData = suppliersRes.ok ? await suppliersRes.json() : []
+      const productsData = productsRes.ok ? await productsRes.json() : { data: [] }
+      const suppliersData = suppliersRes.ok ? await suppliersRes.json() : { suppliers: [] }
       const unitsData = unitsRes.ok ? await unitsRes.json() : []
 
       console.log('Products response:', productsData);
       console.log('Suppliers response:', suppliersData);
       console.log('Units response:', unitsData);
-      console.log('Products:', Array.isArray(productsData) ? productsData.length : 0);
-      console.log('Suppliers:', Array.isArray(suppliersData) ? suppliersData.length : 0);
-      console.log('Units:', Array.isArray(unitsData) ? unitsData.length : 0);
+
+      // Handle different response formats
+      const productsArray = productsData.data || productsData || [];
+      const suppliersArray = suppliersData.data || suppliersData.suppliers || suppliersData || [];
+      const unitsArray = Array.isArray(unitsData) ? unitsData : [];
+
+      console.log('Products:', productsArray.length);
+      console.log('Suppliers:', suppliersArray.length);
+      console.log('Units:', unitsArray.length);
 
       const purchaseOrderData = purchaseData.purchaseOrder || purchaseData;
       console.log('Setting purchase order:', purchaseOrderData);
-      
+
       setPurchaseOrder(purchaseOrderData)
-      setProducts(Array.isArray(productsData) ? productsData : [])
-      setSuppliers(Array.isArray(suppliersData) ? suppliersData : [])
-      setUnits(Array.isArray(unitsData) ? unitsData : [])
+      setProducts(productsArray)
+      setSuppliers(suppliersArray)
+      setUnits(unitsArray)
     } catch (error) {
       console.error('Error fetching data:', error)
       const errorMessage = error instanceof Error ? error.message : 'Không thể tải dữ liệu đơn nhập hàng';

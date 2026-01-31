@@ -11,12 +11,27 @@ router.use(storeContext);
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
-    
+    const { page = '1', pageSize = '50', search } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const pageSizeNum = parseInt(pageSize as string);
+
     // Get all suppliers
-    const suppliers = await query(
+    let suppliers = await query(
       'SELECT * FROM Suppliers WHERE store_id = @storeId ORDER BY name',
       { storeId }
     );
+
+    // Apply search filter
+    if (search) {
+      const searchLower = (search as string).toLowerCase();
+      suppliers = suppliers.filter(
+        (s: any) =>
+          s.name?.toLowerCase().includes(searchLower) ||
+          s.phone?.toLowerCase().includes(searchLower) ||
+          s.email?.toLowerCase().includes(searchLower)
+      );
+    }
 
     // Get purchase totals per supplier
     let purchaseTotals: Record<string, number> = {};
@@ -54,27 +69,40 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       // SupplierPayments table may not exist
     }
 
-    res.json(suppliers.map((s: Record<string, unknown>) => {
-      const supplierId = s.id as string;
-      const totalPurchase = purchaseTotals[supplierId] || 0;
-      const totalPaid = paymentTotals[supplierId] || 0;
-      return {
-        id: s.id,
-        storeId: s.store_id,
-        name: s.name,
-        contactPerson: s.contact_person,
-        email: s.email,
-        phone: s.phone,
-        address: s.address,
-        taxCode: s.tax_code,
-        notes: s.notes,
-        totalPurchase,
-        totalPaid,
-        totalDebt: totalPurchase - totalPaid,
-        createdAt: s.created_at,
-        updatedAt: s.updated_at,
-      };
-    }));
+    // Calculate pagination
+    const total = suppliers.length;
+    const totalPages = Math.ceil(total / pageSizeNum);
+    const offset = (pageNum - 1) * pageSizeNum;
+    const paginatedSuppliers = suppliers.slice(offset, offset + pageSizeNum);
+
+    res.json({
+      success: true,
+      data: paginatedSuppliers.map((s: Record<string, unknown>) => {
+        const supplierId = s.id as string;
+        const totalPurchase = purchaseTotals[supplierId] || 0;
+        const totalPaid = paymentTotals[supplierId] || 0;
+        return {
+          id: s.id,
+          storeId: s.store_id,
+          name: s.name,
+          contactPerson: s.contact_person,
+          email: s.email,
+          phone: s.phone,
+          address: s.address,
+          taxCode: s.tax_code,
+          notes: s.notes,
+          totalPurchase,
+          totalPaid,
+          totalDebt: totalPurchase - totalPaid,
+          createdAt: s.created_at,
+          updatedAt: s.updated_at,
+        };
+      }),
+      total,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      totalPages,
+    });
   } catch (error) {
     console.error('Get suppliers error:', error);
     res.status(500).json({ error: 'Failed to get suppliers' });
@@ -214,24 +242,24 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     await query(
       `UPDATE Suppliers SET
         name = COALESCE(@name, name),
-        contact_person = @contactPerson,
-        email = @email,
-        phone = @phone,
-        address = @address,
-        tax_code = @taxCode,
-        notes = @notes,
+        contact_person = COALESCE(@contactPerson, contact_person),
+        email = COALESCE(@email, email),
+        phone = COALESCE(@phone, phone),
+        address = COALESCE(@address, address),
+        tax_code = COALESCE(@taxCode, tax_code),
+        notes = COALESCE(@notes, notes),
         updated_at = GETDATE()
       WHERE id = @id AND store_id = @storeId`,
       {
         id,
         storeId,
-        name,
-        contactPerson: contactPerson !== undefined ? contactPerson : null,
-        email: email !== undefined ? email : null,
-        phone: phone !== undefined ? phone : null,
-        address: address !== undefined ? address : null,
-        taxCode: taxCode !== undefined ? taxCode : null,
-        notes: notes !== undefined ? notes : null,
+        name: name || null,
+        contactPerson: contactPerson || null,
+        email: email || null,
+        phone: phone || null,
+        address: address || null,
+        taxCode: taxCode || null,
+        notes: notes || null,
       }
     );
 

@@ -45,7 +45,7 @@ describe('SalesSPRepository', () => {
       request: vi.fn().mockReturnValue(mockRequest),
     };
 
-    const { getConnection } = await import('../db/connection');
+    const { getConnection } = await import('../db/connection.js');
     (getConnection as ReturnType<typeof vi.fn>).mockResolvedValue(mockConnection);
 
     repository = new SalesSPRepository();

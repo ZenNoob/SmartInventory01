@@ -17,33 +17,33 @@ CREATE PROCEDURE sp_Sales_UpdateStatus
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    -- Check if sale exists
-    IF NOT EXISTS (SELECT 1 FROM Sales WHERE Id = @id AND StoreId = @storeId)
+
+    -- Check if sale exists (using snake_case column names)
+    IF NOT EXISTS (SELECT 1 FROM Sales WHERE id = @id AND store_id = @storeId)
     BEGIN
         RAISERROR('Sale not found', 16, 1);
         RETURN;
     END
-    
+
     -- Update sale status and optional fields
     UPDATE Sales SET
-        Status = @status,
-        CustomerPayment = COALESCE(@customerPayment, CustomerPayment),
-        RemainingDebt = COALESCE(@remainingDebt, RemainingDebt),
-        UpdatedAt = GETDATE()
-    WHERE Id = @id AND StoreId = @storeId;
-    
+        status = @status,
+        customer_payment = COALESCE(@customerPayment, customer_payment),
+        remaining_debt = COALESCE(@remainingDebt, remaining_debt),
+        updated_at = GETDATE()
+    WHERE id = @id AND store_id = @storeId;
+
     -- Return affected rows count and updated sale
-    SELECT 
+    SELECT
         @@ROWCOUNT AS affectedRows,
-        s.Id AS id,
-        s.StoreId AS storeId,
-        s.InvoiceNumber AS invoiceNumber,
-        s.Status AS status,
-        s.CustomerPayment AS customerPayment,
-        s.RemainingDebt AS remainingDebt,
-        s.UpdatedAt AS updatedAt
+        s.id AS id,
+        s.store_id AS storeId,
+        s.invoice_number AS invoiceNumber,
+        s.status AS status,
+        s.customer_payment AS customerPayment,
+        s.remaining_debt AS remainingDebt,
+        s.updated_at AS updatedAt
     FROM Sales s
-    WHERE s.Id = @id AND s.StoreId = @storeId;
+    WHERE s.id = @id AND s.store_id = @storeId;
 END
 GO

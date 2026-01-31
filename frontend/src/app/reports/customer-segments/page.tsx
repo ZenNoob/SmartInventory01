@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from "react"
-import { Bot, Search, ArrowUp, ArrowDown, Sparkles } from "lucide-react"
+import { Bot, Search, ArrowUp, ArrowDown, Sparkles, Users, Crown, AlertTriangle, UserPlus, UserMinus } from "lucide-react"
 
 import {
   Card,
@@ -33,11 +33,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useStore } from "@/contexts/store-context"
-import { Customer, Sale, Payment } from "@/lib/types"
-import { type SegmentCustomersOutput } from "@/ai/flows/segment-customers-flow"
 import { getCustomerSegments } from "@/app/actions"
 import Link from "next/link"
-import { useUserRole } from "@/hooks/use-user-role"
+
+type CustomerSegmentData = {
+  customerId: string;
+  customerName: string;
+  segment: string;
+  reason: string;
+  suggestedAction: string;
+};
+
+type AnalysisResult = {
+  segments: CustomerSegmentData[];
+  analysisSummary: string;
+};
 
 type SortKey = 'customerName' | 'segment';
 type SegmentFilter = 'all' | 'VIP' | 'Trung thành' | 'Tiềm năng' | 'Nguy cơ rời bỏ' | 'Mới' | 'Không hoạt động';
@@ -53,80 +63,40 @@ const getSegmentVariant = (segment: SegmentFilter): "default" | "secondary" | "d
   }
 };
 
+const getSegmentIcon = (segment: string) => {
+  switch (segment) {
+    case 'VIP': return <Crown className="h-4 w-4" />;
+    case 'Trung thành': return <Users className="h-4 w-4" />;
+    case 'Nguy cơ rời bỏ': return <AlertTriangle className="h-4 w-4" />;
+    case 'Mới': return <UserPlus className="h-4 w-4" />;
+    case 'Không hoạt động': return <UserMinus className="h-4 w-4" />;
+    default: return <Users className="h-4 w-4" />;
+  }
+};
+
 export default function CustomerSegmentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>('segment');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [segmentFilter, setSegmentFilter] = useState<SegmentFilter>("all");
-  const [analysisResult, setAnalysisResult] = useState<SegmentCustomersOutput | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { currentStore } = useStore();
-  const { permissions } = useUserRole();
-
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(true);
-  const [salesLoading, setSalesLoading] = useState(true);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentStore) return;
-
-    const fetchData = async () => {
-      try {
-        setCustomersLoading(true);
-        const customersRes = await fetch('/api/customers');
-        if (customersRes.ok) {
-          const data = await customersRes.json();
-          setCustomers(data.data || []);
-        }
-        setCustomersLoading(false);
-
-        setSalesLoading(true);
-        const salesRes = await fetch('/api/sales');
-        if (salesRes.ok) {
-          const data = await salesRes.json();
-          setSales(data.data || []);
-        }
-        setSalesLoading(false);
-
-        setPaymentsLoading(true);
-        const paymentsRes = await fetch('/api/payments');
-        if (paymentsRes.ok) {
-          const data = await paymentsRes.json();
-          setPayments(data.data || []);
-        }
-        setPaymentsLoading(false);
-      } catch (error) {
-        console.error('Error fetching customer segments data:', error);
-        setCustomersLoading(false);
-        setSalesLoading(false);
-        setPaymentsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [currentStore]);
 
   const handleAnalyze = async () => {
-    if (!customers || !sales || !payments) {
-      setError("Dữ liệu cần thiết chưa sẵn sàng. Vui lòng thử lại sau.");
+    if (!currentStore) {
+      setError("Vui lòng chọn cửa hàng trước khi phân tích.");
       return;
     }
     setIsAnalyzing(true);
     setError(null);
 
-    const result = await getCustomerSegments({
-      customers: JSON.stringify(customers),
-      sales: JSON.stringify(sales),
-      payments: JSON.stringify(payments),
-    });
+    const result = await getCustomerSegments();
 
     if (result.success && result.data) {
-      setAnalysisResult(result.data);
+      setAnalysisResult(result.data as AnalysisResult);
     } else {
       setError(result.error || "Đã xảy ra lỗi không xác định.");
     }
@@ -182,7 +152,15 @@ export default function CustomerSegmentsPage() {
     </TableHead>
   );
 
-  const isLoading = customersLoading || salesLoading || paymentsLoading;
+  // Count segments for summary cards
+  const segmentCounts = useMemo(() => {
+    if (!analysisResult) return {};
+    const counts: Record<string, number> = {};
+    analysisResult.segments.forEach(s => {
+      counts[s.segment] = (counts[s.segment] || 0) + 1;
+    });
+    return counts;
+  }, [analysisResult]);
 
   return (
     <Card>
@@ -191,32 +169,49 @@ export default function CustomerSegmentsPage() {
             <div>
                 <CardTitle>Báo cáo Phân khúc Khách hàng</CardTitle>
                 <CardDescription>
-                Sử dụng AI để phân tích và nhóm khách hàng của bạn vào các phân khúc chiến lược.
+                Phân tích RFM (Recency, Frequency, Monetary) để nhóm khách hàng vào các phân khúc chiến lược.
                 </CardDescription>
             </div>
-            {permissions?.ai_segmentation?.includes('view') && (
-              <Button onClick={handleAnalyze} disabled={isLoading || isAnalyzing}>
-                  {isAnalyzing ? (
-                      <>
-                          <Bot className="mr-2 h-4 w-4 animate-spin" />
-                          Đang phân tích...
-                      </>
-                  ) : (
-                      <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Chạy phân tích AI
-                      </>
-                  )}
-              </Button>
-            )}
+            <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+                {isAnalyzing ? (
+                    <>
+                        <Bot className="mr-2 h-4 w-4 animate-spin" />
+                        Đang phân tích...
+                    </>
+                ) : (
+                    <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Chạy phân tích
+                    </>
+                )}
+            </Button>
         </div>
         {analysisResult && (
-             <div className="flex items-center gap-4 pt-4">
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Tìm theo tên khách hàng..."
+          <>
+            {/* Segment summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
+              {(['VIP', 'Trung thành', 'Tiềm năng', 'Nguy cơ rời bỏ', 'Mới', 'Không hoạt động'] as const).map(seg => (
+                <div
+                  key={seg}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    segmentFilter === seg ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                  }`}
+                  onClick={() => setSegmentFilter(segmentFilter === seg ? 'all' : seg)}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {getSegmentIcon(seg)}
+                    <span className="text-sm font-medium">{seg}</span>
+                  </div>
+                  <div className="text-2xl font-bold">{segmentCounts[seg] || 0}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-4 pt-4">
+              <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                      type="search"
+                      placeholder="Tìm theo tên khách hàng..."
                         className="w-full rounded-lg bg-background pl-8 md:w-80"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -243,26 +238,27 @@ export default function CustomerSegmentsPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
              </div>
+          </>
         )}
       </CardHeader>
       <CardContent>
         {isAnalyzing && (
             <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
                 <Bot className="h-12 w-12 animate-pulse" />
-                <p>AI đang phân tích dữ liệu... Quá trình này có thể mất một chút thời gian.</p>
+                <p>Đang phân tích dữ liệu khách hàng...</p>
             </div>
         )}
         {error && <div className="text-destructive text-center p-4">{error}</div>}
         {!isAnalyzing && !analysisResult && !error && (
             <div className="flex flex-col items-center justify-center h-64 gap-4 text-center text-muted-foreground">
                 <Sparkles className="h-12 w-12" />
-                <p>Sẵn sàng khám phá insight về khách hàng của bạn? <br/> Nhấn nút "Chạy phân tích AI" để bắt đầu.</p>
+                <p>Sẵn sàng khám phá insight về khách hàng của bạn? <br/> Nhấn nút "Chạy phân tích" để bắt đầu.</p>
             </div>
         )}
         {analysisResult && (
             <>
                 <div className="p-4 mb-6 border bg-muted/50 rounded-lg">
-                    <h4 className="font-semibold mb-2">Tóm tắt của AI</h4>
+                    <h4 className="font-semibold mb-2">Tóm tắt phân tích</h4>
                     <p className="text-sm text-muted-foreground">{analysisResult.analysisSummary}</p>
                 </div>
                 <Table>

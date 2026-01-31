@@ -46,7 +46,7 @@ BEGIN
             FOR JSON PATH
         ) AS inventoryUnits,
         -- Get average cost per unit from PurchaseLots
-        (
+        ISNULL((
             SELECT 
                 pl.unit_id as unitId,
                 u.name as unitName,
@@ -57,7 +57,7 @@ BEGIN
             WHERE pl.product_id = p.id AND pl.store_id = @storeId AND pl.remaining_quantity > 0
             GROUP BY pl.unit_id, u.name
             FOR JSON PATH
-        ) AS avgCostByUnit,
+        ), '[]') AS avgCostByUnit,
         -- Total stock in base unit for sorting/filtering
         ISNULL((SELECT SUM(Quantity) FROM ProductInventory WHERE ProductId = p.id AND StoreId = @storeId), p.stock_quantity) AS currentStock
     FROM Products p

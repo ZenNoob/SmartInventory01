@@ -11,13 +11,14 @@ export async function getPOSProducts(): Promise<{
   error?: string;
 }> {
   try {
-    const products = await apiClient.getProducts();
+    const response = await apiClient.getProducts();
+    const products = (response as any).data || response || [];
     return { success: true, products };
   } catch (error: unknown) {
     console.error('Error fetching POS products:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách sản phẩm' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách sản phẩm'
     };
   }
 }
@@ -31,13 +32,14 @@ export async function getPOSCustomers(): Promise<{
   error?: string;
 }> {
   try {
-    const customers = await apiClient.getCustomers();
+    const response = await apiClient.getCustomers();
+    const customers = (response as any).data || response || [];
     return { success: true, customers };
   } catch (error: unknown) {
     console.error('Error fetching POS customers:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách khách hàng' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách khách hàng'
     };
   }
 }
@@ -104,7 +106,8 @@ export async function getProductByBarcode(barcode: string): Promise<{
   error?: string;
 }> {
   try {
-    const products = await apiClient.getProducts() as Array<Record<string, unknown>>;
+    const response = await apiClient.getProducts();
+    const products = ((response as any).data || response || []) as Array<Record<string, unknown>>;
     const product = products.find(p => p.barcode === barcode || p.sku === barcode);
     if (product) {
       return { success: true, product };
@@ -112,9 +115,9 @@ export async function getProductByBarcode(barcode: string): Promise<{
     return { success: false, error: 'Không tìm thấy sản phẩm với mã vạch này' };
   } catch (error: unknown) {
     console.error('Error fetching product by barcode:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tìm sản phẩm' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tìm sản phẩm'
     };
   }
 }
@@ -140,13 +143,14 @@ export async function getUnits(): Promise<{
   error?: string;
 }> {
   try {
-    const units = await apiClient.getUnits();
+    const response = await apiClient.getUnits();
+    const units = (response as any).data || response || [];
     return { success: true, data: units };
   } catch (error: unknown) {
     console.error('Error fetching units:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách đơn vị' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Đã xảy ra lỗi khi lấy danh sách đơn vị'
     };
   }
 }
@@ -214,9 +218,48 @@ export async function closeShift(shiftId: string, data: { endingCash: number }):
     return { success: true };
   } catch (error: unknown) {
     console.error('Error closing shift:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Không thể đóng ca làm việc' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể đóng ca làm việc'
+    };
+  }
+}
+
+/**
+ * ProductUnit type for POS
+ */
+export interface ProductUnitInfo {
+  id: string;
+  name: string;
+  isBase: boolean;
+  conversionFactor: number;
+}
+
+/**
+ * Get available units for a product
+ */
+export async function getProductUnits(productId: string): Promise<{
+  success: boolean;
+  baseUnit?: ProductUnitInfo;
+  availableUnits?: ProductUnitInfo[];
+  error?: string;
+}> {
+  try {
+    const response = await apiClient.getProductUnits(productId) as unknown as {
+      success?: boolean;
+      baseUnit?: ProductUnitInfo;
+      availableUnits?: ProductUnitInfo[];
+    };
+    return {
+      success: true,
+      baseUnit: response.baseUnit,
+      availableUnits: response.availableUnits
+    };
+  } catch (error: unknown) {
+    console.error('Error fetching product units:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể lấy danh sách đơn vị sản phẩm'
     };
   }
 }

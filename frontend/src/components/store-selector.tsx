@@ -28,15 +28,18 @@ export function StoreSelector({ className }: StoreSelectorProps) {
 
   const handleSwitchStore = async (storeId: string) => {
     setSwitchError(null);
-    
+
     // Verify permission before switching
     if (!canAccessStore(storeId)) {
       setSwitchError('Bạn không có quyền truy cập cửa hàng này');
       return;
     }
-    
+
     const success = await switchStore(storeId);
-    if (!success) {
+    if (success) {
+      // Reload page to refresh all data for the new store
+      window.location.reload();
+    } else {
       setSwitchError('Không thể chuyển đến cửa hàng này');
     }
   };
@@ -143,16 +146,19 @@ export function StoreSelectorCompact() {
 
   const handleSwitchStore = async (storeId: string) => {
     setSwitchError(null);
-    
+
     // Verify permission before switching
     if (!canAccessStore(storeId)) {
       setSwitchError('Không có quyền');
       setTimeout(() => setSwitchError(null), 3000);
       return;
     }
-    
+
     const success = await switchStore(storeId);
-    if (!success) {
+    if (success) {
+      // Reload page to refresh all data for the new store
+      window.location.reload();
+    } else {
       setSwitchError('Lỗi chuyển cửa hàng');
       setTimeout(() => setSwitchError(null), 3000);
     }

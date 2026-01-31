@@ -255,6 +255,54 @@ class ApiClient {
     return this.request<{ success: boolean }>(`/units/${id}`, { method: 'DELETE' });
   }
 
+  // ==================== Product Unit Configurations ====================
+  async getProductUnitConfigs() {
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        productId: string;
+        productName?: string;
+        storeId: string;
+        baseUnitId: string;
+        baseUnitName?: string;
+        conversionUnitId: string;
+        conversionUnitName?: string;
+        conversionRate: number;
+        baseUnitPrice: number;
+        conversionUnitPrice: number;
+        isActive: boolean;
+      }>;
+    }>('/units/product-configs');
+  }
+
+  async getProductUnitConfig(productId: string) {
+    return this.request<{
+      success: boolean;
+      data: Record<string, unknown> | null;
+    }>(`/units/product-configs/${productId}`);
+  }
+
+  async saveProductUnitConfig(data: {
+    productId: string;
+    baseUnitId: string;
+    conversionUnitId: string;
+    conversionRate: number;
+    baseUnitPrice: number;
+    conversionUnitPrice: number;
+  }) {
+    return this.request<{ success: boolean; data: Record<string, unknown> }>('/units/product-configs', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async deleteProductUnitConfig(productId: string) {
+    return this.request<{ success: boolean }>(`/units/product-configs/${productId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ==================== Products ====================
   async getProducts() {
     return this.request<Array<Record<string, unknown>>>('/products');
@@ -295,6 +343,22 @@ class ApiClient {
 
   async deleteCustomer(id: string) {
     return this.request<{ success: boolean }>(`/customers/${id}`, { method: 'DELETE' });
+  }
+
+  async getCustomerDebtHistory(customerId: string) {
+    return this.request<{
+      success: boolean;
+      customerId: string;
+      history: Array<{
+        id: string;
+        customerId: string;
+        amount: number;
+        type: 'sale' | 'payment';
+        date: string;
+        description: string;
+        runningBalance: number;
+      }>;
+    }>(`/customers/${customerId}/history`);
   }
 
   // ==================== Suppliers ====================

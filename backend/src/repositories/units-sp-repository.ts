@@ -89,7 +89,7 @@ export class UnitsSPRepository extends SPBaseRepository<Unit> {
    */
   private mapToEntity(record: UnitSPRecord): Unit {
     return {
-      id: record.id || record.Id,
+      id: record.id || record.Id || '',
       storeId: record.store_id || record.storeId || '',
       name: record.name,
       description: record.description || undefined,
@@ -111,7 +111,7 @@ export class UnitsSPRepository extends SPBaseRepository<Unit> {
   /**
    * Create a new unit using sp_Units_Create
    * Requirements: 8.1
-   * 
+   *
    * @param input - Unit data to create
    * @returns Created unit
    */
@@ -127,10 +127,16 @@ export class UnitsSPRepository extends SPBaseRepository<Unit> {
       conversionFactor: input.conversionFactor ?? 1,
     };
 
-    await this.executeSP<CreateResult>('sp_Units_Create', params);
+    // sp_Units_Create returns the created unit directly
+    const result = await this.executeSPSingle<UnitSPRecord>('sp_Units_Create', params);
 
-    // Fetch and return the created unit
-    const unit = await this.getById(id, input.storeId);
+    if (result) {
+      return this.mapToEntity(result);
+    }
+
+    // Fallback: fetch by id (case-insensitive comparison)
+    const units = await this.getByStore(input.storeId);
+    const unit = units.find((u) => u.id.toLowerCase() === id.toLowerCase());
     if (!unit) {
       throw new Error('Failed to create unit');
     }
@@ -211,14 +217,14 @@ export class UnitsSPRepository extends SPBaseRepository<Unit> {
 
   /**
    * Get a single unit by ID
-   * 
+   *
    * @param id - Unit ID
    * @param storeId - Store ID
    * @returns Unit or null if not found
    */
   async getById(id: string, storeId: string): Promise<Unit | null> {
     const units = await this.getByStore(storeId);
-    return units.find((u) => u.id === id) || null;
+    return units.find((u) => u.id.toLowerCase() === id.toLowerCase()) || null;
   }
 
   /**

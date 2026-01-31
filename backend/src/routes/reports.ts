@@ -38,12 +38,14 @@ router.get('/revenue', async (req: AuthRequest, res: Response) => {
 router.get('/sales', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
-    const { dateFrom, dateTo } = req.query;
+    const { dateFrom, dateTo, includeDetails } = req.query;
 
-    const result = await query(
-      `SELECT 
-        s.id, s.transaction_date as transactionDate, s.final_amount as finalAmount,
-        s.status, 
+    // Get detailed sales data
+    const salesData = await query(
+      `SELECT
+        s.id, s.invoice_number as invoiceNumber, s.transaction_date as transactionDate,
+        s.total_amount as totalAmount, s.vat_amount as vatAmount, s.discount,
+        s.final_amount as finalAmount, s.status,
         c.full_name as customerName
        FROM Sales s
        LEFT JOIN Customers c ON s.customer_id = c.id
@@ -54,10 +56,56 @@ router.get('/sales', async (req: AuthRequest, res: Response) => {
       { storeId, dateFrom: dateFrom || null, dateTo: dateTo || null }
     );
 
-    res.json({ data: result, total: result.length });
+    // Calculate summary by date
+    const summaryMap = new Map<string, { totalSales: number; totalRevenue: number; totalVat: number; totalDiscount: number; netRevenue: number }>();
+    let totalSales = 0;
+    let totalRevenue = 0;
+    let totalVat = 0;
+    let totalDiscount = 0;
+
+    for (const sale of salesData as any[]) {
+      const dateKey = new Date(sale.transactionDate).toISOString().split('T')[0];
+      const existing = summaryMap.get(dateKey) || { totalSales: 0, totalRevenue: 0, totalVat: 0, totalDiscount: 0, netRevenue: 0 };
+
+      existing.totalSales += 1;
+      existing.totalRevenue += sale.finalAmount || 0;
+      existing.totalVat += sale.vatAmount || 0;
+      existing.totalDiscount += sale.discount || 0;
+      existing.netRevenue += sale.finalAmount || 0;
+
+      summaryMap.set(dateKey, existing);
+
+      totalSales += 1;
+      totalRevenue += sale.finalAmount || 0;
+      totalVat += sale.vatAmount || 0;
+      totalDiscount += sale.discount || 0;
+    }
+
+    const summary = Array.from(summaryMap.entries()).map(([date, data]) => ({
+      date,
+      ...data
+    })).sort((a, b) => a.date.localeCompare(b.date));
+
+    const response: any = {
+      success: true,
+      summary,
+      totals: {
+        totalSales,
+        totalRevenue,
+        totalVat,
+        totalDiscount,
+        netRevenue: totalRevenue
+      }
+    };
+
+    if (includeDetails === 'true') {
+      response.details = salesData;
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Get sales report error:', error);
-    res.status(500).json({ error: 'Failed to get sales report' });
+    res.status(500).json({ success: false, error: 'Failed to get sales report' });
   }
 });
 
@@ -256,12 +304,14 @@ router.get('/supplier-debt', async (req: AuthRequest, res: Response) => {
     const storeId = req.storeId!;
 
     const result = await query(
-      `SELECT 
+      `SELECT
         s.id, s.name, s.phone, s.email,
+        ISNULL(SUM(p.total_amount), 0) as totalPurchases,
+        ISNULL(SUM(p.paid_amount), 0) as totalPaid,
         ISNULL(SUM(p.remaining_debt), 0) as totalDebt,
         COUNT(p.id) as purchaseCount
        FROM Suppliers s
-       LEFT JOIN Purchases p ON s.id = p.supplier_id
+       LEFT JOIN Purchases p ON s.id = p.supplier_id AND p.store_id = @storeId
        WHERE s.store_id = @storeId
        GROUP BY s.id, s.name, s.phone, s.email
        HAVING ISNULL(SUM(p.remaining_debt), 0) > 0

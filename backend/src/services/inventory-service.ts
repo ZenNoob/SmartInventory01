@@ -145,6 +145,8 @@ export class InventoryService {
   /**
    * Perform automatic unit conversion
    * Converts base units to conversion units when threshold is reached
+   * Note: This method is deprecated and kept for backward compatibility
+   * The new model uses quantity per unit instead of baseUnitStock/conversionUnitStock
    */
   private async performAutoConversion(
     productId: string,
@@ -153,25 +155,41 @@ export class InventoryService {
     productUnit: ProductUnit,
     salesTransactionId?: string
   ): Promise<UnitConversionLog | null> {
+    // Get inventory for base unit
+    const baseUnitInventory = await productInventoryRepository.findByProduct(
+      productId,
+      storeId,
+      productUnit.baseUnitId
+    );
+    // Get inventory for conversion unit
+    const conversionUnitInventory = await productInventoryRepository.findByProduct(
+      productId,
+      storeId,
+      productUnit.conversionUnitId
+    );
+
+    const baseUnitStock = baseUnitInventory?.quantity || 0;
+    const conversionUnitStock = conversionUnitInventory?.quantity || 0;
+
     // Check if we have enough base units to convert
-    if (currentInventory.baseUnitStock < productUnit.conversionRate) {
+    if (baseUnitStock < productUnit.conversionRate) {
       return null;
     }
 
     // Check if we have conversion units to deduct
-    if (currentInventory.conversionUnitStock <= 0) {
+    if (conversionUnitStock <= 0) {
       return null;
     }
 
     // Calculate how many conversion units we can deduct
     const conversionsToPerform = Math.floor(
-      currentInventory.baseUnitStock / productUnit.conversionRate
+      baseUnitStock / productUnit.conversionRate
     );
 
     // Limit to available conversion units
     const actualConversions = Math.min(
       conversionsToPerform,
-      currentInventory.conversionUnitStock
+      conversionUnitStock
     );
 
     if (actualConversions <= 0) {
@@ -180,10 +198,24 @@ export class InventoryService {
 
     // Calculate new stock levels
     const newConversionStock =
-      currentInventory.conversionUnitStock - actualConversions;
+      conversionUnitStock - actualConversions;
     const newBaseStock =
-      currentInventory.baseUnitStock -
+      baseUnitStock -
       actualConversions * productUnit.conversionRate;
+
+    // Update inventory for both units
+    await productInventoryRepository.updateStock(
+      productId,
+      storeId,
+      productUnit.conversionUnitId,
+      newConversionStock
+    );
+    await productInventoryRepository.updateStock(
+      productId,
+      storeId,
+      productUnit.baseUnitId,
+      newBaseStock
+    );
 
     // Create conversion log
     const conversionLog = await unitConversionLogRepository.create(
@@ -194,8 +226,8 @@ export class InventoryService {
         conversionType: 'auto_deduct',
         conversionUnitChange: -actualConversions,
         baseUnitChange: -actualConversions * productUnit.conversionRate,
-        beforeConversionUnitStock: currentInventory.conversionUnitStock,
-        beforeBaseUnitStock: currentInventory.baseUnitStock,
+        beforeConversionUnitStock: conversionUnitStock,
+        beforeBaseUnitStock: baseUnitStock,
         afterConversionUnitStock: newConversionStock,
         afterBaseUnitStock: newBaseStock,
         notes: `Tự động chuyển đổi ${actualConversions} ${productUnit.conversionUnitId} sau khi bán ${actualConversions * productUnit.conversionRate} ${productUnit.baseUnitId}`,
@@ -214,43 +246,51 @@ export class InventoryService {
     productId: string,
     storeId: string
   ): Promise<InventoryDisplayInfo> {
-    const inventoryWithDetails =
-      await productInventoryRepository.findByProductWithDetails(
+    // Get product unit configuration
+    const productUnit = await productUnitsRepository.findByProduct(
+      productId,
+      storeId
+    );
+
+    if (!productUnit) {
+      // No unit conversion - just get single inventory
+      const inventoryList = await productInventoryRepository.findByProductWithDetails(
         productId,
         storeId
       );
-
-    if (!inventoryWithDetails) {
+      const inventory = inventoryList.length > 0 ? inventoryList[0] : null;
+      const quantity = inventory?.quantity || 0;
       return {
-        conversionUnitStock: 0,
+        conversionUnitStock: quantity,
         baseUnitStock: 0,
-        displayText: '0',
-        totalInBaseUnit: 0,
+        displayText: `${quantity}`,
+        totalInBaseUnit: quantity,
+        conversionUnitName: inventory?.unitName,
       };
     }
 
-    const {
-      conversionUnitStock,
-      baseUnitStock,
-      conversionUnitName,
-      baseUnitName,
-      conversionRate,
-    } = inventoryWithDetails;
+    // Get inventory for both units
+    const baseUnitInventory = await productInventoryRepository.findByProduct(
+      productId,
+      storeId,
+      productUnit.baseUnitId
+    );
+    const conversionUnitInventory = await productInventoryRepository.findByProduct(
+      productId,
+      storeId,
+      productUnit.conversionUnitId
+    );
+
+    const baseUnitStock = baseUnitInventory?.quantity || 0;
+    const conversionUnitStock = conversionUnitInventory?.quantity || 0;
 
     // Calculate total in base units
-    const totalInBaseUnit = conversionRate
-      ? conversionUnitStock * conversionRate + baseUnitStock
-      : conversionUnitStock;
+    const totalInBaseUnit = conversionUnitStock * productUnit.conversionRate + baseUnitStock;
 
-    // Build display text
-    let displayText = '';
-    if (conversionUnitName) {
-      displayText = `${conversionUnitStock} ${conversionUnitName}`;
-      if (baseUnitStock > 0 && baseUnitName) {
-        displayText += ` + ${baseUnitStock} ${baseUnitName}`;
-      }
-    } else {
-      displayText = `${conversionUnitStock}`;
+    // Build display text (we need unit names, fetch them separately if needed)
+    let displayText = `${conversionUnitStock}`;
+    if (baseUnitStock > 0) {
+      displayText += ` + ${baseUnitStock}`;
     }
 
     return {
@@ -258,8 +298,6 @@ export class InventoryService {
       baseUnitStock,
       displayText,
       totalInBaseUnit,
-      conversionUnitName,
-      baseUnitName,
     };
   }
 
@@ -274,44 +312,22 @@ export class InventoryService {
     unitId: string
   ): Promise<ProductInventory> {
     return withTransaction(async (transaction) => {
-      // Get current inventory
+      // Get current inventory for this unit
       const inventory = await productInventoryRepository.findByProduct(
         productId,
-        storeId
+        storeId,
+        unitId
       );
 
-      if (!inventory) {
-        throw new Error(`Inventory not found for product ${productId}`);
-      }
-
-      // Get unit configuration
-      const productUnit = await productUnitsRepository.findByProduct(
-        productId,
-        storeId
-      );
-
-      let newConversionStock = inventory.conversionUnitStock;
-      let newBaseStock = inventory.baseUnitStock;
-
-      if (!productUnit) {
-        // No unit conversion configured, add to conversion unit stock
-        newConversionStock += quantity;
-      } else if (unitId === productUnit.baseUnitId) {
-        // Restoring base units - subtract from base stock (reverse the addition)
-        newBaseStock -= quantity;
-      } else if (unitId === productUnit.conversionUnitId) {
-        // Restoring conversion units
-        newConversionStock += quantity;
-      } else {
-        throw new Error('Invalid unit ID for this product');
-      }
+      const currentQuantity = inventory?.quantity || 0;
+      const newQuantity = currentQuantity + quantity;
 
       // Update inventory
       return productInventoryRepository.updateStock(
         productId,
         storeId,
-        newConversionStock,
-        newBaseStock
+        unitId,
+        newQuantity
       );
     });
   }
@@ -356,6 +372,7 @@ export class InventoryService {
 
   /**
    * Manual inventory adjustment with conversion log
+   * Note: This method uses the new model with quantity per unit
    */
   async adjustInventory(
     productId: string,
@@ -365,28 +382,61 @@ export class InventoryService {
     reason: string
   ): Promise<{ inventory: ProductInventory; log: UnitConversionLog }> {
     return withTransaction(async (transaction) => {
-      // Get current inventory
-      const currentInventory = await productInventoryRepository.findByProduct(
+      // Get product unit configuration
+      const productUnit = await productUnitsRepository.findByProduct(
         productId,
         storeId
       );
 
-      if (!currentInventory) {
-        throw new Error(`Inventory not found for product ${productId}`);
+      // Get current inventory for both units
+      let currentConversionStock = 0;
+      let currentBaseStock = 0;
+
+      if (productUnit) {
+        const conversionUnitInventory = await productInventoryRepository.findByProduct(
+          productId,
+          storeId,
+          productUnit.conversionUnitId
+        );
+        const baseUnitInventory = await productInventoryRepository.findByProduct(
+          productId,
+          storeId,
+          productUnit.baseUnitId
+        );
+        currentConversionStock = conversionUnitInventory?.quantity || 0;
+        currentBaseStock = baseUnitInventory?.quantity || 0;
+
+        // Update inventory for both units
+        await productInventoryRepository.updateStock(
+          productId,
+          storeId,
+          productUnit.conversionUnitId,
+          newConversionStock
+        );
+        await productInventoryRepository.updateStock(
+          productId,
+          storeId,
+          productUnit.baseUnitId,
+          newBaseStock
+        );
+      } else {
+        // No unit conversion - update single inventory
+        const inventory = await productInventoryRepository.findByProduct(
+          productId,
+          storeId
+        );
+        currentConversionStock = inventory?.quantity || 0;
+        await productInventoryRepository.updateStock(
+          productId,
+          storeId,
+          inventory?.unitId || '',
+          newConversionStock
+        );
       }
 
       // Calculate changes
-      const conversionUnitChange =
-        newConversionStock - currentInventory.conversionUnitStock;
-      const baseUnitChange = newBaseStock - currentInventory.baseUnitStock;
-
-      // Update inventory
-      const updatedInventory = await productInventoryRepository.updateStock(
-        productId,
-        storeId,
-        newConversionStock,
-        newBaseStock
-      );
+      const conversionUnitChange = newConversionStock - currentConversionStock;
+      const baseUnitChange = newBaseStock - currentBaseStock;
 
       // Create adjustment log
       const log = await unitConversionLogRepository.create(
@@ -396,8 +446,8 @@ export class InventoryService {
           conversionType: 'manual_adjust',
           conversionUnitChange,
           baseUnitChange,
-          beforeConversionUnitStock: currentInventory.conversionUnitStock,
-          beforeBaseUnitStock: currentInventory.baseUnitStock,
+          beforeConversionUnitStock: currentConversionStock,
+          beforeBaseUnitStock: currentBaseStock,
           afterConversionUnitStock: newConversionStock,
           afterBaseUnitStock: newBaseStock,
           notes: reason,
@@ -405,8 +455,22 @@ export class InventoryService {
         storeId
       );
 
+      // Get updated inventory for response
+      const updatedInventory = await productInventoryRepository.findByProduct(
+        productId,
+        storeId
+      );
+
       return {
-        inventory: updatedInventory,
+        inventory: updatedInventory || {
+          id: '',
+          productId,
+          storeId,
+          unitId: '',
+          quantity: newConversionStock,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
         log,
       };
     });
@@ -432,35 +496,41 @@ export class InventoryService {
     initialStock: number = 0,
     unitId?: string
   ): Promise<ProductInventory> {
+    // Check if inventory already exists for this unit
+    const targetUnitId = unitId || '';
     const existing = await productInventoryRepository.findByProduct(
       productId,
-      storeId
+      storeId,
+      targetUnitId || undefined
     );
 
     if (existing) {
       return existing;
     }
 
-    // Check if product has unit conversion configured
-    const productUnit = await productUnitsRepository.findByProduct(
-      productId,
-      storeId
-    );
-
-    let conversionUnitStock = initialStock;
-    let baseUnitStock = 0;
-
-    if (productUnit && unitId === productUnit.baseUnitId) {
-      // Initial stock is in base units
-      conversionUnitStock = 0;
-      baseUnitStock = initialStock;
+    // Get product unit configuration if no unitId specified
+    if (!unitId) {
+      const productUnit = await productUnitsRepository.findByProduct(
+        productId,
+        storeId
+      );
+      if (productUnit) {
+        // Create inventory for conversion unit by default
+        return productInventoryRepository.updateStock(
+          productId,
+          storeId,
+          productUnit.conversionUnitId,
+          initialStock
+        );
+      }
     }
 
+    // Create inventory for specified unit
     return productInventoryRepository.updateStock(
       productId,
       storeId,
-      conversionUnitStock,
-      baseUnitStock
+      unitId || '',
+      initialStock
     );
   }
 

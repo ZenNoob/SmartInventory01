@@ -26,7 +26,7 @@ export class UnitConversionService {
     availableUnits: ProductUnit[];
   }> {
     // Get product's base unit
-    const productResult = await query(
+    const productResult = await query<{ unit_id: string; unit_name: string }>(
       `SELECT p.unit_id, u.name as unit_name
        FROM Products p
        JOIN Units u ON p.unit_id = u.id
@@ -38,12 +38,17 @@ export class UnitConversionService {
       throw new Error('Product not found');
     }
 
-    const baseUnitId = productResult[0].unit_id;
-    const baseUnitName = productResult[0].unit_name;
+    const baseUnitId: string = productResult[0].unit_id;
+    const baseUnitName: string = productResult[0].unit_name;
 
     // Get all units that can convert to this base unit
-    const unitsResult = await query(
-      `SELECT id, name, 
+    const unitsResult = await query<{
+      id: string;
+      name: string;
+      is_base: number;
+      conversion_factor: number;
+    }>(
+      `SELECT id, name,
               CASE WHEN base_unit_id IS NULL THEN 1 ELSE 0 END as is_base,
               ISNULL(conversion_factor, 1) as conversion_factor
        FROM Units
@@ -60,7 +65,7 @@ export class UnitConversionService {
       conversionFactor: 1,
     };
 
-    const availableUnits: ProductUnit[] = unitsResult.map((u: any) => ({
+    const availableUnits: ProductUnit[] = unitsResult.map((u) => ({
       id: u.id,
       name: u.name,
       isBase: u.is_base === 1,
@@ -80,13 +85,13 @@ export class UnitConversionService {
     quantity: number
   ): Promise<UnitConversion> {
     // Get conversion factors
-    const fromUnitResult = await query(
+    const fromUnitResult = await query<{ name: string; conversion_factor: number }>(
       `SELECT name, ISNULL(conversion_factor, 1) as conversion_factor
        FROM Units WHERE id = @fromUnitId`,
       { fromUnitId }
     );
 
-    const toUnitResult = await query(
+    const toUnitResult = await query<{ name: string; conversion_factor: number }>(
       `SELECT name, ISNULL(conversion_factor, 1) as conversion_factor
        FROM Units WHERE id = @toUnitId`,
       { toUnitId }

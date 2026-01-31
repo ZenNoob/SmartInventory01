@@ -9,6 +9,8 @@ export interface PurchaseOrder {
   supplierId?: string;
   importDate: string;
   totalAmount: number;
+  paidAmount?: number;
+  remainingDebt?: number;
   notes?: string;
   createdBy?: string;
   createdAt: string;
@@ -120,6 +122,8 @@ export class PurchaseOrderRepository extends BaseRepository<PurchaseOrder> {
       supplierId: r.supplier_id || undefined,
       importDate: r.import_date instanceof Date ? r.import_date.toISOString() : String(r.import_date),
       totalAmount: r.total_amount,
+      paidAmount: (r as any).paid_amount ?? 0,
+      remainingDebt: (r as any).remaining_debt ?? r.total_amount,
       notes: r.notes || undefined,
       createdBy: r.created_by || undefined,
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),

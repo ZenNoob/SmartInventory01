@@ -4,6 +4,28 @@ import { loyaltyPointsRepository } from '../repositories/loyalty-points-reposito
 import { settingsSPRepository } from '../repositories/settings-sp-repository';
 import { customersSPRepository } from '../repositories/customers-sp-repository';
 import { query } from '../db';
+import { getAllCacheStats, invalidateAllCaches } from '../services/cache/global-cache';
+
+/**
+ * Loyalty tier definition
+ */
+interface LoyaltyTier {
+  name: string;
+  threshold: number;
+  discount?: number;
+}
+
+/**
+ * Loyalty settings structure in Settings JSON
+ */
+interface LoyaltySettingsData {
+  enabled?: boolean;
+  earnRate?: number;
+  redeemRate?: number;
+  minPointsToRedeem?: number;
+  maxRedeemPercentage?: number;
+  tiers?: LoyaltyTier[];
+}
 
 const router = Router();
 
@@ -112,22 +134,22 @@ router.put('/loyalty', async (req: AuthRequest, res: Response) => {
 router.post('/recalculate-tiers', async (req: AuthRequest, res: Response) => {
   try {
     const storeId = req.storeId!;
-    
+
     // Get loyalty settings with tiers configuration
     const settings = await settingsSPRepository.getByStore(storeId);
-    const loyaltySettings = settings?.loyalty;
-    
+    const loyaltySettings = settings?.loyalty as LoyaltySettingsData | undefined;
+
     if (!loyaltySettings || !loyaltySettings.enabled) {
       res.status(400).json({ error: 'Chương trình khách hàng thân thiết chưa được bật' });
       return;
     }
-    
+
     const tiers = loyaltySettings.tiers || [];
     if (tiers.length === 0) {
       res.status(400).json({ error: 'Chưa cấu hình các hạng thành viên' });
       return;
     }
-    
+
     // Sort tiers by threshold descending (highest first)
     const sortedTiers = [...tiers].sort((a, b) => b.threshold - a.threshold);
     
@@ -196,6 +218,29 @@ router.post('/recalculate-tiers', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Recalculate tiers error:', error);
     res.status(500).json({ error: 'Không thể tính lại hạng khách hàng' });
+  }
+});
+
+// GET /api/settings/cache-stats - Get cache statistics
+router.get('/cache-stats', async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = getAllCacheStats();
+    res.json({ success: true, stats });
+  } catch (error) {
+    console.error('Get cache stats error:', error);
+    res.status(500).json({ error: 'Failed to get cache stats' });
+  }
+});
+
+// POST /api/settings/clear-cache - Clear all caches for current store
+router.post('/clear-cache', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    await invalidateAllCaches(storeId);
+    res.json({ success: true, message: 'Cache cleared successfully' });
+  } catch (error) {
+    console.error('Clear cache error:', error);
+    res.status(500).json({ error: 'Failed to clear cache' });
   }
 });
 

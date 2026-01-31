@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, use } from "react"
-import { notFound } from "next/navigation"
+import { useEffect, useState } from "react"
+import { notFound, useParams } from "next/navigation"
 import type { PurchaseOrder, PurchaseOrderItem, Product, Unit, ThemeSettings, Supplier } from "@/lib/types"
 import { PurchaseOrderInvoice } from "./components/purchase-order-invoice";
 import { useStore } from "@/contexts/store-context"
@@ -10,8 +10,8 @@ interface PurchaseOrderWithDetails extends PurchaseOrder {
   supplierName?: string;
 }
 
-export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function PurchaseOrderDetailPage() {
+  const params = useParams<{ id: string }>();
   const { currentStore } = useStore();
   
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
@@ -38,7 +38,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
         }
         
         // Fetch purchase order
-        const orderResponse = await fetch(`/api/purchases/${resolvedParams.id}`, {
+        const orderResponse = await fetch(`/api/purchases/${params.id}`, {
           headers,
         });
         
@@ -105,7 +105,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
     }
     
     fetchData();
-  }, [currentStore?.id, resolvedParams.id]);
+  }, [currentStore?.id, params.id]);
 
   if (notFoundState) {
     notFound();

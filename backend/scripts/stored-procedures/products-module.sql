@@ -165,6 +165,7 @@ BEGIN
         price = COALESCE(@price, price),
         cost_price = COALESCE(@costPrice, cost_price),
         sku = COALESCE(@sku, sku),
+        unit_id = COALESCE(@unitId, unit_id),
         stock_quantity = COALESCE(@stockQuantity, stock_quantity),
         status = COALESCE(@status, status),
         images = COALESCE(@images, images),
@@ -188,7 +189,7 @@ BEGIN
     END
     
     -- Return the updated product
-    SELECT 
+    SELECT
         p.id,
         p.store_id AS storeId,
         p.category_id AS categoryId,
@@ -197,6 +198,7 @@ BEGIN
         p.price,
         p.cost_price AS costPrice,
         p.sku,
+        p.unit_id AS unitId,
         p.stock_quantity AS stockQuantity,
         p.images,
         p.status,
@@ -284,6 +286,7 @@ BEGIN
     LEFT JOIN Categories c ON p.category_id = c.id
     LEFT JOIN ProductInventory pi ON p.id = pi.ProductId AND pi.StoreId = @storeId
     WHERE p.store_id = @storeId
+        AND p.status != 'deleted'
         AND (@status IS NULL OR p.status = @status)
         AND (@categoryId IS NULL OR p.category_id = @categoryId)
         AND (@searchTerm IS NULL OR p.name LIKE '%' + @searchTerm + '%' OR p.sku LIKE '%' + @searchTerm + '%')

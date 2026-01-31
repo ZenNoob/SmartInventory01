@@ -1,6 +1,6 @@
 /**
  * Base Repository for Stored Procedures
- * 
+ *
  * Provides methods to execute stored procedures with proper parameter binding
  * and support for multiple result sets.
  */
@@ -11,6 +11,42 @@ import { withTransaction } from '../db/transaction';
 
 export type SPParamValue = string | number | boolean | Date | Buffer | null | undefined;
 export type SPParams = Record<string, SPParamValue | unknown>;
+
+// UUID regex pattern for detecting UUID strings
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Check if a value is a valid UUID string
+ */
+function isUUID(value: unknown): boolean {
+  return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+/**
+ * Bind a parameter with proper SQL type detection
+ */
+function bindParameter(request: sql.Request, key: string, value: unknown): void {
+  if (value === null || value === undefined) {
+    request.input(key, value);
+  } else if (isUUID(value)) {
+    // Explicitly bind UUID strings as UniqueIdentifier
+    request.input(key, sql.UniqueIdentifier, value);
+  } else if (typeof value === 'number') {
+    // Check if it's a decimal/float or integer
+    if (Number.isInteger(value)) {
+      request.input(key, sql.Int, value);
+    } else {
+      request.input(key, sql.Decimal(18, 6), value);
+    }
+  } else if (typeof value === 'boolean') {
+    request.input(key, sql.Bit, value);
+  } else if (value instanceof Date) {
+    request.input(key, sql.DateTime2, value);
+  } else {
+    // Default: let mssql infer the type
+    request.input(key, value);
+  }
+}
 
 /**
  * Result from stored procedure execution with multiple result sets
@@ -48,7 +84,7 @@ export abstract class SPBaseRepository<T = Record<string, unknown>> {
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined) {
-          request.input(key, value);
+          bindParameter(request, key, value);
         }
       }
     }
@@ -91,7 +127,7 @@ export abstract class SPBaseRepository<T = Record<string, unknown>> {
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined) {
-          request.input(key, value);
+          bindParameter(request, key, value);
         }
       }
     }
@@ -125,7 +161,7 @@ export abstract class SPBaseRepository<T = Record<string, unknown>> {
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined) {
-          request.input(key, value);
+          bindParameter(request, key, value);
         }
       }
     }

@@ -31,6 +31,19 @@ BEGIN
         p.created_at AS createdAt,
         p.updated_at AS updatedAt,
         c.name AS categoryName,
+        -- Get average cost per unit from PurchaseLots
+        ISNULL((
+            SELECT 
+                pl.unit_id as unitId,
+                u.name as unitName,
+                AVG(pl.cost) as avgCost,
+                SUM(pl.remaining_quantity) as totalQty
+            FROM PurchaseLots pl
+            LEFT JOIN Units u ON pl.unit_id = u.id
+            WHERE pl.product_id = p.id AND pl.store_id = @storeId AND pl.remaining_quantity > 0
+            GROUP BY pl.unit_id, u.name
+            FOR JSON PATH
+        ), '[]') AS avgCostByUnit,
         ISNULL(pi.Quantity, p.stock_quantity) AS currentStock
     FROM Products p
     LEFT JOIN Categories c ON p.category_id = c.id

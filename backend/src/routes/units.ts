@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticate, storeContext, AuthRequest } from '../middleware/auth';
 import { unitsSPRepository } from '../repositories/units-sp-repository';
+import { productUnitsRepository } from '../repositories/product-units-repository';
 
 const router = Router();
 
@@ -148,6 +149,97 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Delete unit error:', error);
     res.status(500).json({ error: 'Failed to delete unit' });
+  }
+});
+
+// ==================== Product Unit Configurations ====================
+
+// GET /api/units/product-configs - Get all product unit configurations
+router.get('/product-configs', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    const configs = await productUnitsRepository.findAllProductsWithConversion(storeId);
+    res.json({ success: true, data: configs });
+  } catch (error) {
+    console.error('Get product unit configs error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get product unit configurations' });
+  }
+});
+
+// GET /api/units/product-configs/:productId - Get product unit configuration by product ID
+router.get('/product-configs/:productId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { productId } = req.params;
+    const storeId = req.storeId!;
+    const config = await productUnitsRepository.findByProductWithNames(productId, storeId);
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Get product unit config error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get product unit configuration' });
+  }
+});
+
+// POST /api/units/product-configs - Create or update product unit configuration
+router.post('/product-configs', async (req: AuthRequest, res: Response) => {
+  try {
+    const storeId = req.storeId!;
+    const { productId, baseUnitId, conversionUnitId, conversionRate, baseUnitPrice, conversionUnitPrice } = req.body;
+
+    if (!productId || !baseUnitId || !conversionUnitId || !conversionRate) {
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
+    }
+
+    // Check if configuration already exists
+    const existing = await productUnitsRepository.findByProduct(productId, storeId);
+
+    if (existing) {
+      // Update existing configuration
+      const updated = await productUnitsRepository.update(existing.id, {
+        baseUnitId,
+        conversionUnitId,
+        conversionRate: Number(conversionRate),
+        baseUnitPrice: Number(baseUnitPrice) || 0,
+        conversionUnitPrice: Number(conversionUnitPrice) || 0,
+      }, storeId);
+      res.json({ success: true, data: updated });
+    } else {
+      // Create new configuration
+      const created = await productUnitsRepository.create({
+        productId,
+        storeId,
+        baseUnitId,
+        conversionUnitId,
+        conversionRate: Number(conversionRate),
+        baseUnitPrice: Number(baseUnitPrice) || 0,
+        conversionUnitPrice: Number(conversionUnitPrice) || 0,
+        isActive: true,
+      }, storeId);
+      res.status(201).json({ success: true, data: created });
+    }
+  } catch (error) {
+    console.error('Upsert product unit config error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save product unit configuration' });
+  }
+});
+
+// DELETE /api/units/product-configs/:productId - Delete product unit configuration
+router.delete('/product-configs/:productId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { productId } = req.params;
+    const storeId = req.storeId!;
+
+    const existing = await productUnitsRepository.findByProduct(productId, storeId);
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Product unit configuration not found' });
+      return;
+    }
+
+    await productUnitsRepository.delete(existing.id, storeId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete product unit config error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete product unit configuration' });
   }
 });
 

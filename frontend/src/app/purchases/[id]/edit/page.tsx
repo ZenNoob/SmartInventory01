@@ -67,7 +67,8 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 });
                 if (suppliersResponse.ok) {
                     const suppliersResult = await suppliersResponse.json();
-                    setSuppliers(suppliersResult.suppliers || []);
+                    // Backend returns { success: true, data: [...] }
+                    setSuppliers(suppliersResult.data || suppliersResult.suppliers || []);
                 }
                 
                 // Fetch units

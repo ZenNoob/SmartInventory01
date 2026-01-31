@@ -1,16 +1,6 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as xlsx from 'xlsx';
-
-// Extend jsPDF type to include autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: AutoTableOptions) => jsPDF;
-    lastAutoTable: {
-      finalY: number;
-    };
-  }
-}
 
 interface AutoTableOptions {
   head?: string[][];
@@ -107,7 +97,7 @@ export function exportToPDF(
     : data;
 
   // Table
-  doc.autoTable({
+  autoTable(doc, {
     head: [headers],
     body: bodyData.map(row => row.map(cell => String(cell))),
     startY,
@@ -135,7 +125,7 @@ export function exportToPDF(
         doc.internal.pageSize.getHeight() - 10,
         { align: 'center' }
       );
-      
+
       // Print date
       const printDate = new Date().toLocaleDateString('vi-VN');
       doc.text(
