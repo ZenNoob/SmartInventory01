@@ -5,6 +5,7 @@ const auth_1 = require("../middleware/auth");
 const loyalty_points_repository_1 = require("../repositories/loyalty-points-repository");
 const settings_sp_repository_1 = require("../repositories/settings-sp-repository");
 const db_1 = require("../db");
+const global_cache_1 = require("../services/cache/global-cache");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
 router.use(auth_1.storeContext);
@@ -162,6 +163,29 @@ router.post('/recalculate-tiers', async (req, res) => {
     catch (error) {
         console.error('Recalculate tiers error:', error);
         res.status(500).json({ error: 'Không thể tính lại hạng khách hàng' });
+    }
+});
+// GET /api/settings/cache-stats - Get cache statistics
+router.get('/cache-stats', async (req, res) => {
+    try {
+        const stats = (0, global_cache_1.getAllCacheStats)();
+        res.json({ success: true, stats });
+    }
+    catch (error) {
+        console.error('Get cache stats error:', error);
+        res.status(500).json({ error: 'Failed to get cache stats' });
+    }
+});
+// POST /api/settings/clear-cache - Clear all caches for current store
+router.post('/clear-cache', async (req, res) => {
+    try {
+        const storeId = req.storeId;
+        await (0, global_cache_1.invalidateAllCaches)(storeId);
+        res.json({ success: true, message: 'Cache cleared successfully' });
+    }
+    catch (error) {
+        console.error('Clear cache error:', error);
+        res.status(500).json({ error: 'Failed to clear cache' });
     }
 });
 exports.default = router;

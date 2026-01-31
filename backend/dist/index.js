@@ -8,6 +8,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 // Import routes
 const auth_1 = __importDefault(require("./routes/auth"));
 const categories_1 = __importDefault(require("./routes/categories"));
@@ -32,6 +33,17 @@ const sync_data_1 = __importDefault(require("./routes/sync-data"));
 const loyalty_points_1 = __importDefault(require("./routes/loyalty-points"));
 const subscription_1 = __importDefault(require("./routes/subscription"));
 const unit_conversion_1 = __importDefault(require("./routes/unit-conversion"));
+const upload_1 = __importDefault(require("./routes/upload"));
+const bulk_import_1 = __importDefault(require("./routes/bulk-import"));
+const refunds_1 = __importDefault(require("./routes/refunds"));
+const notifications_1 = __importDefault(require("./routes/notifications"));
+const payment_gateway_1 = __importDefault(require("./routes/payment-gateway"));
+const shipping_1 = __importDefault(require("./routes/shipping"));
+const mpc_optimizer_1 = __importDefault(require("./routes/mpc-optimizer"));
+const promotions_1 = __importDefault(require("./routes/promotions"));
+const vouchers_1 = __importDefault(require("./routes/vouchers"));
+const printing_1 = __importDefault(require("./routes/printing"));
+const devices_1 = __importDefault(require("./routes/devices"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 // Log database config for debugging
@@ -47,6 +59,8 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 app.use(express_1.default.json());
+// Static files - serve uploaded images
+app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -84,6 +98,17 @@ app.use('/api/sync-data', sync_data_1.default);
 app.use('/api/loyalty-points', loyalty_points_1.default);
 app.use('/api/subscription', subscription_1.default);
 app.use('/api', unit_conversion_1.default);
+app.use('/api/upload', upload_1.default);
+app.use('/api/bulk', bulk_import_1.default);
+app.use('/api/refunds', refunds_1.default);
+app.use('/api/notifications', notifications_1.default);
+app.use('/api/payment-gateway', payment_gateway_1.default);
+app.use('/api/shipping', shipping_1.default);
+app.use('/api/mpc', mpc_optimizer_1.default);
+app.use('/api/promotions', promotions_1.default);
+app.use('/api/vouchers', vouchers_1.default);
+app.use('/api/printing', printing_1.default);
+app.use('/api/devices', devices_1.default);
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err);

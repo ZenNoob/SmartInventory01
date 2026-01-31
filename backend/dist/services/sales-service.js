@@ -4,6 +4,7 @@ exports.salesService = exports.SalesService = void 0;
 const transaction_1 = require("../db/transaction");
 const db_1 = require("../db");
 const inventory_service_1 = require("./inventory-service");
+const loyalty_points_service_1 = require("./loyalty-points-service");
 /**
  * Sales Service
  * Handles sales transactions with automatic inventory deduction and unit conversion
@@ -141,6 +142,23 @@ class SalesService {
                     remainingDebt,
                     updatedAt: now,
                 });
+            }
+            // Earn loyalty points for the customer (if applicable)
+            // Points are earned on the amount after discounts (excluding VAT)
+            if (saleData.customerId) {
+                try {
+                    const amountForPoints = totalAmount - discount - tierDiscountAmount - pointsDiscount;
+                    if (amountForPoints > 0) {
+                        const earnResult = await loyalty_points_service_1.loyaltyPointsService.earnPoints(saleData.customerId, storeId, amountForPoints, saleId);
+                        if (earnResult.points > 0) {
+                            console.log(`[SalesService] Customer ${saleData.customerId} earned ${earnResult.points} points. New balance: ${earnResult.newBalance}`);
+                        }
+                    }
+                }
+                catch (earnError) {
+                    // Log but don't fail the sale if loyalty points fails
+                    console.error('[SalesService] Failed to earn loyalty points:', earnError);
+                }
             }
             // Fetch created sale
             const sale = await (0, db_1.queryOne)(`SELECT * FROM Sales WHERE id = @id AND store_id = @storeId`, { id: saleId, storeId });

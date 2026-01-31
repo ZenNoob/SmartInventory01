@@ -28,8 +28,9 @@ class CustomersSPRepository extends sp_base_repository_1.SPBaseRepository {
             customerType: record.customerType || 'retail',
             loyaltyTier: record.loyaltyTier || 'bronze',
             totalSpent: record.totalSales ?? 0,
-            totalPaid: record.totalPaid ?? 0,
+            totalPaid: record.totalPaid ?? record.totalPayments ?? 0,
             totalDebt: record.totalDebt ?? 0,
+            calculatedDebt: record.calculatedDebt ?? record.totalDebt ?? 0, // Use calculated if available
             status: record.status || 'active',
             customerGroup: record.customerGroup || undefined,
             lifetimePoints: record.lifetimePoints ?? 0,
@@ -65,9 +66,14 @@ class CustomersSPRepository extends sp_base_repository_1.SPBaseRepository {
             customerType: input.customerType || 'retail',
             loyaltyTier: input.loyaltyTier || 'bronze',
         };
-        await this.executeSP('sp_Customers_Create', params);
-        // Fetch and return the created customer
-        const customer = await this.getById(id, input.storeId);
+        // sp_Customers_Create returns the created customer directly
+        const result = await this.executeSPSingle('sp_Customers_Create', params);
+        if (result) {
+            return this.mapToEntity(result);
+        }
+        // Fallback: fetch by id (case-insensitive comparison)
+        const customers = await this.getByStore(input.storeId);
+        const customer = customers.find((c) => c.id.toLowerCase() === id.toLowerCase());
         if (!customer) {
             throw new Error('Failed to create customer');
         }
@@ -126,18 +132,18 @@ class CustomersSPRepository extends sp_base_repository_1.SPBaseRepository {
         return results.map((r) => this.mapToEntity(r));
     }
     /**
-     * Get a single customer by ID
-     * Uses sp_Customers_GetByStore and filters by ID
+     * Get a single customer by ID using sp_Customers_GetById
      *
      * @param id - Customer ID
      * @param storeId - Store ID
      * @returns Customer or null if not found
      */
     async getById(id, storeId) {
-        // Note: If sp_Customers_GetById exists, use it instead
-        // For now, we filter from getByStore results
-        const customers = await this.getByStore(storeId);
-        return customers.find((c) => c.id === id) || null;
+        const result = await this.executeSPSingle('sp_Customers_GetById', { id, storeId });
+        if (result) {
+            return this.mapToEntity(result);
+        }
+        return null;
     }
     /**
      * Update customer debt using sp_Customers_UpdateDebt
@@ -200,6 +206,36 @@ class CustomersSPRepository extends sp_base_repository_1.SPBaseRepository {
             totalPaid: customer.totalPaid ?? 0,
             totalDebt: customer.totalDebt ?? 0,
         };
+    }
+    /**
+     * Get customer debt history from Sales and Payments
+     * Requirements: 3.6
+     *
+     * @param customerId - Customer ID
+     * @param storeId - Store ID
+     * @returns Array of debt history items
+     */
+    async getDebtHistory(customerId, storeId) {
+        const results = await this.executeSP('sp_Customers_GetDebtHistory', { customerId, storeId });
+        // Calculate running balance
+        let runningBalance = 0;
+        return results.map((r) => {
+            if (r.type === 'sale') {
+                runningBalance += r.amount;
+            }
+            else {
+                runningBalance -= r.amount;
+            }
+            return {
+                id: r.id,
+                customerId: r.customerId,
+                amount: r.amount,
+                type: r.type,
+                date: r.date instanceof Date ? r.date.toISOString() : String(r.date),
+                description: r.description,
+                runningBalance: runningBalance,
+            };
+        });
     }
 }
 exports.CustomersSPRepository = CustomersSPRepository;
