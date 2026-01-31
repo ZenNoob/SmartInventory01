@@ -17,6 +17,8 @@ class PurchaseOrderRepository extends base_repository_1.BaseRepository {
             supplierId: r.supplier_id || undefined,
             importDate: r.import_date instanceof Date ? r.import_date.toISOString() : String(r.import_date),
             totalAmount: r.total_amount,
+            paidAmount: r.paid_amount ?? 0,
+            remainingDebt: r.remaining_debt ?? r.total_amount,
             notes: r.notes || undefined,
             createdBy: r.created_by || undefined,
             createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),

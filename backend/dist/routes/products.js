@@ -13,40 +13,70 @@ router.use(auth_1.storeContext);
 router.get('/', async (req, res) => {
     try {
         const storeId = req.storeId;
+        const { page = '1', pageSize = '50', search, categoryId, status } = req.query;
+        const pageNum = parseInt(page);
+        const pageSizeNum = parseInt(pageSize);
         // Use SP Repository instead of inline query
-        const products = await products_sp_repository_1.productsSPRepository.getByStore(storeId);
-        res.json(products.map((p) => {
-            // Parse avgCostByUnit JSON if exists
-            let avgCostByUnit = [];
-            if (p.avgCostByUnit) {
-                try {
-                    avgCostByUnit = JSON.parse(p.avgCostByUnit);
+        let products = await products_sp_repository_1.productsSPRepository.getByStore(storeId);
+        // Apply filters
+        if (search) {
+            const searchLower = search.toLowerCase();
+            products = products.filter((p) => p.name?.toLowerCase().includes(searchLower) ||
+                p.sku?.toLowerCase().includes(searchLower));
+        }
+        if (categoryId && categoryId !== 'all') {
+            products = products.filter((p) => p.categoryId === categoryId);
+        }
+        if (status && status !== 'all') {
+            products = products.filter((p) => p.status === status);
+        }
+        // Calculate pagination
+        const total = products.length;
+        const totalPages = Math.ceil(total / pageSizeNum);
+        const offset = (pageNum - 1) * pageSizeNum;
+        const paginatedProducts = products.slice(offset, offset + pageSizeNum);
+        res.json({
+            success: true,
+            data: paginatedProducts.map((p) => {
+                // Parse avgCostByUnit JSON if exists
+                let avgCostByUnit = [];
+                if (p.avgCostByUnit) {
+                    try {
+                        const parsed = JSON.parse(p.avgCostByUnit);
+                        avgCostByUnit = Array.isArray(parsed) ? parsed : [];
+                    }
+                    catch (e) {
+                        console.error('Failed to parse avgCostByUnit:', e);
+                        avgCostByUnit = [];
+                    }
                 }
-                catch (e) {
-                    console.error('Failed to parse avgCostByUnit:', e);
-                }
-            }
-            return {
-                id: p.id,
-                storeId: p.storeId,
-                categoryId: p.categoryId,
-                categoryName: p.categoryName,
-                name: p.name,
-                description: p.description,
-                price: p.price,
-                costPrice: p.costPrice,
-                sku: p.sku,
-                barcode: p.sku, // Use sku as barcode for now
-                stockQuantity: p.currentStock ?? p.stockQuantity ?? 0, // Use ProductInventory first, fallback to Products
-                unitId: p.unitId,
-                images: p.images,
-                status: p.status,
-                purchaseLots: [], // Empty array for now
-                avgCostByUnit, // Add average cost by unit
-                createdAt: p.createdAt,
-                updatedAt: p.updatedAt,
-            };
-        }));
+                return {
+                    id: p.id,
+                    storeId: p.storeId,
+                    categoryId: p.categoryId,
+                    categoryName: p.categoryName,
+                    name: p.name,
+                    description: p.description,
+                    price: p.price,
+                    costPrice: p.costPrice,
+                    sku: p.sku,
+                    barcode: p.sku, // Use sku as barcode for now
+                    stockQuantity: p.currentStock ?? p.stockQuantity ?? 0, // Use ProductInventory first, fallback to Products
+                    currentStock: p.currentStock ?? p.stockQuantity ?? 0, // Add currentStock for POS compatibility
+                    unitId: p.unitId,
+                    images: p.images,
+                    status: p.status,
+                    purchaseLots: [], // Empty array for now
+                    avgCostByUnit, // Add average cost by unit
+                    createdAt: p.createdAt,
+                    updatedAt: p.updatedAt,
+                };
+            }),
+            total,
+            page: pageNum,
+            pageSize: pageSizeNum,
+            totalPages,
+        });
     }
     catch (error) {
         console.error('Get products error:', error);
@@ -296,6 +326,7 @@ router.post('/:id/units', async (req, res) => {
             // Create new configuration
             productUnit = await repositories_1.productUnitsRepository.create({
                 productId: id,
+                storeId,
                 baseUnitId,
                 conversionUnitId,
                 conversionRate,

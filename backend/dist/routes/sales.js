@@ -1,10 +1,44 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const services_1 = require("../services");
 const sales_sp_repository_1 = require("../repositories/sales-sp-repository");
+const pdfInvoiceService = __importStar(require("../services/pdf-invoice-service"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
 router.use(auth_1.storeContext);
@@ -34,13 +68,24 @@ router.get('/', async (req, res) => {
         const totalPages = Math.ceil(total / pageSizeNum);
         const offset = (pageNum - 1) * pageSizeNum;
         const paginatedSales = sales.slice(offset, offset + pageSizeNum);
-        // Get item counts for paginated sales (still need inline query for this)
-        const salesWithItemCount = await Promise.all(paginatedSales.map(async (s) => {
-            const countResult = await (0, db_1.query)(`SELECT COUNT(*) as item_count FROM SalesItems WHERE sales_transaction_id = @id`, { id: s.id });
-            return {
-                ...s,
-                itemCount: countResult[0]?.item_count || 0,
-            };
+        // Get item counts for all paginated sales in a single query (fix N+1)
+        let itemCountMap = {};
+        if (paginatedSales.length > 0) {
+            const saleIds = paginatedSales.map(s => s.id);
+            const placeholders = saleIds.map((_, i) => `@id${i}`).join(',');
+            const params = {};
+            saleIds.forEach((id, i) => { params[`id${i}`] = id; });
+            const countResults = await (0, db_1.query)(`SELECT sales_transaction_id, COUNT(*) as item_count
+         FROM SalesItems
+         WHERE sales_transaction_id IN (${placeholders})
+         GROUP BY sales_transaction_id`, params);
+            countResults.forEach(r => {
+                itemCountMap[r.sales_transaction_id] = r.item_count;
+            });
+        }
+        const salesWithItemCount = paginatedSales.map(s => ({
+            ...s,
+            itemCount: itemCountMap[s.id] || 0,
         }));
         res.json({
             success: true,
@@ -86,25 +131,39 @@ router.get('/', async (req, res) => {
 router.get('/items/all', async (req, res) => {
     try {
         const storeId = req.storeId;
+        const { dateFrom, dateTo } = req.query;
+        let dateFilter = '';
+        const params = { storeId };
+        if (dateFrom) {
+            dateFilter += ' AND s.transaction_date >= @dateFrom';
+            params.dateFrom = new Date(dateFrom);
+        }
+        if (dateTo) {
+            dateFilter += ' AND s.transaction_date <= @dateTo';
+            params.dateTo = new Date(dateTo);
+        }
         // This query is specific and not covered by SP, keep inline
         const items = await (0, db_1.query)(`SELECT si.id, si.sales_transaction_id, si.product_id, si.quantity, si.price,
               p.name as product_name, s.transaction_date
        FROM SalesItems si
        JOIN Products p ON si.product_id = p.id
        JOIN Sales s ON si.sales_transaction_id = s.id
-       WHERE s.store_id = @storeId
-       ORDER BY s.transaction_date DESC`, { storeId });
-        res.json(items.map((i) => ({
-            id: i.id,
-            salesTransactionId: i.sales_transaction_id,
-            productId: i.product_id,
-            productName: i.product_name,
-            unitName: null,
-            quantity: i.quantity,
-            price: i.price,
-            totalPrice: i.quantity * i.price,
-            transactionDate: i.transaction_date,
-        })));
+       WHERE s.store_id = @storeId${dateFilter}
+       ORDER BY s.transaction_date DESC`, params);
+        res.json({
+            success: true,
+            data: items.map((i) => ({
+                id: i.id,
+                salesTransactionId: i.sales_transaction_id,
+                productId: i.product_id,
+                productName: i.product_name,
+                unitName: null,
+                quantity: i.quantity,
+                price: i.price,
+                totalPrice: i.quantity * i.price,
+                transactionDate: i.transaction_date,
+            })),
+        });
     }
     catch (error) {
         console.error('Get all sale items error:', error);
@@ -174,16 +233,20 @@ router.get('/:id/items', async (req, res) => {
             res.status(404).json({ error: 'Sale not found' });
             return;
         }
-        res.json(result.items.map((i) => ({
-            id: i.id,
-            saleId: i.salesTransactionId,
-            productId: i.productId,
-            productName: i.productName,
-            unitName: i.unitName,
-            quantity: i.quantity,
-            unitPrice: i.price,
-            totalPrice: i.quantity * i.price,
-        })));
+        res.json({
+            success: true,
+            data: result.items.map((i) => ({
+                id: i.id,
+                saleId: i.salesTransactionId,
+                productId: i.productId,
+                productName: i.productName,
+                unitName: i.unitName,
+                quantity: i.quantity,
+                price: i.price,
+                unitPrice: i.price,
+                totalPrice: i.quantity * i.price,
+            })),
+        });
     }
     catch (error) {
         console.error('Get sale items error:', error);
@@ -306,6 +369,32 @@ router.delete('/:id', async (req, res) => {
     catch (error) {
         console.error('Delete sale error:', error);
         res.status(500).json({ error: 'Failed to delete sale' });
+    }
+});
+// GET /api/sales/:id/invoice-pdf - Generate PDF invoice
+router.get('/:id/invoice-pdf', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const storeId = req.storeId;
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            return res.status(400).json({ error: 'Tenant context required' });
+        }
+        // Get invoice data
+        const invoiceData = await pdfInvoiceService.getSaleForInvoice(parseInt(id), storeId, tenantId);
+        if (!invoiceData) {
+            return res.status(404).json({ error: 'Sale not found' });
+        }
+        // Generate PDF
+        const pdfBuffer = await pdfInvoiceService.generateInvoicePDF(invoiceData);
+        // Send PDF response
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoiceData.invoiceNumber}.pdf`);
+        res.send(pdfBuffer);
+    }
+    catch (error) {
+        console.error('Generate invoice PDF error:', error);
+        res.status(500).json({ error: 'Failed to generate invoice PDF' });
     }
 });
 exports.default = router;

@@ -63,13 +63,13 @@ class SalesSPRepository extends sp_base_repository_1.SPBaseRepository {
     mapToSalesItemEntity(record) {
         return {
             id: record.id,
-            salesTransactionId: record.sales_transaction_id,
-            productId: record.product_id,
+            salesTransactionId: record.salesTransactionId,
+            productId: record.productId,
             quantity: record.quantity,
             price: record.price,
-            unitId: record.unit_id || undefined,
-            productName: record.product_name,
-            unitName: record.unit_name,
+            unitId: record.unitId || undefined,
+            productName: record.productName,
+            unitName: record.unitName,
         };
     }
     /**
@@ -221,6 +221,8 @@ class SalesSPRepository extends sp_base_repository_1.SPBaseRepository {
             endDate: filters?.endDate || null,
             customerId: filters?.customerId || null,
             status: filters?.status || null,
+            page: 1,
+            pageSize: 10000, // Get all records, pagination is done in the route
         };
         // SP returns 2 recordsets: [0] = total count, [1] = sales data
         const result = await this.executeSPMultiple('sp_Sales_GetByStore', params);

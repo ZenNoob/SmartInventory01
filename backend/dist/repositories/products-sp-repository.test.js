@@ -29,7 +29,7 @@ vitest_1.vi.mock('../db/connection', () => ({
             request: vitest_1.vi.fn().mockReturnValue(mockRequest),
         };
         // Setup getConnection mock
-        const { getConnection } = await import('../db/connection');
+        const { getConnection } = await import('../db/connection.js');
         getConnection.mockResolvedValue(mockConnection);
         repository = new products_sp_repository_1.ProductsSPRepository();
     });

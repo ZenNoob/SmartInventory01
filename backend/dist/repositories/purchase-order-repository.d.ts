@@ -7,6 +7,8 @@ export interface PurchaseOrder {
     supplierId?: string;
     importDate: string;
     totalAmount: number;
+    paidAmount?: number;
+    remainingDebt?: number;
     notes?: string;
     createdBy?: string;
     createdAt: string;

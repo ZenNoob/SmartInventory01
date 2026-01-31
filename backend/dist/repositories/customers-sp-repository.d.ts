@@ -21,6 +21,7 @@ export interface Customer {
     totalSpent?: number;
     totalPaid?: number;
     totalDebt?: number;
+    calculatedDebt?: number;
     status?: string;
     customerGroup?: string;
     lifetimePoints?: number;
@@ -51,6 +52,7 @@ export interface UpdateCustomerSPInput {
     address?: string | null;
     customerType?: string;
     loyaltyTier?: string;
+    lifetimePoints?: number;
 }
 /**
  * Customers repository using stored procedures
@@ -97,8 +99,7 @@ export declare class CustomersSPRepository extends SPBaseRepository<Customer> {
      */
     getByStore(storeId: string): Promise<Customer[]>;
     /**
-     * Get a single customer by ID
-     * Uses sp_Customers_GetByStore and filters by ID
+     * Get a single customer by ID using sp_Customers_GetById
      *
      * @param id - Customer ID
      * @param storeId - Store ID
@@ -148,6 +149,27 @@ export declare class CustomersSPRepository extends SPBaseRepository<Customer> {
         totalPaid: number;
         totalDebt: number;
     } | null>;
+    /**
+     * Get customer debt history from Sales and Payments
+     * Requirements: 3.6
+     *
+     * @param customerId - Customer ID
+     * @param storeId - Store ID
+     * @returns Array of debt history items
+     */
+    getDebtHistory(customerId: string, storeId: string): Promise<CustomerDebtHistoryItem[]>;
+}
+/**
+ * Customer debt history item
+ */
+export interface CustomerDebtHistoryItem {
+    id: string;
+    customerId: string;
+    amount: number;
+    type: 'sale' | 'payment';
+    date: string;
+    description: string;
+    runningBalance: number;
 }
 export declare const customersSPRepository: CustomersSPRepository;
 //# sourceMappingURL=customers-sp-repository.d.ts.map

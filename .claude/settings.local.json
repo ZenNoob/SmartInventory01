@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm ls:*)",
+      "Bash(node:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm uninstall nanoid)",
+      "Bash(npm install:*)",
+      "Bash(if exist .next rmdir /s /q .next)",
+      "Bash(set DEBUG=next:*)",
+      "Bash(unset __NEXT_PRIVATE_STANDALONE_CONFIG)",
+      "Bash(unset __NEXT_PRIVATE_RENDER_WORKER_CONFIG)",
+      "Bash(dir node_modules\\\\.bin\\\\tsx* node_modules\\\\.bin\\\\tsc*)",
+      "Bash(npx tsx src/index.ts)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(powershell -Command:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(npx ts-node:*)"
+    ]
+  }
+}

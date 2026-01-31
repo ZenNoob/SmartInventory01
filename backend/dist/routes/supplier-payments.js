@@ -38,6 +38,7 @@ router.post('/', async (req, res) => {
     try {
         const storeId = req.storeId;
         const { supplierId, purchaseId, amount, paymentDate, paymentMethod, notes } = req.body;
+        // Insert payment record
         await (0, db_1.query)(`INSERT INTO SupplierPayments (id, store_id, supplier_id, purchase_id, amount, payment_date, payment_method, notes, created_at)
        VALUES (NEWID(), @storeId, @supplierId, @purchaseId, @amount, @paymentDate, @paymentMethod, @notes, GETDATE())`, {
             storeId,
@@ -48,6 +49,49 @@ router.post('/', async (req, res) => {
             paymentMethod: paymentMethod || 'cash',
             notes
         });
+        // Update remaining_debt in Purchases table
+        // If purchaseId is provided, update that specific purchase
+        // Otherwise, distribute payment across all unpaid purchases for this supplier (oldest first)
+        if (purchaseId) {
+            // Update specific purchase
+            await (0, db_1.query)(`UPDATE Purchases
+         SET remaining_debt = CASE
+           WHEN remaining_debt - @amount < 0 THEN 0
+           ELSE remaining_debt - @amount
+         END,
+         paid_amount = ISNULL(paid_amount, 0) + @amount,
+         updated_at = GETDATE()
+         WHERE id = @purchaseId AND store_id = @storeId`, { purchaseId, amount, storeId });
+        }
+        else {
+            // Distribute payment across all unpaid purchases for this supplier (oldest first)
+            await (0, db_1.query)(`WITH PaymentDistribution AS (
+          SELECT
+            id,
+            remaining_debt,
+            SUM(remaining_debt) OVER (ORDER BY created_at ASC ROWS UNBOUNDED PRECEDING) as running_total
+          FROM Purchases
+          WHERE supplier_id = @supplierId
+            AND store_id = @storeId
+            AND remaining_debt > 0
+        )
+        UPDATE p
+        SET
+          p.remaining_debt = CASE
+            WHEN pd.running_total <= @amount THEN 0
+            WHEN pd.running_total - p.remaining_debt < @amount THEN pd.running_total - @amount
+            ELSE p.remaining_debt
+          END,
+          p.paid_amount = ISNULL(p.paid_amount, 0) + CASE
+            WHEN pd.running_total <= @amount THEN p.remaining_debt
+            WHEN pd.running_total - p.remaining_debt < @amount THEN @amount - (pd.running_total - p.remaining_debt)
+            ELSE 0
+          END,
+          p.updated_at = GETDATE()
+        FROM Purchases p
+        INNER JOIN PaymentDistribution pd ON p.id = pd.id
+        WHERE pd.running_total - p.remaining_debt < @amount`, { supplierId, storeId, amount });
+        }
         res.status(201).json({ success: true });
     }
     catch (error) {
